@@ -1,0 +1,61 @@
+[workspace]
+authors = ["ehsanmok <ehsanmok@users.noreply.github.com>"]
+channels = ["https://conda.modular.com/max-nightly", "conda-forge"]
+name = "mojson"
+platforms = ["linux-64"]
+version = "0.1.0"
+
+[tasks]
+# Format
+format = { cmd = "mojo format src tests benchmark/mojo" }
+format-check = { cmd = "bash -c 'mojo format src tests benchmark/mojo && git diff --exit-code src tests benchmark/mojo || (echo \"Error: Code is not formatted. Run \\\"pixi run format\\\" to fix.\" && exit 1)'" }
+
+# Build simdjson FFI (CPU backend)
+build = "bash src/cpu/simdjson_ffi/build.sh"
+
+# Build benchmark binaries
+build-bench-cpu = { cmd = "mkdir -p benchmark/build && mojo build -I . -o benchmark/build/bench_cpu benchmark/mojo/bench_cpu.mojo", depends-on = ["build"] }
+build-bench-gpu = { cmd = "mkdir -p benchmark/build && mojo build -I . -o benchmark/build/bench_gpu benchmark/mojo/bench_gpu.mojo", depends-on = ["build"] }
+build-bench-simdjson = { cmd = "mkdir -p benchmark/build && g++ -O3 -std=c++17 -o benchmark/build/bench_simdjson benchmark/cpp/bench_simdjson.cpp -I$CONDA_PREFIX/include -L$CONDA_PREFIX/lib -lsimdjson -Wl,-rpath,$CONDA_PREFIX/lib", depends-on = ["build"] }
+build-cujson = "cd benchmark && mkdir -p cuJSON/build && nvcc -O3 -w -std=c++17 -arch=sm_100 -o cuJSON/build/cujson_benchmark cuJSON/paper_reproduced/src/cuJSON-standardjson.cu"
+
+# Tests
+tests = "mojo -I . tests/test_value.mojo && mojo -I . tests/test_parser.mojo && mojo -I . tests/test_serialize.mojo && mojo -I . tests/test_e2e.mojo && mojo -I . tests/test_gpu.mojo"
+tests-cpu = "mojo -I . tests/test_value.mojo && mojo -I . tests/test_parser.mojo && mojo -I . tests/test_serialize.mojo && mojo -I . tests/test_e2e.mojo"
+tests-gpu = "mojo -I . tests/test_gpu.mojo"
+tests-e2e = "mojo -I . tests/test_e2e.mojo"
+tests-e2e-gpu = "MOJSON_TEST_GPU=1 mojo -I . tests/test_e2e.mojo"
+
+# Benchmarks - pass path as argument, defaults to twitter.json
+# Usage: pixi run bench-cpu [path]
+#        pixi run bench-gpu [path]
+bench-cpu = { cmd = "bash -c 'F=${1:-benchmark/datasets/twitter.json}; benchmark/build/bench_simdjson $F && echo && benchmark/build/bench_cpu $F' _", depends-on = ["build-bench-cpu", "build-bench-simdjson"] }
+bench-gpu = { cmd = "bash -c 'benchmark/build/bench_gpu ${1:-benchmark/datasets/twitter.json}' _", depends-on = ["build-bench-gpu"] }
+
+# Examples
+example-basic = "mojo -I . examples/01_basic_parsing.mojo"
+example-files = "mojo -I . examples/02_file_operations.mojo"
+example-value = "mojo -I . examples/03_value_types.mojo"
+example-gpu = "mojo -I . examples/04_gpu_parsing.mojo"
+example-errors = "mojo -I . examples/05_error_handling.mojo"
+examples = "mojo -I . examples/01_basic_parsing.mojo && mojo -I . examples/02_file_operations.mojo && mojo -I . examples/03_value_types.mojo && mojo -I . examples/04_gpu_parsing.mojo && mojo -I . examples/05_error_handling.mojo"
+
+# GPU benchmark vs cuJSON - pass path as argument
+# Usage: pixi run bench-gpu-cujson [path]
+bench-gpu-cujson = { cmd = "bash -c 'F=${1:-benchmark/datasets/twitter.json}; echo \"--- cuJSON ---\" && benchmark/cuJSON/build/cujson_benchmark -b $F && echo && echo \"--- mojson GPU ---\" && benchmark/build/bench_gpu $F' _", depends-on = ["build-bench-gpu", "build-cujson"] }
+
+[dependencies]
+mojo = "<1.0"
+simdjson = ">=4.2.4,<5"
+
+[feature.dev.dependencies]
+make = ">=4.4.1,<5"
+gxx = ">=13"              # g++ for FFI wrapper and benchmarks
+git = ">=2"               # For submodule operations
+
+[environments]
+default = { features = ["dev"], solve-group = "default" }
+
+[activation]
+# Auto-build FFI wrapper on environment activation (idempotent - skips if up-to-date)
+scripts = ["src/cpu/simdjson_ffi/build.sh"]

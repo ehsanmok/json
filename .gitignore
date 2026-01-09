@@ -1,0 +1,30 @@
+# pixi environments
+.pixi/*
+!.pixi/config.toml
+*.lock
+
+# Build outputs
+build/
+
+# Cloned simdjson (built via `pixi run build`)
+src/simdjson_ffi/simdjson/
+
+# Mojo cache
+__pycache__/
+*.mojopkg
+
+.cursor/
+
+# Large benchmark datasets (download from cuJSON Google Drive)
+benchmark/datasets/twitter_large_record.json
+benchmark/datasets/walmart_large_record.json
+benchmark/datasets/wiki_large_record.json
+
+# build directories
+build/
+
+# Example output files
+output.json
+config.json
+counter.json
+gpu_test.json
