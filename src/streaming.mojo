@@ -100,7 +100,7 @@ struct StreamingParser:
         if _is_empty_line(line):
             raise Error("No more JSON values")
         
-        return loads(line)
+        return loads[target="cpu"](line)
     
     fn _read_chunk(mut self) raises:
         """Read a chunk of data from the file."""
@@ -411,7 +411,7 @@ struct ArrayStreamingParser:
         var element_str = String(self._buffer[start:end])
         self._buffer = String(self._buffer[end:])
         
-        return loads(element_str)
+        return loads[target="cpu"](element_str)
 
 
 fn _is_empty_line(s: String) -> Bool:

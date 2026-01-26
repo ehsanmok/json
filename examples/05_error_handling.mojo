@@ -1,7 +1,8 @@
 # Example 05: Error Handling
 #
-# Demonstrates: Handling JSON parse errors using try/except
+# Demonstrates: Handling JSON parse errors using try/except and assert_raises
 
+from testing import assert_raises
 from src import loads, dumps, Value
 
 
@@ -28,14 +29,33 @@ fn main() raises:
     print("  '{\"a\":1}' ->", parse_safely('{"a":1}'))
     print()
 
-    # Invalid JSON examples
-    print("Invalid JSON:")
-    print("  '' (empty) ->", parse_safely(""))
-    print("  '{' (unclosed) ->", parse_safely("{"))
-    print("  '[1,2,' (incomplete) ->", parse_safely("[1,2,"))
-    print("  '{\"key\":}' (missing value) ->", parse_safely('{"key":}'))
-    print("  'undefined' (not JSON) ->", parse_safely("undefined"))
-    print("  '{key: 1}' (unquoted key) ->", parse_safely("{key: 1}"))
+    # Invalid JSON - using assert_raises to verify errors are raised
+    print("Invalid JSON (verified with assert_raises):")
+    
+    with assert_raises():
+        _ = loads("")  # empty
+    print("  '' (empty) -> correctly raises error")
+    
+    with assert_raises():
+        _ = loads("{")  # unclosed
+    print("  '{' (unclosed) -> correctly raises error")
+    
+    with assert_raises():
+        _ = loads("[1,2,")  # incomplete
+    print("  '[1,2,' (incomplete) -> correctly raises error")
+    
+    with assert_raises():
+        _ = loads('{"key":}')  # missing value
+    print("  '{\"key\":}' (missing value) -> correctly raises error")
+    
+    with assert_raises():
+        _ = loads("undefined")  # not JSON
+    print("  'undefined' (not JSON) -> correctly raises error")
+    
+    with assert_raises():
+        _ = loads("{key: 1}")  # unquoted key
+    print("  '{key: 1}' (unquoted key) -> correctly raises error")
+    
     print()
 
     # Practical error handling pattern
@@ -52,26 +72,4 @@ fn main() raises:
         print("  Using default values instead...")
 
     print()
-
-    # Processing a list of JSON strings
-    print("Batch processing with error recovery:")
-    var json_inputs = List[String]()
-    json_inputs.append('{"id": 1, "value": "a"}')
-    json_inputs.append('{"id": 2, "value": "b"}')
-    json_inputs.append('{"id": 3, broken}')  # Invalid
-    json_inputs.append('{"id": 4, "value": "d"}')
-
-    var successful = 0
-    var failed = 0
-
-    for i in range(len(json_inputs)):
-        try:
-            var parsed = loads(json_inputs[i])
-            successful += 1
-            print("  [", i, "] OK:", dumps(parsed))
-        except:
-            failed += 1
-            print("  [", i, "] FAILED: Invalid JSON")
-
-    print()
-    print("  Summary:", successful, "succeeded,", failed, "failed")
+    print("All error handling tests passed!")

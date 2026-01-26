@@ -404,7 +404,7 @@ fn _evaluate_filter(value: Value, expr: String) -> Bool:
     # Parse right side as a literal
     var compare_value: Value
     try:
-        compare_value = loads(right)
+        compare_value = loads[target="cpu"](right)
     except:
         # Try as raw string
         compare_value = Value(right)

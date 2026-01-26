@@ -19,7 +19,7 @@ fn get_string(value: Value, key: String) raises -> String:
         var name = get_string(json, "name")  # "Alice"
     """
     var raw_value = value.get(key)
-    var parsed = loads(raw_value)
+    var parsed = loads[target="cpu"](raw_value)
     if not parsed.is_string():
         raise Error("Field '" + key + "' is not a string")
     return parsed.string_value()
@@ -40,7 +40,7 @@ fn get_int(value: Value, key: String) raises -> Int:
         var age = get_int(json, "age")  # 30
     """
     var raw_value = value.get(key)
-    var parsed = loads(raw_value)
+    var parsed = loads[target="cpu"](raw_value)
     if not parsed.is_int():
         raise Error("Field '" + key + "' is not an int")
     return Int(parsed.int_value())
@@ -61,7 +61,7 @@ fn get_bool(value: Value, key: String) raises -> Bool:
         var active = get_bool(json, "active")  # True
     """
     var raw_value = value.get(key)
-    var parsed = loads(raw_value)
+    var parsed = loads[target="cpu"](raw_value)
     if not parsed.is_bool():
         raise Error("Field '" + key + "' is not a bool")
     return parsed.bool_value()
@@ -82,7 +82,7 @@ fn get_float(value: Value, key: String) raises -> Float64:
         var price = get_float(json, "price")  # 19.99
     """
     var raw_value = value.get(key)
-    var parsed = loads(raw_value)
+    var parsed = loads[target="cpu"](raw_value)
     if parsed.is_float():
         return parsed.float_value()
     elif parsed.is_int():

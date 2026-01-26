@@ -2,38 +2,104 @@
 
 ## Core Functions
 
-### Parsing
+The entire API is built around 4 functions: `loads`, `dumps`, `load`, `dump`.
+
+### loads() - Parse Strings
 
 ```mojo
-from mojson import loads, load
+from mojson import loads, ParserConfig
 
-# Parse JSON string (CPU - default)
+# Basic parsing
 var data = loads('{"name": "Alice", "age": 30}')
 
-# Parse JSON string (GPU - for large files >100MB)
+# GPU acceleration (for large files >100MB)
 var data = loads[target="gpu"](large_json_string)
 
-# Parse from file
-with open("data.json", "r") as f:
-    var data = load(f)              # CPU
-    var data = load[target="gpu"](f)  # GPU
+# With parser configuration
+var config = ParserConfig(allow_comments=True, allow_trailing_comma=True)
+var data = loads('{"a": 1,} // comment', config)
+
+# NDJSON (newline-delimited JSON) -> List[Value]
+var values = loads[format="ndjson"]('{"a":1}\n{"a":2}\n{"a":3}')
+
+# Lazy parsing (parse on demand)
+var lazy = loads[lazy=True](huge_json_string)
+var name = lazy.get("/users/0/name")  # Only parses this path
 ```
 
-### Serialization
+### dumps() - Serialize Strings
 
 ```mojo
-from mojson import dumps, dump
+from mojson import dumps, SerializerConfig
 
-# Serialize to string
-var json_str = dumps(data)
+# Compact output
+var json = dumps(data)
 
-# Pretty print with indentation
+# Pretty print
 var pretty = dumps(data, indent="  ")
 
-# Write to file
-with open("output.json", "w") as f:
-    dump(data, f)
+# With serializer configuration
+var config = SerializerConfig(escape_unicode=True, escape_forward_slash=True)
+var json = dumps(data, config)
+
+# NDJSON output
+var ndjson = dumps[format="ndjson"](list_of_values)
 ```
+
+### load() - Parse Files
+
+```mojo
+from mojson import load
+
+# Load JSON file
+var data = load("config.json")
+
+# Load NDJSON file (auto-detected from .ndjson extension)
+var events = load("events.ndjson")  # Returns Value (array)
+
+# GPU acceleration for large files
+var big = load[target="gpu"]("large.json")
+var big_ndjson = load[target="gpu"]("large.ndjson")
+
+# Streaming (for files larger than memory, CPU only)
+var parser = load[streaming=True]("huge.ndjson")
+while parser.has_next():
+    var item = parser.next()
+    process(item)
+parser.close()
+```
+
+### dump() - Write Files
+
+```mojo
+from mojson import dump
+
+# Basic file writing
+var f = open("output.json", "w")
+dump(data, f)
+f.close()
+
+# Pretty print to file
+var f = open("output.json", "w")
+dump(data, f, indent="  ")
+f.close()
+
+# NDJSON output
+var f = open("output.ndjson", "w")
+dump[format="ndjson"](list_of_values, f)
+f.close()
+```
+
+## Feature Matrix
+
+| Feature | CPU | GPU | Notes |
+|---------|-----|-----|-------|
+| `loads(s)` | ✅ default | ✅ `target="gpu"` | |
+| `load(path)` | ✅ default | ✅ `target="gpu"` | Auto-detects .ndjson |
+| `loads[format="ndjson"]` | ✅ default | ✅ `target="gpu"` | |
+| `loads[lazy=True]` | ✅ | — | CPU only |
+| `load[streaming=True]` | ✅ | — | CPU only |
+| `dumps` / `dump` | ✅ | — | CPU only |
 
 ## Value Type
 
@@ -182,27 +248,32 @@ var data = loads[target="gpu"](large_json)
 ## NDJSON (Newline-Delimited JSON)
 
 ```mojo
-from mojson import parse_ndjson, parse_ndjson_lazy, dumps_ndjson
+from mojson import loads, dumps, load, dump
 
-# Parse all lines at once
-var values = parse_ndjson(ndjson_string)
+# Parse NDJSON string -> List[Value]
+var values = loads[format="ndjson"]('{"a":1}\n{"a":2}\n{"a":3}')
 
-# Lazy iteration (memory efficient)
-var iter = parse_ndjson_lazy(ndjson_string)
-while iter.has_next():
-    var value = iter.next()
+# Serialize List[Value] -> NDJSON string
+var ndjson = dumps[format="ndjson"](values)
 
-# Serialize to NDJSON
-var ndjson = dumps_ndjson(values)
+# Load NDJSON file
+var f = open("data.ndjson", "r")
+var values = load[format="ndjson"](f)
+f.close()
+
+# Write NDJSON file
+var f = open("out.ndjson", "w")
+dump[format="ndjson"](values, f)
+f.close()
 ```
 
 ## Lazy/On-Demand Parsing
 
 ```mojo
-from mojson import loads_lazy
+from mojson import loads
 
 # Create lazy value (no parsing yet)
-var lazy = loads_lazy(huge_json_string)
+var lazy = loads[lazy=True](huge_json_string)
 
 # Only parses the path to this value
 var name = lazy.get("/users/0/name")
@@ -218,26 +289,20 @@ var parsed = user.parse()  # Full parse when needed
 For files larger than memory:
 
 ```mojo
-from mojson import stream_ndjson, stream_json_array
+from mojson import load
 
 # Stream NDJSON file
-var parser = stream_ndjson("logs.ndjson")
+var parser = load[streaming=True]("logs.ndjson")
 while parser.has_next():
     var entry = parser.next()
     process(entry)
-parser.close()
-
-# Stream JSON array file
-var parser = stream_json_array("users.json")  # [{"name":"Alice"},...]
-while parser.has_next():
-    var user = parser.next()
 parser.close()
 ```
 
 ## Parser Configuration
 
 ```mojo
-from mojson import loads_with_config, ParserConfig
+from mojson import loads, ParserConfig
 
 # Allow comments and trailing commas
 var config = ParserConfig(
@@ -245,7 +310,7 @@ var config = ParserConfig(
     allow_trailing_comma=True,  # Allow [1, 2,]
     max_depth=100             # Limit nesting depth
 )
-var data = loads_with_config(json_with_comments, config)
+var data = loads('{"a": 1,} // comment', config)
 
 # Preset configs
 var strict = ParserConfig.default()
@@ -255,14 +320,14 @@ var lenient = ParserConfig.lenient()
 ## Serializer Configuration
 
 ```mojo
-from mojson import dumps_with_config, SerializerConfig
+from mojson import dumps, SerializerConfig
 
 var config = SerializerConfig(
     indent="  ",              # Pretty print
     escape_unicode=True,      # Escape non-ASCII as \uXXXX
     escape_forward_slash=True # Escape / as \/ (HTML safe)
 )
-var json = dumps_with_config(value, config)
+var json = dumps(value, config)
 
 # Preset configs
 var compact = SerializerConfig.default()

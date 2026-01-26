@@ -65,6 +65,46 @@ Type-safe struct serialization and deserialization.
 - GPU-accelerated deserialization support
 - Full round-trip examples
 
+### 07_ndjson.mojo
+NDJSON (Newline-Delimited JSON) parsing and streaming.
+- Parse NDJSON strings with `loads[format="ndjson"]`
+- Load .ndjson files with auto-detection
+- GPU-accelerated NDJSON parsing
+- Serialize to NDJSON format
+- Stream large files with `load[streaming=True]`
+
+### 08_lazy_parsing.mojo
+On-demand lazy parsing for large documents.
+- Create `LazyValue` with `loads[lazy=True]`
+- Access specific paths without parsing entire document
+- Type-specific getters: `get_string`, `get_int`, `get_bool`
+- Chain lazy access with `[]` operator
+- When to use lazy vs full parsing
+
+### 09_jsonpath.mojo
+JSONPath query language for extracting data.
+- Basic path access: `$.store.name`
+- Array indexing: `[0]`, `[-1]`, `[*]`
+- Recursive descent: `$..name`
+- Filter expressions: `[?@.price>30]`
+- Array slices: `[0:2]`, `[::2]`
+
+### 10_schema_validation.mojo
+JSON Schema validation for data quality.
+- Type validation: string, number, integer, object, array
+- Required fields and property constraints
+- Number constraints: minimum, maximum
+- String constraints: minLength, maxLength
+- Array constraints: items, minItems, maxItems
+- Enum values and schema composition (allOf, anyOf)
+
+### 11_json_patch.mojo
+JSON Patch (RFC 6902) and Merge Patch (RFC 7396).
+- Operations: add, remove, replace, move, copy, test
+- Multiple operations in sequence
+- Merge Patch for simpler partial updates
+- Create diff patches between documents
+
 
 ## More Information
 

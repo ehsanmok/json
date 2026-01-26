@@ -149,16 +149,15 @@ src/
     └── bracket_match.mojo     # CPU bracket matching
 
 tests/
+├── test_api.mojo              # Unified API tests (loads/dumps/load/dump)
 ├── test_value.mojo            # Value type tests
-├── test_parser.mojo           # Parser tests (loads)
-├── test_serialize.mojo        # Serialization tests (dumps)
-├── test_ndjson.mojo           # NDJSON tests
-├── test_lazy.mojo             # Lazy parsing tests
-├── test_streaming.mojo        # Streaming parser tests
-├── test_config.mojo           # Config tests
+├── test_parser.mojo           # Parser tests
+├── test_serialize.mojo        # Serialization tests
+├── test_serde.mojo            # Struct serialization tests
 ├── test_patch.mojo            # JSON Patch tests
 ├── test_jsonpath.mojo         # JSONPath tests
 ├── test_schema.mojo           # JSON Schema tests
+├── test_e2e.mojo              # End-to-end tests
 └── test_gpu.mojo              # GPU parser tests
 
 benchmark/

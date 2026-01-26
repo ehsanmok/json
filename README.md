@@ -1,7 +1,7 @@
 # High-Performance JSON library for Mojo🔥
 
 - **Python-like API** — `loads`, `dumps`, `load`, `dump`
-- **GPU accelerated** — 2-4x faster than cuJSON on large files
+- **GPU accelerated** — 2-4x faster than [cuJSON](https://github.com/AutomataLab/cuJSON) on large files
 - **Cross-platform** — NVIDIA, AMD, and Apple Silicon GPUs
 - **Streaming & lazy parsing** — Handle files larger than memory
 - **JSONPath & Schema** — Query and validate JSON documents
@@ -24,14 +24,12 @@ print(data["name"].string_value())  # Alice
 print(data["scores"][0].int_value())  # 95
 print(dumps(data, indent="  "))  # Pretty print
 
-# Read/write files
-with open("data.json", "r") as f:
-    var data = load(f)
-with open("output.json", "w") as f:
-    dump(data, f)
+# File I/O (auto-detects .ndjson)
+var config = load("config.json")
+var logs = load("events.ndjson")  # Returns array of values
 
-# GPU parsing for large files (>100MB)
-var big = loads[target="gpu"](huge_json_string)
+# Explicit GPU parsing
+var big = load[target="gpu"]("large.json")
 ```
 
 ## Requirements
@@ -45,10 +43,10 @@ var big = loads[target="gpu"](huge_json_string)
 
 | Platform | Throughput | vs cuJSON |
 |----------|------------|-----------|
-| AMD MI355X | 15 GB/s | **4x faster** |
+| AMD MI355X | 13 GB/s | **3.6x faster** |
 | NVIDIA B200 | 7 GB/s | **2x faster** |
 | Apple M3 Pro | 3.3 GB/s | — |
-| CPU (simdjson) | 1.7 GB/s | — |
+| CPU (simdjson) | 4.5 GB/s | — |
 
 *Benchmarks on 804MB JSON file. GPU recommended for files >100MB.*
 
@@ -59,43 +57,48 @@ pixi run bench-gpu-all  # All datasets, 3 runs each
 
 ## API
 
+Everything through 4 functions: `loads`, `dumps`, `load`, `dump`
+
 ```mojo
-# Parsing
-loads(json_string)                  # CPU (default)
-loads[target="gpu"](json_string)    # GPU
-load(file_handle)                   # From file
+# Parse strings (default: CPU)
+loads(s)                              # JSON string -> Value
+loads[target="gpu"](s)                # GPU parsing
+loads[format="ndjson"](s)             # NDJSON string -> List[Value]
+loads[lazy=True](s)                   # Lazy parsing (CPU only)
 
-# Serialization  
-dumps(value)                        # Compact
-dumps(value, indent="  ")           # Pretty print
+# Serialize strings
+dumps(v)                              # Value -> JSON string
+dumps(v, indent="  ")                 # Pretty print
+dumps[format="ndjson"](values)        # List[Value] -> NDJSON string
 
-# Value access & mutation
-value["key"], value[0]              # Access by key/index
-value.at("/users/0/name")           # JSON Pointer (RFC 6901)
-value.set("key", val)               # Set field/element
-value.append(val)                   # Append to array
+# File I/O (auto-detects .ndjson from extension)
+load("data.json")                     # JSON file -> Value (CPU)
+load("data.ndjson")                   # NDJSON file -> Value (array)
+load[target="gpu"]("large.json")      # GPU parsing
+load[streaming=True]("huge.ndjson")   # Stream (CPU, memory efficient)
+dump(v, f)                            # Write to file
 
-# NDJSON & Streaming
-parse_ndjson(s), dumps_ndjson(lst)  # Newline-delimited JSON
-stream_ndjson("file.ndjson")        # Stream large files
-stream_json_array("file.json")      # Stream JSON arrays
+# Value access
+value["key"], value[0]                # By key/index
+value.at("/path")                     # JSON Pointer (RFC 6901)
+value.set("key", val)                 # Mutation
 
-# Lazy/On-demand parsing
-var lazy = loads_lazy(huge_json)
-lazy.get("/users/0/name")           # Parse only what you need
-
-# JSONPath queries
-jsonpath_query(doc, "$.users[*].name")  # Get all names
-jsonpath_query(doc, "$[?@.age>21]")     # Filter by condition
-
-# JSON Schema validation
-validate(doc, schema)               # Full validation result
-is_valid(doc, schema)               # Quick boolean check
-
-# JSON Patch (RFC 6902)
-apply_patch(doc, patch)             # Apply patch operations
-merge_patch(target, patch)          # Merge patch (RFC 7396)
+# Advanced
+jsonpath_query(doc, "$.users[*]")     # JSONPath queries
+validate(doc, schema)                 # JSON Schema validation
+apply_patch(doc, patch)               # JSON Patch (RFC 6902)
 ```
+
+### Feature Matrix
+
+| Feature | CPU | GPU | Notes |
+|---------|-----|-----|-------|
+| `loads(s)` | ✅ default | ✅ `target="gpu"` | |
+| `load(path)` | ✅ default | ✅ `target="gpu"` | Auto-detects .ndjson |
+| `loads[format="ndjson"]` | ✅ default | ✅ `target="gpu"` | |
+| `loads[lazy=True]` | ✅ | — | CPU only |
+| `load[streaming=True]` | ✅ | — | CPU only |
+| `dumps` / `dump` | ✅ | — | CPU only |
 
 Full API: [docs/api.md](./docs/api.md)
 
@@ -113,6 +116,11 @@ pixi run mojo -I . examples/01_basic_parsing.mojo
 | [04_gpu_parsing](./examples/04_gpu_parsing.mojo) | GPU-accelerated parsing |
 | [05_error_handling](./examples/05_error_handling.mojo) | Error handling patterns |
 | [06_struct_serde](./examples/06_struct_serde.mojo) | Struct serialization |
+| [07_ndjson](./examples/07_ndjson.mojo) | NDJSON parsing & streaming |
+| [08_lazy_parsing](./examples/08_lazy_parsing.mojo) | On-demand lazy parsing |
+| [09_jsonpath](./examples/09_jsonpath.mojo) | JSONPath queries |
+| [10_schema_validation](./examples/10_schema_validation.mojo) | JSON Schema validation |
+| [11_json_patch](./examples/11_json_patch.mojo) | JSON Patch & Merge Patch |
 
 ## Documentation
 

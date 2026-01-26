@@ -4,6 +4,15 @@
 # Usage:
 #   mojo -I . benchmark/mojo/bench_gpu.mojo [json_file]
 
+from benchmark import (
+    Bench,
+    BenchConfig,
+    Bencher,
+    BenchId,
+    ThroughputMeasure,
+    BenchMetric,
+    Unit,
+)
 from pathlib import Path
 from sys import argv
 from time import perf_counter_ns
@@ -25,7 +34,10 @@ fn main() raises:
         path = "benchmark/datasets/twitter.json"
 
     print()
-    print("--- mojson GPU (Mojo) ---")
+    print("=" * 72)
+    print("mojson GPU Benchmark")
+    print("=" * 72)
+    print()
 
     # Load JSON file
     var content = Path(path).read_text()
@@ -36,25 +48,18 @@ fn main() raises:
     print("Size:", size, "bytes (", size_mb, "MB )")
     print()
 
-    var num_iters = 10
-    if size_mb > 100:
-        num_iters = 5
-    elif size_mb > 10:
-        num_iters = 10
-
-    # Warmup
+    # Warmup GPU
     print("Warming up GPU...")
     for _ in range(2):
         var result = loads[target="gpu"](content)
         _ = result.is_object()
     print()
 
-    # ===== Detailed timing of raw GPU parser =====
+    # ===== Raw GPU Parser Timing (manual for precision) =====
     print("=== Raw GPU Parser Timing ===")
     var data = content.as_bytes()
     var n = len(data)
 
-    # Pre-allocate bytes for raw parser timing
     var raw_min_time: UInt = 0xFFFFFFFFFFFFFFFF
     for _ in range(3):
         var bytes = List[UInt8](capacity=n)
@@ -78,12 +83,11 @@ fn main() raises:
     print("Raw GPU throughput (GB/s):", raw_throughput)
     print()
 
-    # ===== Pinned memory path (skip memcpy) =====
+    # ===== Pinned Memory Path (manual for precision) =====
     print("=== Pinned Memory Path (Skip memcpy) ===")
     var ctx = DeviceContext()
     var pinned_min_time: UInt = 0xFFFFFFFFFFFFFFFF
     for _ in range(3):
-        # Load directly into pinned memory
         var h_input = ctx.enqueue_create_host_buffer[DType.uint8](n)
         memcpy(dest=h_input.unsafe_ptr(), src=data.unsafe_ptr(), count=n)
 
@@ -104,38 +108,34 @@ fn main() raises:
     print("Speedup vs raw:", raw_ms / pinned_ms, "x")
     print()
 
-    # ===== Full loads benchmark =====
+    # ===== Full loads[target='gpu'] Benchmark using official API =====
     print("=== Full loads[target='gpu'] Benchmark ===")
-    print("Running", num_iters, "iterations...")
     print()
 
-    var total_time: UInt = 0
-    var min_time: UInt = 0xFFFFFFFFFFFFFFFF
-    var max_time: UInt = 0
+    # Configure based on file size
+    var max_iters = 100
+    if size_mb > 100:
+        max_iters = 10
+    elif size_mb > 10:
+        max_iters = 20
 
-    for i in range(num_iters):
-        var start = perf_counter_ns()
-        var result = loads[target="gpu"](content)
-        var end = perf_counter_ns()
+    var bench = Bench(BenchConfig(max_iters=max_iters))
 
-        _ = result.is_object()
-        var elapsed = end - start
-        total_time += elapsed
-        if elapsed < min_time:
-            min_time = elapsed
-        if elapsed > max_time:
-            max_time = elapsed
+    @parameter
+    @always_inline
+    fn bench_gpu_loads(mut b: Bencher) raises capturing:
+        @parameter
+        @always_inline
+        fn call_fn() raises:
+            var v = loads[target="gpu"](content)
+            _ = v.is_object()
 
-    var avg_ms = Float64(total_time) / Float64(num_iters) / 1_000_000.0
-    var min_ms = Float64(min_time) / 1_000_000.0
-    var max_ms = Float64(max_time) / 1_000_000.0
-    var throughput = Float64(size) / Float64(min_time) * 1e9 / 1e9
+        b.iter[call_fn]()
 
-    print("TOTAL (ms):            ", min_ms)
-    print("Throughput (GB/s):     ", throughput)
-    print()
-    print("Stats:")
-    print("  Min:", min_ms, "ms")
-    print("  Avg:", avg_ms, "ms")
-    print("  Max:", max_ms, "ms")
-    print()
+    var measures = List[ThroughputMeasure]()
+    measures.append(ThroughputMeasure(BenchMetric.bytes, size))
+    bench.bench_function[bench_gpu_loads](
+        BenchId("mojson_gpu", "loads[target='gpu']"), measures
+    )
+
+    print(bench)
