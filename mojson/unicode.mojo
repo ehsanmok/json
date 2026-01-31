@@ -21,7 +21,7 @@ fn parse_unicode_escape(data: List[UInt8], start: Int) -> Int:
     """Parse a 4-digit hex unicode escape sequence.
 
     Args:
-        data: The byte array containing the escape.
+        data: The byte span containing the escape.
         start: Index of first hex digit (after backslash-u).
 
     Returns:
@@ -94,7 +94,7 @@ fn unescape_json_string(data: List[UInt8], start: Int, end: Int) -> List[UInt8]:
     """Unescape a JSON string, handling all escape sequences including unicode.
 
     Args:
-        data: The byte array containing the string content.
+        data: The byte span containing the string content.
         start: Start index (after opening quote).
         end: End index (before closing quote).
 

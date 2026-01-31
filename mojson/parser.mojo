@@ -10,7 +10,7 @@ from .cpu import SimdjsonFFI, SIMDJSON_TYPE_NULL, SIMDJSON_TYPE_BOOL
 from .cpu import SIMDJSON_TYPE_INT64, SIMDJSON_TYPE_UINT64
 from .cpu import SIMDJSON_TYPE_DOUBLE, SIMDJSON_TYPE_STRING
 from .cpu import SIMDJSON_TYPE_ARRAY, SIMDJSON_TYPE_OBJECT
-from .cpu import parse_mojo
+from .cpu import parse_mojo, parse_simd
 from .types import JSONInput, JSONResult
 from .gpu import parse_json_gpu
 from .iterator import JSONIterator
@@ -65,8 +65,8 @@ fn _parse_cpu_simdjson(s: String) raises -> Value:
 
 
 fn _parse_cpu_mojo(s: String) raises -> Value:
-    """Parse JSON using pure Mojo backend."""
-    return parse_mojo(s)
+    """Parse JSON using pure Mojo backend (SIMD-accelerated)."""
+    return parse_simd(s)
 
 
 fn _parse_cpu[backend: StaticString = "simdjson"](s: String) raises -> Value:

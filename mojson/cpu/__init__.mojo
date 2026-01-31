@@ -49,3 +49,9 @@ from .simdjson_ffi import (
 # =============================================================================
 
 from .mojo_backend import parse_mojo, MojoJSONParser
+
+# =============================================================================
+# SIMD Backend (High-Performance Native)
+# =============================================================================
+
+from .simd_backend import parse_simd, FastParser

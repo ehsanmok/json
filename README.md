@@ -14,7 +14,7 @@ Add mojson to your project's `pixi.toml`:
 ```toml
 [workspace]
 channels = ["https://conda.modular.com/max-nightly", "conda-forge", "https://prefix.dev/modular-community"]
-preview = ["pixi-build"]  # Required until pixi-build is stabilized
+preview = ["pixi-build"]
 
 [dependencies]
 mojson = { git = "https://github.com/ehsanmok/mojson.git" }
@@ -133,10 +133,10 @@ apply_patch(doc, patch)               # JSON Patch (RFC 6902)
 
 | Backend | Target | Speed | Dependencies |
 |---------|--------|-------|--------------|
-| Mojo (native) | `loads()` (default) | 0.70 GB/s | Zero FFI |
-| simdjson (FFI) | `loads[target="cpu-simdjson"]()` | 0.55 GB/s | libsimdjson |
+| Mojo (native) | `loads()` (default) | **1.31 GB/s** | Zero FFI |
+| simdjson (FFI) | `loads[target="cpu-simdjson"]()` | 0.48 GB/s | libsimdjson |
 
-The pure Mojo backend is the **default** and is **~30% faster** than the FFI approach with zero external dependencies.
+The pure Mojo backend is the **default** and is **~2.7x faster** than the FFI approach with zero external dependencies.
 
 Full API: [docs/api.md](./docs/api.md)
 
