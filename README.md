@@ -7,6 +7,12 @@
 - **JSONPath & Schema** — Query and validate JSON documents
 - **RFC compliant** — JSON Patch, Merge Patch, JSON Pointer
 
+## Requirements
+
+[pixi](https://pixi.sh) package manager
+
+**GPU (optional):** NVIDIA CUDA 7.0+, AMD ROCm 6+, or Apple Silicon. See [GPU requirements](https://docs.modular.com/max/packages#gpu-compatibility).
+
 ## Installation
 
 Add mojson to your project's `pixi.toml`:
@@ -56,12 +62,6 @@ git clone https://github.com/ehsanmok/mojson.git && cd mojson
 pixi install
 pixi run tests-cpu
 ```
-
-## Requirements
-
-- [pixi](https://pixi.sh) package manager
-
-**GPU (optional):** NVIDIA CUDA 7.0+, AMD ROCm 6+, or Apple Silicon. See [GPU requirements](https://docs.modular.com/max/packages#gpu-compatibility).
 
 ## Performance
 
