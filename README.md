@@ -1,5 +1,8 @@
 # High-Performance JSON library for Mojo🔥
 
+[![CI](https://github.com/ehsanmok/mojson/actions/workflows/ci.yml/badge.svg)](https://github.com/ehsanmok/mojson/actions/workflows/ci.yml)
+[![Docs](https://github.com/ehsanmok/mojson/actions/workflows/docs.yaml/badge.svg)](https://github.com/ehsanmok/mojson/actions/workflows/docs.yaml)
+
 - **Python-like API** — `loads`, `dumps`, `load`, `dump`
 - **GPU accelerated** — 2-4x faster than [cuJSON](https://github.com/AutomataLab/cuJSON) on large files
 - **Cross-platform** — NVIDIA, AMD, and Apple Silicon GPUs
