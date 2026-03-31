@@ -1,6 +1,7 @@
 """High-performance JSON library for Mojo.
 
 - **Python-like API** — `loads`, `dumps`, `load`, `dump`
+- **Reflection serde** — Zero-boilerplate struct serialization via compile-time reflection
 - **GPU accelerated** — 2-4x faster than cuJSON on large files
 - **Cross-platform** — NVIDIA, AMD, and Apple Silicon GPUs
 - **Streaming & lazy parsing** — Handle files larger than memory
@@ -250,7 +251,77 @@ var float_val = Value(3.14)
 var str_val = Value("hello")
 ```
 
-## Struct Serialization
+## Reflection-Based Serde (Zero Boilerplate)
+
+Automatically serialize and deserialize structs via compile-time reflection.
+No hand-written `to_json()` or `from_json()` methods required.
+
+```mojo
+from mojson import serialize_json, deserialize_json
+
+@fieldwise_init
+struct Person(Defaultable, Movable):
+    var name: String
+    var age: Int
+    def __init__(out self):
+        self.name = ""
+        self.age = 0
+
+var json = serialize_json(Person(name="Alice", age=30))
+var person = deserialize_json[Person](json)
+
+# Pretty print
+print(serialize_json[pretty=True](person))
+
+# GPU-accelerated parsing
+var fast = deserialize_json[Person, target="gpu"](json)
+
+# Non-raising (returns Optional)
+from mojson import try_deserialize_json
+var maybe = try_deserialize_json[Person]('bad json')  # None
+```
+
+Supported field types: Int, Int64, Bool, Float64, Float32, String,
+List[T], Optional[T], nested structs, Value (raw JSON pass-through).
+
+### Custom Serialization Traits
+
+Override reflection for specific types:
+
+```mojo
+from mojson import JsonSerializable, JsonDeserializable
+
+struct Color(JsonSerializable, Defaultable, Movable):
+    var r: Int
+    var g: Int
+    var b: Int
+    def to_json_value(self) raises -> Value:
+        ...  # Custom serialization logic
+
+struct RGBArray(JsonDeserializable, Defaultable, Movable):
+    var r: Int
+    var g: Int
+    var b: Int
+    @staticmethod
+    def from_json_value(json: Value) raises -> Self:
+        ...  # Custom deserialization logic
+```
+
+### Reflection Serde API
+
+| Function | Description |
+|----------|-------------|
+| `serialize_json(value)` | Struct -> JSON string |
+| `serialize_json[pretty=True](value)` | Struct -> pretty JSON string |
+| `serialize_value(value)` | Struct -> Value object |
+| `deserialize_json[T](json_str)` | JSON string -> struct T |
+| `deserialize_json[T, target="gpu"](s)` | GPU parse -> struct T |
+| `deserialize_value[T](value)` | Value object -> struct T |
+| `try_deserialize_json[T](json_str)` | Non-raising, returns Optional[T] |
+
+## Struct Serialization (Manual Traits)
+
+For full control, implement `Serializable` and `Deserializable` traits manually.
 
 ### Serializable Trait
 
@@ -462,6 +533,17 @@ from .deserialize import (
     get_float,
     Deserializable,
     deserialize,
+)
+
+# Reflection-based serde (zero boilerplate)
+from .reflection import (
+    serialize_json,
+    serialize_value,
+    deserialize_json,
+    deserialize_value,
+    try_deserialize_json,
+    JsonSerializable,
+    JsonDeserializable,
 )
 
 # Advanced features

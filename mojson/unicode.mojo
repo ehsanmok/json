@@ -90,7 +90,9 @@ def encode_utf8(code_point: Int, mut bytes: List[UInt8]):
         bytes.append(UInt8(0x80 | (code_point & 0x3F)))
 
 
-def unescape_json_string(data: List[UInt8], start: Int, end: Int) -> List[UInt8]:
+def unescape_json_string(
+    data: List[UInt8], start: Int, end: Int
+) -> List[UInt8]:
     """Unescape a JSON string, handling all escape sequences including unicode.
 
     Args:

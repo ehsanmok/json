@@ -87,7 +87,6 @@ struct JSONPathToken(Copyable, Movable):
         self.step = 1
 
 
-
 def _tokenize_jsonpath(path: String) raises -> List[JSONPathToken]:
     """Parse JSONPath into tokens."""
     var tokens = List[JSONPathToken]()
