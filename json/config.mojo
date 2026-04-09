@@ -240,7 +240,7 @@ def _remove_trailing_commas(json: String) -> String:
 
         # Track comma position
         if c == UInt8(ord(",")):
-            last_comma_pos = len(result)
+            last_comma_pos = result.byte_length()
             result += chr(Int(c))
             i += 1
             continue

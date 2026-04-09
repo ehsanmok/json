@@ -88,8 +88,7 @@ def _parse_cpu[backend: StaticString = "simdjson"](s: String) raises -> Value:
     elif backend == "mojo":
         return _parse_cpu_mojo(s)
     else:
-        constrained[False, "Unknown backend: use 'simdjson' or 'mojo'"]()
-        return Value(Null())  # Unreachable
+        comptime assert False, "Unknown backend: use 'simdjson' or 'mojo'"
 
 
 # =============================================================================
@@ -275,7 +274,7 @@ def _build_array(mut iter: JSONIterator, json: String) raises -> Value:
         elif c == UInt8(ord(",")) and depth == 1:
             count += 1
 
-    if len(raw) > 2:
+    if raw.byte_length() > 2:
         count += 1
 
     return make_array_value(raw, count)
@@ -418,7 +417,7 @@ def loads[
     """
 
     comptime if format != "ndjson":
-        constrained[False, "Use format='ndjson' for List[Value] return type"]()
+        comptime assert False, "Use format='ndjson' for List[Value] return type"
 
     var result = List[Value]()
     var lines = _split_lines(s)
@@ -454,7 +453,7 @@ def loads[lazy: Bool](s: String) raises -> LazyValue:
     """
 
     comptime if not lazy:
-        constrained[False, "Use lazy=True for LazyValue return type"]()
+        comptime assert False, "Use lazy=True for LazyValue return type"
 
     return LazyValue(s)
 
@@ -566,7 +565,7 @@ def load[streaming: Bool](path: String) raises -> StreamingParser:
     """
 
     comptime if not streaming:
-        constrained[False, "Use streaming=True for StreamingParser"]()
+        comptime assert False, "Use streaming=True for StreamingParser"
 
     return StreamingParser(path)
 

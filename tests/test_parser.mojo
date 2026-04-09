@@ -268,7 +268,7 @@ def test_error_message_has_context() raises:
         msg = String(e)
     assert_true(caught, "Should raise error")
     # Error should have some useful info
-    assert_true(len(msg) > 10, "Error should have descriptive message")
+    assert_true(msg.byte_length() > 10, "Error should have descriptive message")
 
 
 def test_error_message_multiline() raises:
@@ -283,7 +283,7 @@ def test_error_message_multiline() raises:
         msg = String(e)
     assert_true(caught, "Should raise error")
     # Just verify it returns something useful
-    assert_true(len(msg) > 0, "Should have error message")
+    assert_true(msg.byte_length() > 0, "Should have error message")
 
 
 # =============================================================================

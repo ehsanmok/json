@@ -217,13 +217,13 @@ def _parse_slice(content: String) raises -> JSONPathToken:
             )
             start = i + 1
 
-    if len(parts) >= 1 and len(parts[0]) > 0:
+    if len(parts) >= 1 and parts[0].byte_length() > 0:
         token.start = atol(parts[0])
 
-    if len(parts) >= 2 and len(parts[1]) > 0:
+    if len(parts) >= 2 and parts[1].byte_length() > 0:
         token.end = atol(parts[1])
 
-    if len(parts) >= 3 and len(parts[2]) > 0:
+    if len(parts) >= 3 and parts[2].byte_length() > 0:
         token.step = atol(parts[2])
 
     return token^

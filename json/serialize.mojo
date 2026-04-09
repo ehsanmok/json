@@ -270,7 +270,7 @@ def dumps[format: StaticString = "json"](values: List[Value]) -> String:
     """
 
     comptime if format != "ndjson":
-        constrained[False, "Use format='ndjson' for List[Value] input"]()
+        comptime assert False, "Use format='ndjson' for List[Value] input"
 
     var result = String()
     for i in range(len(values)):
@@ -327,7 +327,7 @@ def dump[
     """
 
     comptime if format != "ndjson":
-        constrained[False, "Use format='ndjson' for List[Value] input"]()
+        comptime assert False, "Use format='ndjson' for List[Value] input"
 
     f.write(dumps[format="ndjson"](values))
 

@@ -332,7 +332,7 @@ def _validate_string(
 ):
     """Validate string constraints."""
     var s = value.string_value()
-    var length = len(s)
+    var length = s.byte_length()
 
     try:
         var min_len = schema["minLength"]
@@ -361,7 +361,7 @@ def _validate_string(
         if pat.startswith("^") and pat.endswith("$"):
             # Exact match
             var inner = String(
-                String(unsafe_from_utf8=pat.as_bytes()[1 : len(pat) - 1])
+                String(unsafe_from_utf8=pat.as_bytes()[1 : pat.byte_length() - 1])
             )
             if s != inner:
                 result.add_error(path, "String does not match pattern")

@@ -13,6 +13,7 @@ from std.gpu.memory import AddressSpace
 from std.collections import List
 from std.memory import UnsafePointer, memcpy
 from std.math import ceildiv
+from std.time import perf_counter_ns
 
 from ..types import JSONInput, JSONResult
 from .kernels import (
@@ -65,8 +66,6 @@ def _parse_json_gpu_optimized(
     ctx: DeviceContext, var input: JSONInput, size: Int, total_padded_32: Int
 ) raises -> JSONResult:
     """GPU-accelerated JSON parsing with fully parallel prefix sums."""
-    from time import perf_counter_ns
-
     var result = JSONResult()
     result.file_size = size
 

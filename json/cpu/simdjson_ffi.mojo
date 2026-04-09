@@ -189,7 +189,7 @@ struct SimdjsonFFI:
         var json_copy = json
         var c_str = json_copy.as_c_string_slice()
         var ptr = Int(c_str.unsafe_ptr())
-        var length = len(json_copy)
+        var length = json_copy.byte_length()
 
         var err = self._parse(self._parser, ptr, length)
 

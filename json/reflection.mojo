@@ -73,7 +73,7 @@ comptime _LIST_FLOAT64_NAME = get_type_name[List[Float64]]()
 comptime _LIST_BOOL_NAME = get_type_name[List[Bool]]()
 
 comptime _Base = ImplicitlyDestructible & Movable
-alias _JsonStruct = Defaultable & Movable
+comptime _JsonStruct = Defaultable & Movable
 
 
 # ===================================================================
@@ -154,8 +154,7 @@ def serialize_json[T: AnyType, pretty: Bool = False](value: T) raises -> String:
     """
     var json = _ser[T](value)
 
-    @parameter
-    if pretty:
+    comptime if pretty:
         var parsed = loads(json)
         from .serialize import dumps as _dumps
 
