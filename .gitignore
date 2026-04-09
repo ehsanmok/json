@@ -35,4 +35,4 @@ counter.json
 gpu_test.json
 
 # build artifacts
-mojson-*
+json-*
