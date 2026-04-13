@@ -44,40 +44,40 @@ struct SimdjsonFFI:
     var _parser: Int  # Opaque pointer as Int
 
     # Parser functions
-    var _create_parser: def() abi("C") -> Int
-    var _destroy_parser: def(Int) abi("C") -> None
-    var _parse: def(Int, Int, Int) abi("C") -> Int
-    var _get_root: def(Int) abi("C") -> Int
+    var _create_parser: def() thin abi("C") -> Int
+    var _destroy_parser: def(Int) thin abi("C") -> None
+    var _parse: def(Int, Int, Int) thin abi("C") -> Int
+    var _get_root: def(Int) thin abi("C") -> Int
 
     # Value functions
-    var _value_get_type: def(Int) abi("C") -> Int
-    var _value_get_bool: def(Int, Int) abi("C") -> Int
-    var _value_get_int64: def(Int, Int) abi("C") -> Int
-    var _value_get_uint64: def(Int, Int) abi("C") -> Int
-    var _value_get_double: def(Int, Int) abi("C") -> Int
-    var _value_get_string: def(Int, Int, Int) abi("C") -> Int
-    var _value_free: def(Int) abi("C") -> None
+    var _value_get_type: def(Int) thin abi("C") -> Int
+    var _value_get_bool: def(Int, Int) thin abi("C") -> Int
+    var _value_get_int64: def(Int, Int) thin abi("C") -> Int
+    var _value_get_uint64: def(Int, Int) thin abi("C") -> Int
+    var _value_get_double: def(Int, Int) thin abi("C") -> Int
+    var _value_get_string: def(Int, Int, Int) thin abi("C") -> Int
+    var _value_free: def(Int) thin abi("C") -> None
 
     # Array functions
-    var _array_begin: def(Int) abi("C") -> Int
-    var _array_iter_done: def(Int) abi("C") -> Int
-    var _array_iter_get: def(Int) abi("C") -> Int
-    var _array_iter_next: def(Int) abi("C") -> None
-    var _array_iter_free: def(Int) abi("C") -> None
-    var _array_count: def(Int) abi("C") -> Int
+    var _array_begin: def(Int) thin abi("C") -> Int
+    var _array_iter_done: def(Int) thin abi("C") -> Int
+    var _array_iter_get: def(Int) thin abi("C") -> Int
+    var _array_iter_next: def(Int) thin abi("C") -> None
+    var _array_iter_free: def(Int) thin abi("C") -> None
+    var _array_count: def(Int) thin abi("C") -> Int
 
     # Object functions
-    var _object_begin: def(Int) abi("C") -> Int
-    var _object_iter_done: def(Int) abi("C") -> Int
-    var _object_iter_get_key: def(Int, Int, Int) abi("C") -> None
-    var _object_iter_get_value: def(Int) abi("C") -> Int
-    var _object_iter_next: def(Int) abi("C") -> None
-    var _object_iter_free: def(Int) abi("C") -> None
-    var _object_count: def(Int) abi("C") -> Int
+    var _object_begin: def(Int) thin abi("C") -> Int
+    var _object_iter_done: def(Int) thin abi("C") -> Int
+    var _object_iter_get_key: def(Int, Int, Int) thin abi("C") -> None
+    var _object_iter_get_value: def(Int) thin abi("C") -> Int
+    var _object_iter_next: def(Int) thin abi("C") -> None
+    var _object_iter_free: def(Int) thin abi("C") -> None
+    var _object_count: def(Int) thin abi("C") -> Int
 
     # Memory helper: copies n bytes from src_addr (integer) to dst (pointer as Int).
     # Avoids int-to-UnsafePointer construction in Mojo, which varies across versions.
-    var _memcpy_from_addr: def(Int, Int, Int) abi("C") -> None
+    var _memcpy_from_addr: def(Int, Int, Int) thin abi("C") -> None
 
     def __init__(out self, lib_path: String = "") raises:
         """Initialize by loading the simdjson wrapper library.
@@ -91,86 +91,86 @@ struct SimdjsonFFI:
         self._lib = OwnedDLHandle(path)
 
         # Parser functions
-        self._create_parser = self._lib.get_function[def() abi("C") -> Int](
+        self._create_parser = self._lib.get_function[def() thin abi("C") -> Int](
             "simdjson_create_parser"
         )
         self._destroy_parser = self._lib.get_function[
-            def(Int) abi("C") -> None
+            def(Int) thin abi("C") -> None
         ]("simdjson_destroy_parser")
         self._parse = self._lib.get_function[
-            def(Int, Int, Int) abi("C") -> Int
+            def(Int, Int, Int) thin abi("C") -> Int
         ]("simdjson_parse")
-        self._get_root = self._lib.get_function[def(Int) abi("C") -> Int](
+        self._get_root = self._lib.get_function[def(Int) thin abi("C") -> Int](
             "simdjson_get_root"
         )
 
         # Value functions
-        self._value_get_type = self._lib.get_function[def(Int) abi("C") -> Int](
+        self._value_get_type = self._lib.get_function[def(Int) thin abi("C") -> Int](
             "simdjson_value_get_type"
         )
         self._value_get_bool = self._lib.get_function[
-            def(Int, Int) abi("C") -> Int
+            def(Int, Int) thin abi("C") -> Int
         ]("simdjson_value_get_bool")
         self._value_get_int64 = self._lib.get_function[
-            def(Int, Int) abi("C") -> Int
+            def(Int, Int) thin abi("C") -> Int
         ]("simdjson_value_get_int64")
         self._value_get_uint64 = self._lib.get_function[
-            def(Int, Int) abi("C") -> Int
+            def(Int, Int) thin abi("C") -> Int
         ]("simdjson_value_get_uint64")
         self._value_get_double = self._lib.get_function[
-            def(Int, Int) abi("C") -> Int
+            def(Int, Int) thin abi("C") -> Int
         ]("simdjson_value_get_double")
         self._value_get_string = self._lib.get_function[
-            def(Int, Int, Int) abi("C") -> Int
+            def(Int, Int, Int) thin abi("C") -> Int
         ]("simdjson_value_get_string")
-        self._value_free = self._lib.get_function[def(Int) abi("C") -> None](
+        self._value_free = self._lib.get_function[def(Int) thin abi("C") -> None](
             "simdjson_value_free"
         )
 
         # Array functions
-        self._array_begin = self._lib.get_function[def(Int) abi("C") -> Int](
+        self._array_begin = self._lib.get_function[def(Int) thin abi("C") -> Int](
             "simdjson_array_begin"
         )
         self._array_iter_done = self._lib.get_function[
-            def(Int) abi("C") -> Int
+            def(Int) thin abi("C") -> Int
         ]("simdjson_array_iter_done")
-        self._array_iter_get = self._lib.get_function[def(Int) abi("C") -> Int](
+        self._array_iter_get = self._lib.get_function[def(Int) thin abi("C") -> Int](
             "simdjson_array_iter_get"
         )
         self._array_iter_next = self._lib.get_function[
-            def(Int) abi("C") -> None
+            def(Int) thin abi("C") -> None
         ]("simdjson_array_iter_next")
         self._array_iter_free = self._lib.get_function[
-            def(Int) abi("C") -> None
+            def(Int) thin abi("C") -> None
         ]("simdjson_array_iter_free")
-        self._array_count = self._lib.get_function[def(Int) abi("C") -> Int](
+        self._array_count = self._lib.get_function[def(Int) thin abi("C") -> Int](
             "simdjson_array_count"
         )
 
         # Object functions
-        self._object_begin = self._lib.get_function[def(Int) abi("C") -> Int](
+        self._object_begin = self._lib.get_function[def(Int) thin abi("C") -> Int](
             "simdjson_object_begin"
         )
         self._object_iter_done = self._lib.get_function[
-            def(Int) abi("C") -> Int
+            def(Int) thin abi("C") -> Int
         ]("simdjson_object_iter_done")
         self._object_iter_get_key = self._lib.get_function[
-            def(Int, Int, Int) abi("C") -> None
+            def(Int, Int, Int) thin abi("C") -> None
         ]("simdjson_object_iter_get_key")
         self._object_iter_get_value = self._lib.get_function[
-            def(Int) abi("C") -> Int
+            def(Int) thin abi("C") -> Int
         ]("simdjson_object_iter_get_value")
         self._object_iter_next = self._lib.get_function[
-            def(Int) abi("C") -> None
+            def(Int) thin abi("C") -> None
         ]("simdjson_object_iter_next")
         self._object_iter_free = self._lib.get_function[
-            def(Int) abi("C") -> None
+            def(Int) thin abi("C") -> None
         ]("simdjson_object_iter_free")
-        self._object_count = self._lib.get_function[def(Int) abi("C") -> Int](
+        self._object_count = self._lib.get_function[def(Int) thin abi("C") -> Int](
             "simdjson_object_count"
         )
         self._memcpy_from_addr = self._lib.get_function[
-            def(Int, Int, Int) abi("C") -> None
+            def(Int, Int, Int) thin abi("C") -> None
         ]("simdjson_memcpy_from_addr")
 
         # Create the parser
