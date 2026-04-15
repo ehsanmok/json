@@ -4,13 +4,15 @@
 [![Docs](https://github.com/ehsanmok/json/actions/workflows/docs.yaml/badge.svg)](https://ehsanmok.github.io/json/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-- **Python-like API** — `loads`, `dumps`, `load`, `dump`
-- **Reflection serde** — Zero-boilerplate struct serialization via compile-time reflection
-- **GPU accelerated** — 2-4x faster than [cuJSON](https://github.com/AutomataLab/cuJSON) on large files
-- **Cross-platform** — NVIDIA, AMD, and Apple Silicon GPUs
-- **Streaming & lazy parsing** — Handle files larger than memory
-- **JSONPath & Schema** — Query and validate JSON documents
-- **RFC compliant** — JSON Patch, Merge Patch, JSON Pointer
+High-performance JSON library for Mojo with GPU acceleration.
+
+- **Python-like API:** `loads`, `dumps`, `load`, `dump`
+- **Reflection serde:** zero-boilerplate struct serialization via compile-time reflection
+- **GPU accelerated:** 2-4x faster than [cuJSON](https://github.com/AutomataLab/cuJSON) on large files
+- **Cross-platform:** NVIDIA, AMD, and Apple Silicon GPUs
+- **Streaming and lazy parsing:** handle files larger than memory
+- **JSONPath and Schema:** query and validate JSON documents
+- **RFC compliant:** JSON Patch, Merge Patch, JSON Pointer
 
 ## Quick Start
 
@@ -64,7 +66,7 @@ Requires [pixi](https://pixi.sh) (pulls Mojo nightly automatically).
 |----------|------------|-----------|
 | AMD MI355X | 13 GB/s | **3.6x faster** |
 | NVIDIA B200 | 8 GB/s | **1.8x faster** |
-| Apple M3 Pro | 3.9 GB/s | — |
+| Apple M3 Pro | 3.9 GB/s | N/A |
 
 *GPU only beneficial for files >100MB.*
 
@@ -78,7 +80,7 @@ pixi run bench-gpu benchmark/datasets/twitter_large_record.json
 
 ## Reflection-Based Serde (Zero Boilerplate)
 
-Automatically serialize and deserialize structs using compile-time reflection — no hand-written `to_json()` or `from_json()` methods needed.
+Automatically serialize and deserialize structs using compile-time reflection. No hand-written `to_json()` or `from_json()` methods needed.
 
 ```mojo
 from json import serialize_json, deserialize_json
@@ -93,11 +95,11 @@ struct Person(Defaultable, Movable):
         self.age = 0
         self.active = False
 
-# Serialize — one function, zero boilerplate
+# Serialize: one function, zero boilerplate
 var json = serialize_json(Person(name="Alice", age=30, active=True))
 # {"name":"Alice","age":30,"active":true}
 
-# Deserialize — just specify the type
+# Deserialize: just specify the type
 var person = deserialize_json[Person](json)
 print(person.name)  # Alice
 
@@ -181,9 +183,9 @@ pixi run tests-cpu
 
 Further documentation:
 
-- [Architecture](./docs/architecture.md) — CPU/GPU backend design
-- [Performance](./docs/performance.md) — Optimization deep dive
-- [Benchmarks](./benchmark/README.md) — Reproducible benchmarks
+- [Architecture](./docs/architecture.md): CPU/GPU backend design
+- [Performance](./docs/performance.md): optimization deep dive
+- [Benchmarks](./benchmark/README.md): reproducible benchmarks
 
 ## License
 

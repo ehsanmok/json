@@ -1,12 +1,12 @@
 """High-performance JSON library for Mojo.
 
-- **Python-like API** — `loads`, `dumps`, `load`, `dump`
-- **Reflection serde** — Zero-boilerplate struct serialization via compile-time reflection
-- **GPU accelerated** — 2-4x faster than cuJSON on large files
-- **Cross-platform** — NVIDIA, AMD, and Apple Silicon GPUs
-- **Streaming & lazy parsing** — Handle files larger than memory
-- **JSONPath & Schema** — Query and validate JSON documents
-- **RFC compliant** — JSON Patch, Merge Patch, JSON Pointer
+- **Python-like API:** `loads`, `dumps`, `load`, `dump`
+- **Reflection serde:** zero-boilerplate struct serialization via compile-time reflection
+- **GPU accelerated:** 2-4x faster than cuJSON on large files
+- **Cross-platform:** NVIDIA, AMD, and Apple Silicon GPUs
+- **Streaming and lazy parsing:** handle files larger than memory
+- **JSONPath and Schema:** query and validate JSON documents
+- **RFC compliant:** JSON Patch, Merge Patch, JSON Pointer
 
 ## Requirements
 
@@ -63,7 +63,7 @@ var big = load[target="gpu"]("large.json")
 |----------|------------|-----------|
 | AMD MI355X | 13 GB/s | 3.6x faster |
 | NVIDIA B200 | 8 GB/s | 1.8x faster |
-| Apple M3 Pro | 3.9 GB/s | — |
+| Apple M3 Pro | 3.9 GB/s | N/A |
 
 GPU only beneficial for files >100MB.
 
@@ -79,11 +79,11 @@ with zero external dependencies.
 
 ## Documentation
 
-- [Architecture](https://github.com/ehsanmok/json/blob/main/docs/architecture.md) — CPU/GPU backend design
-- [Performance](https://github.com/ehsanmok/json/blob/main/docs/performance.md) — Optimization deep dive
-- [Benchmarks](https://github.com/ehsanmok/json/blob/main/benchmark/README.md) — Reproducible benchmarks
-- [Examples](https://github.com/ehsanmok/json/tree/main/examples) — 11 runnable examples covering all features
-- [Source](https://github.com/ehsanmok/json) — GitHub repository
+- [Architecture](https://github.com/ehsanmok/json/blob/main/docs/architecture.md): CPU/GPU backend design
+- [Performance](https://github.com/ehsanmok/json/blob/main/docs/performance.md): optimization deep dive
+- [Benchmarks](https://github.com/ehsanmok/json/blob/main/benchmark/README.md): reproducible benchmarks
+- [Examples](https://github.com/ehsanmok/json/tree/main/examples): 11 runnable examples
+- [Source](https://github.com/ehsanmok/json): GitHub repository
 
 ## API Reference
 
