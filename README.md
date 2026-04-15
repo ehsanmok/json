@@ -43,7 +43,7 @@ channels = ["https://conda.modular.com/max-nightly", "conda-forge"]
 preview = ["pixi-build"]
 
 [dependencies]
-json = { git = "https://github.com/ehsanmok/json.git", branch = "main" }
+json = { git = "https://github.com/ehsanmok/json.git", tag = "v0.1.0" }
 ```
 
 Then run:
@@ -53,6 +53,13 @@ pixi install
 ```
 
 Requires [pixi](https://pixi.sh) (pulls Mojo nightly automatically).
+
+For the latest development version:
+
+```toml
+[dependencies]
+json = { git = "https://github.com/ehsanmok/json.git", branch = "main" }
+```
 
 > **Note:** `mojo-compiler` and `simdjson` are automatically installed as dependencies.
 
