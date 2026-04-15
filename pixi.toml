@@ -22,7 +22,7 @@ scripts = ["json/cpu/simdjson_ffi/build.sh"]
 [dependencies]
 # Local package for development - pixi will build and install it
 
-mojo = "==0.26.3.0.dev2026041305"
+mojo = "<1.0"
 simdjson = ">=4.2.4,<5"
 
 [feature.dev.dependencies]
