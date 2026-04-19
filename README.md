@@ -78,8 +78,9 @@ json = { git = "https://github.com/ehsanmok/json.git", branch = "main" }
 *GPU only beneficial for files >100MB.*
 
 ```bash
-# Download large dataset first (required for meaningful GPU benchmarks)
-pixi run download-twitter-large
+# Download large dataset first (required for meaningful GPU benchmarks).
+# `download-*` lives in the dev feature because it needs gdown, so pass -e dev.
+pixi run -e dev download-twitter-large
 
 # Run GPU benchmark (only use large files)
 pixi run bench-gpu benchmark/datasets/twitter_large_record.json
@@ -184,9 +185,25 @@ pixi run mojo -I . examples/01_basic_parsing.mojo
 
 ```bash
 git clone https://github.com/ehsanmok/json.git && cd json
-pixi install
-pixi run tests-cpu
+pixi install                 # lean default env (mojo, simdjson, gxx, sysroot)
+pixi run tests-cpu           # or: tests-gpu / tests-e2e / tests-e2e-gpu
+pixi run bench-gpu           # optional; builds and runs the GPU benchmark
 ```
+
+Tasks that need extra tooling (docs, formatters, dataset downloaders)
+live in the `dev` feature. Pass `-e dev` or enter a dev shell:
+
+```bash
+pixi run -e dev format       # mojo format + pre-commit hook install
+pixi run -e dev format-check # used by CI
+pixi run -e dev docs         # mojodoc + open in browser
+pixi run -e dev docs-build   # build into target/doc (used by Pages workflow)
+pixi run -e dev download-twitter-large  # gdown cuJSON benchmark datasets
+```
+
+`pixi run <task>` without `-e` auto-routes dev-only tasks to the dev env
+when the task is not defined in the default env. End users consuming the
+library as a package never need the `dev` feature.
 
 Further documentation:
 

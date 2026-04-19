@@ -35,11 +35,13 @@ pixi install  # Installs Mojo + libsimdjson (from conda-forge), builds FFI wrapp
 
 ### 3. Build cuJSON (for GPU comparison benchmarks)
 
-cuJSON is not bundled. Clone it manually into `benchmark/cuJSON`:
+cuJSON is not bundled. Clone it manually into `benchmark/cuJSON`, then
+build via the dev feature (which provides `git` and the nvcc wrapper
+tasks; nvcc itself must be on PATH from your CUDA install):
 
 ```bash
 cd benchmark && git clone https://github.com/AutomataLab/cuJSON.git
-cd .. && pixi run build-cujson
+cd .. && pixi run -e dev build-cujson
 ```
 
 This builds `benchmark/cuJSON/build/cujson_benchmark`. Tested against
@@ -300,7 +302,7 @@ benchmark/
 │   └── bench_simdjson.cpp      # Native simdjson C++ reference
 ├── cuJSON/                      # Optional: clone AutomataLab/cuJSON here
 │   └── build/
-│       └── cujson_benchmark    # Built by pixi run build-cujson
+│       └── cujson_benchmark    # Built by pixi run -e dev build-cujson
 ├── datasets/
 │   ├── twitter.json            # Small (632 KB, committed)
 │   ├── citm_catalog.json       # Small (1.6 MB, committed)
@@ -331,7 +333,7 @@ benchmark/
 - Check available GPU memory with `nvidia-smi`
 
 ### "cuJSON benchmark not found"
-- Run `pixi run build-cujson` first
+- Run `pixi run -e dev build-cujson` first (the task lives in the dev feature)
 - Check that CUDA toolkit is installed
 
 ### "Failed to create DeviceContext"

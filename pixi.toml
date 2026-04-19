@@ -20,54 +20,53 @@ backend = { name = "pixi-build-rattler-build", version = "*" }
 scripts = ["json/cpu/simdjson_ffi/build.sh"]
 
 [dependencies]
-# Local package for development - pixi will build and install it
-
+# Runtime + build-essential for anyone working with this repo (running tests,
+# examples, `mojo build`-ing benchmark binaries). The activation hook below
+# compiles the simdjson FFI wrapper on every env activation, so a C++ compiler
+# has to be available here, not gated behind a dev feature.
 mojo = "<1.0"
 simdjson = ">=4.2.4,<5"
 
-[feature.dev.dependencies]
-python = ">=3.10"         # Required for pypi dependencies
+[target.linux-64.dependencies]
+# g++ is needed at env activation (build.sh compiles the simdjson FFI wrapper)
+# and for `mojo build` to produce executables.
+gxx = ">=13"
 make = ">=4.4.1,<5"
-gxx = ">=13"              # g++ for Linux (macOS uses system clang++ from Xcode CLT)
+# Mojo's shared libs (libNVPTX, libKGENCompilerRTShared, ...) reference
+# glibc >= 2.34 symbols. The default sysroot_linux-64 that `gxx` pulls in
+# still ships glibc 2.28, triggering link errors like
+# "undefined reference to pthread_join@GLIBC_2.34"; pin a newer sysroot.
+sysroot_linux-64 = ">=2.34"
+
+# ------------------------------------------------------------------
+# Dev feature: only needed for docs, formatting, dataset downloads, and
+# optional cuJSON cloning. Activate via `pixi run -e dev <task>` or enter a
+# dev shell with `pixi shell -e dev`. End users of the library (and the CI
+# test matrix) do not need these deps.
+# ------------------------------------------------------------------
+[feature.dev.dependencies]
+python = ">=3.10"         # Required to host pypi dependencies (gdown)
 git = ">=2"               # For cloning cuJSON (optional, NVIDIA benchmarks only)
 pre-commit = ">=4.2.0,<5"
 mojodoc = { git = "https://github.com/ehsanmok/mojodoc.git", branch = "main" }
-
-# Linux: Mojo's shared libs (libNVPTX, libKGENCompilerRTShared, etc.) link
-# against glibc >= 2.34, so the conda toolchain needs a matching sysroot for
-# `mojo build` to succeed. The default sysroot_linux-64 that gxx pulls in
-# still ships glibc 2.28, which triggers "undefined reference to
-# pthread_join@GLIBC_2.34" errors. Pin a newer sysroot explicitly.
-[feature.dev.target.linux-64.dependencies]
-sysroot_linux-64 = ">=2.34"
 
 [feature.dev.pypi-dependencies]
 gdown = ">=5.0"           # Google Drive CLI for downloading benchmark datasets
 
 [environments]
-default = { features = ["dev"], solve-group = "default" }
+# `default` stays lean -- just what's needed to build + run the library.
+# `dev` opts into the extra tooling (docs, linters, dataset downloader).
+default = { solve-group = "default" }
 dev     = { features = ["dev"], solve-group = "default" }
 
 [tasks]
-# Format
-install-pre-commit = "pre-commit install"
-format = { cmd = "mojo format json tests benchmark/mojo", depends-on = ["install-pre-commit"] }
-format-check = { cmd = "bash -c 'mojo format json tests benchmark/mojo && git diff --exit-code json tests benchmark/mojo || (echo \"Error: Code is not formatted. Run \\\"pixi run format\\\" to fix.\" && exit 1)'" }
-
 # Build simdjson FFI (CPU backend)
 build = "bash json/cpu/simdjson_ffi/build.sh"
-
-# Download benchmark datasets from Google Drive (cuJSON datasets)
-# Full folder: https://drive.google.com/drive/folders/1PkDEy0zWOkVREfL7VuINI-m9wJe45P2Q
-download-twitter-large = "gdown -O benchmark/datasets/twitter_large_record.json 1mdF4HT7s0Jp4XZ0nOxY7lQpcwRZzCjE1"
-download-walmart-large = "gdown -O benchmark/datasets/walmart_large_record.json 10vicgS7dPa4aL5PwEjqAvpAKCXYLblMt"
-download-wiki-large = "gdown -O benchmark/datasets/wiki_large_record.json 1bXdzhfWSdrnpg9WKOeV-oanYIT2j4yLE"
 
 # Build benchmark binaries
 build-bench-cpu = { cmd = "mkdir -p benchmark/build && mojo build -I . -o benchmark/build/bench_cpu benchmark/mojo/bench_cpu.mojo", depends-on = ["build"] }
 build-bench-gpu = { cmd = "mkdir -p benchmark/build && mojo build -I . -o benchmark/build/bench_gpu benchmark/mojo/bench_gpu.mojo", depends-on = ["build"] }
 build-bench-simdjson = { cmd = "bash -c 'mkdir -p benchmark/build && CXX=$(if [[ $(uname) == Darwin ]]; then echo clang++; else echo g++; fi) && $CXX -O3 -std=c++17 -o benchmark/build/bench_simdjson benchmark/cpp/bench_simdjson.cpp -I$CONDA_PREFIX/include -L$CONDA_PREFIX/lib -lsimdjson -Wl,-rpath,$CONDA_PREFIX/lib'", depends-on = ["build"] }
-build-cujson = "bash -c 'cd benchmark && if [ ! -d cuJSON ]; then echo \"Error: cuJSON not found. Download it first:\\n  cd benchmark && git clone https://github.com/AutomataLab/cuJSON.git\" && exit 1; fi && mkdir -p cuJSON/build && nvcc -O3 -w -std=c++17 -arch=sm_100 -o cuJSON/build/cujson_benchmark cuJSON/paper_reproduced/src/cuJSON-standardjson.cu'"
 
 # Tests (includes examples)
 tests = "mojo -I . tests/test_value.mojo && mojo -I . tests/test_parser.mojo && mojo -I . tests/test_serialize.mojo && mojo -I . tests/test_serde.mojo && mojo -I . tests/test_reflection.mojo && mojo -I . tests/test_e2e.mojo && mojo -I . tests/test_gpu.mojo && mojo -I . examples/01_basic_parsing.mojo && mojo -I . examples/02_file_operations.mojo && mojo -I . examples/03_value_types.mojo && mojo -I . examples/04_gpu_parsing.mojo && mojo -I . examples/05_error_handling.mojo && mojo -I . examples/06_struct_serde.mojo && mojo -I . examples/07_ndjson.mojo && mojo -I . examples/08_lazy_parsing.mojo && mojo -I . examples/09_jsonpath.mojo && mojo -I . examples/10_schema_validation.mojo && mojo -I . examples/11_json_patch.mojo && mojo -I . examples/12_reflection_serde.mojo"
@@ -105,7 +104,27 @@ examples = "mojo -I . examples/01_basic_parsing.mojo && mojo -I . examples/02_fi
 # GPU benchmark vs cuJSON (NVIDIA only, requires manual cuJSON download)
 # Usage: pixi run bench-gpu-cujson -- path/to/file.json
 # First: cd benchmark && git clone https://github.com/AutomataLab/cuJSON.git
-bench-gpu-cujson = { cmd = "bash -c 'F=${1:-benchmark/datasets/twitter.json}; if [ ! -f benchmark/cuJSON/build/cujson_benchmark ]; then echo \"Error: cuJSON not built. Run: pixi run build-cujson\" && exit 1; fi; echo \"--- cuJSON ---\" && benchmark/cuJSON/build/cujson_benchmark -b \"$F\" && echo && echo \"--- json GPU ---\" && benchmark/build/bench_gpu \"$F\"' --", depends-on = ["build-bench-gpu"] }
+bench-gpu-cujson = { cmd = "bash -c 'F=${1:-benchmark/datasets/twitter.json}; if [ ! -f benchmark/cuJSON/build/cujson_benchmark ]; then echo \"Error: cuJSON not built. Run: pixi run -e dev build-cujson\" && exit 1; fi; echo \"--- cuJSON ---\" && benchmark/cuJSON/build/cujson_benchmark -b \"$F\" && echo && echo \"--- json GPU ---\" && benchmark/build/bench_gpu \"$F\"' --", depends-on = ["build-bench-gpu"] }
+
+# ------------------------------------------------------------------
+# Dev-only tasks: need mojodoc / pre-commit / gdown / system git, which only
+# live in the `dev` feature. Run them with `pixi run -e dev <task>` (or from
+# a `pixi shell -e dev`). They are intentionally unavailable in the default
+# env so a consumer-style `pixi install` stays lean.
+# ------------------------------------------------------------------
+[feature.dev.tasks]
+install-pre-commit = "pre-commit install"
+format = { cmd = "mojo format json tests benchmark/mojo", depends-on = ["install-pre-commit"] }
+format-check = { cmd = "bash -c 'mojo format json tests benchmark/mojo && git diff --exit-code json tests benchmark/mojo || (echo \"Error: Code is not formatted. Run \\\"pixi run -e dev format\\\" to fix.\" && exit 1)'" }
+
+# Download benchmark datasets from Google Drive (cuJSON datasets)
+# Full folder: https://drive.google.com/drive/folders/1PkDEy0zWOkVREfL7VuINI-m9wJe45P2Q
+download-twitter-large = "gdown -O benchmark/datasets/twitter_large_record.json 1mdF4HT7s0Jp4XZ0nOxY7lQpcwRZzCjE1"
+download-walmart-large = "gdown -O benchmark/datasets/walmart_large_record.json 10vicgS7dPa4aL5PwEjqAvpAKCXYLblMt"
+download-wiki-large = "gdown -O benchmark/datasets/wiki_large_record.json 1bXdzhfWSdrnpg9WKOeV-oanYIT2j4yLE"
+
+# cuJSON (optional) - NVIDIA benchmarks only
+build-cujson = "bash -c 'cd benchmark && if [ ! -d cuJSON ]; then echo \"Error: cuJSON not found. Download it first:\\n  cd benchmark && git clone https://github.com/AutomataLab/cuJSON.git\" && exit 1; fi && mkdir -p cuJSON/build && nvcc -O3 -w -std=c++17 -arch=sm_100 -o cuJSON/build/cujson_benchmark cuJSON/paper_reproduced/src/cuJSON-standardjson.cu'"
 
 # Docs
 docs = "mojodoc ./json --open"

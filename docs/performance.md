@@ -222,11 +222,14 @@ Potential improvements for even better performance:
 All benchmarks are reproducible using pinned git submodules:
 
 ```bash
-# Clone with exact versions
-git clone --recursive https://github.com/ehsanmok/json.git
+# Clone the repo
+git clone https://github.com/ehsanmok/json.git && cd json
 
-# Build comparison benchmarks
-pixi run build-cujson
+# Clone cuJSON (optional, for the head-to-head benchmark)
+cd benchmark && git clone https://github.com/AutomataLab/cuJSON.git && cd ..
+
+# Build comparison benchmark (lives in the dev feature)
+pixi run -e dev build-cujson
 
 # Run benchmarks
 pixi run bench-gpu-cujson benchmark/datasets/twitter_large_record.json
