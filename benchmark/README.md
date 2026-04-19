@@ -8,8 +8,11 @@ Comprehensive benchmarks comparing json against reference implementations (cuJSO
 # GPU benchmark (json vs cuJSON) - apples-to-apples comparison
 pixi run bench-gpu-cujson benchmark/datasets/twitter_large_record.json
 
-# GPU benchmark (json only with timing breakdown)
+# GPU benchmark (json only, 4-row Bench report)
 pixi run bench-gpu benchmark/datasets/twitter_large_record.json
+
+# GPU benchmark with per-phase timing breakdown
+pixi run bench-gpu -- --debug-timing benchmark/datasets/twitter_large_record.json
 
 # CPU benchmark (json vs simdjson)
 pixi run bench-cpu benchmark/datasets/twitter.json
@@ -17,29 +20,30 @@ pixi run bench-cpu benchmark/datasets/twitter.json
 
 ## Setup
 
-### 1. Clone with Submodules
+### 1. Clone the Repo
 
 ```bash
-git clone --recursive https://github.com/user/json.git
+git clone https://github.com/ehsanmok/json.git
 cd json
-
-# Or if already cloned:
-git submodule update --init --recursive
 ```
 
 ### 2. Install Dependencies
 
 ```bash
-pixi install  # Installs Mojo, builds simdjson FFI wrapper
+pixi install  # Installs Mojo + libsimdjson (from conda-forge), builds FFI wrapper
 ```
 
 ### 3. Build cuJSON (for GPU comparison benchmarks)
 
+cuJSON is not bundled. Clone it manually into `benchmark/cuJSON`:
+
 ```bash
-pixi run build-cujson
+cd benchmark && git clone https://github.com/AutomataLab/cuJSON.git
+cd .. && pixi run build-cujson
 ```
 
-This builds `benchmark/cuJSON/build/cujson_benchmark` from the pinned submodule at commit `2ac7d3dcd7ad1ff64ebdb14022bf94c59b3b4953`.
+This builds `benchmark/cuJSON/build/cujson_benchmark`. Tested against
+cuJSON commit `2ac7d3dcd7ad1ff64ebdb14022bf94c59b3b4953`.
 
 ## Benchmark Results
 
@@ -80,13 +84,23 @@ pixi run bench-gpu benchmark/datasets/twitter_large_record.json
 
 ### What We Measure
 
-json reports three metrics to provide a complete picture:
+`pixi run bench-gpu` emits a single `std.benchmark.Bench` report with four
+rows so you can see where time goes across the GPU pipeline:
 
-| Metric | What It Includes | Use Case |
-|--------|------------------|----------|
-| **Pinned memory path** | H2D + GPU kernels + stream compaction + D2H + bracket matching | Direct comparison with cuJSON |
-| **Raw GPU parse** | Pinned path + pageable→pinned memcpy | End-to-end from file buffer |
-| **Full `loads[target='gpu']`** | Everything + Value tree construction | Real-world application performance |
+| Row | What It Includes | Use Case |
+|-----|------------------|----------|
+| **from host bytes: memcpy + parse (wall-clock)** | host→pinned memcpy + `parse_json_gpu_from_pinned` | Realistic steady-state "I have N bytes in memory, parse them via GPU" |
+| **parse_json_gpu_from_pinned (pinned, wall-clock)** | H2D + GPU kernels + stream compaction + D2H + CPU bracket matching | Apples-to-apples comparison with cuJSON (both assume pinned input) |
+| **parse_json_gpu_from_pinned (device-only)** | Same call, timed via `DeviceContext.execution_time` (CUDA events) | Pure device-queue time, excludes host-side CPU post-processing |
+| **loads[target='gpu']** | Everything + `Value` tree construction on CPU | Real-world application performance |
+
+Pass `--debug-timing` to get a per-phase breakdown inside each
+`parse_json_gpu*` call (H2D, GPU kernels, position extraction, bracket
+matching, total). The flag is a runtime argv parse, no recompile needed.
+
+```bash
+pixi run bench-gpu -- --debug-timing benchmark/datasets/twitter_large_record.json
+```
 
 ### Apples-to-Apples Comparison with cuJSON
 
@@ -135,33 +149,41 @@ The **1.8x speedup** comes primarily from **GPU stream compaction**:
 
 **Speedup:** 16x reduction in D2H transfer size → 3.2x faster D2H → 1.8x overall speedup
 
-### What About the "Raw GPU Parse" Metric?
+### What About the "from host bytes" Row?
 
-The "Raw GPU parse" metric (215ms, 3.9 GB/s) includes the overhead of copying from pageable memory to pinned memory:
+The "from host bytes" row adds the realistic cost of getting your bytes
+onto the GPU. It reuses a long-lived `DeviceContext` and pinned
+`HostBuffer` across iterations (as any real application would) and
+measures `memcpy(pinned <- host)` + `parse_json_gpu_from_pinned`:
 
 | Metric | Time | Throughput | Notes |
 |--------|------|------------|-------|
 | cuJSON (from pinned) | 182 ms | 4.6 GB/s | Assumes input is already pinned |
-| json pinned | 103 ms | 8.2 GB/s | Same assumption (fair comparison) |
-| json raw (from pageable) | 223 ms | 3.8 GB/s | Realistic scenario with memcpy overhead |
+| json pinned (wall-clock) | 103 ms | 8.2 GB/s | Same assumption (fair comparison) |
+| json "from host bytes" | ~280 ms | ~2.9 GB/s | Realistic scenario with host→pinned memcpy |
 
-The pageable→pinned copy takes ~120ms for 804MB. In practice, you can avoid this by:
-1. Using `HostBuffer` for initial file reads
-2. Memory-mapping files directly into pinned memory
-3. Receiving data from network buffers already in pinned memory
+The host→pinned copy is the dominant extra cost (~100-150 ms for 804 MB
+on DDR5). In practice you can avoid it by:
+1. Reading files directly into a `HostBuffer` (pinned memory)
+2. Memory-mapping files into pinned memory
+3. Using network/RDMA buffers that are already pinned
 
 ### End-to-End Performance
 
 For real applications using the full `loads[target='gpu']()` API:
 
-| Pipeline Stage | Time (804MB) |
-|----------------|--------------|
-| Raw GPU parse | 223 ms |
-| Value tree construction (CPU) | ~430 ms |
-| **Total** | **~650 ms** |
-| **Throughput** | **~1.3 GB/s** |
+| Pipeline Stage | Time (804 MB) |
+|----------------|---------------|
+| `parse_json_gpu_from_pinned` | ~150 ms |
+| host→pinned memcpy | ~120 ms |
+| Value tree construction (CPU) | ~600 ms |
+| **Total** | **~900 ms** |
+| **Throughput** | **~1.0 GB/s** |
 
-The Value tree construction is currently CPU-bound. This is the full application-level performance including the complete `Value` object tree in memory.
+The `Value` tree construction is currently CPU-bound; it's the largest
+slice of the full-pipeline budget. Use `parse_json_gpu_from_pinned`
+directly if you only need the structural position array and can build
+your own downstream representation.
 
 ## Running Benchmarks
 
@@ -224,18 +246,14 @@ Install `gdown` if needed: `pip install gdown`
 
 ### cuJSON Version
 
-cuJSON is pinned as a git submodule to ensure reproducible benchmarks:
-
-```
-benchmark/cuJSON @ 2ac7d3dcd7ad1ff64ebdb14022bf94c59b3b4953
-Repository: https://github.com/AutomataLab/cuJSON
-```
-
-To verify the exact commit:
+Published results are against cuJSON at commit
+`2ac7d3dcd7ad1ff64ebdb14022bf94c59b3b4953` from
+[AutomataLab/cuJSON](https://github.com/AutomataLab/cuJSON). Pin your
+clone to that commit for byte-exact reproducibility:
 
 ```bash
 cd benchmark/cuJSON
-git rev-parse HEAD  # Should output: 2ac7d3dcd7ad1ff64ebdb14022bf94c59b3b4953
+git checkout 2ac7d3dcd7ad1ff64ebdb14022bf94c59b3b4953
 ```
 
 ### Build Configuration
@@ -255,7 +273,9 @@ nvcc -O3 -w -std=c++17 -arch=sm_100 -o benchmark/cuJSON/build/cujson_benchmark \
 
 ### simdjson Version
 
-simdjson is included as a git submodule at `src/cpu/simdjson_ffi/simdjson/`. The FFI wrapper is automatically built during `pixi install`.
+simdjson is installed from conda-forge (`simdjson >=4.2.4,<5`, declared
+in `pixi.toml`). The thin C++ FFI wrapper in `json/cpu/simdjson_ffi/` is
+automatically built during `pixi install` via the activation hook.
 
 ## Hardware Requirements
 
@@ -273,14 +293,17 @@ simdjson is included as a git submodule at `src/cpu/simdjson_ffi/simdjson/`. The
 ```
 benchmark/
 ├── mojo/
-│   ├── bench_cpu.mojo          # CPU: json vs simdjson
-│   └── bench_gpu.mojo          # GPU: json detailed timing
-├── cuJSON/                      # cuJSON submodule (pinned version)
+│   ├── bench_cpu.mojo          # CPU: json (Mojo backend) via bench_function
+│   ├── bench_backend.mojo      # json (Mojo backend) vs simdjson FFI
+│   └── bench_gpu.mojo          # GPU: 4-row Bench report + --debug-timing
+├── cpp/
+│   └── bench_simdjson.cpp      # Native simdjson C++ reference
+├── cuJSON/                      # Optional: clone AutomataLab/cuJSON here
 │   └── build/
 │       └── cujson_benchmark    # Built by pixi run build-cujson
 ├── datasets/
-│   ├── twitter.json            # Small (632KB, committed)
-│   ├── citm_catalog.json       # Small (1.6MB, committed)
+│   ├── twitter.json            # Small (632 KB, committed)
+│   ├── citm_catalog.json       # Small (1.6 MB, committed)
 │   └── *.json                  # Large files (download separately)
 └── README.md                    # This file
 ```

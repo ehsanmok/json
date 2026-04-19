@@ -99,10 +99,10 @@ var data = loads[target="cpu-simdjson"]('{"key": "value"}')
 **Implementation:** Native Mojo GPU kernels inspired by [cuJSON](https://github.com/AutomataLab/cuJSON)
 
 **Location:**
-- `src/gpu/parser.mojo` - Main GPU parser
-- `src/gpu/kernels.mojo` - CUDA-style GPU kernels
-- `src/gpu/stream_compact.mojo` - GPU stream compaction for position extraction
-- `src/gpu/bracket_match.mojo` - CPU bracket matching
+- `json/gpu/parser.mojo` - Main GPU parser (`parse_json_gpu`, `parse_json_gpu_from_pinned`)
+- `json/gpu/kernels.mojo` - CUDA-style GPU kernels (fused bitmap + structural extraction)
+- `json/gpu/stream_compact.mojo` - GPU stream compaction for position extraction
+- `json/gpu/bracket_match.mojo` - GPU parallel bracket matching (experimental; the main parse path uses a CPU stack matcher after stream compaction)
 
 **Performance:** ~8 GB/s on NVIDIA B200 (1.8x faster than cuJSON)
 
@@ -167,7 +167,7 @@ See [API Reference](https://ehsanmok.github.io/json/) for complete `Value` metho
 ## Directory Structure
 
 ```
-src/
+json/
 ├── __init__.mojo              # Public API exports
 ├── parser.mojo                # Unified CPU/GPU parser, loads/load functions
 ├── serialize.mojo             # dumps/dump functions
@@ -183,17 +183,20 @@ src/
 ├── patch.mojo                 # JSON Patch & Merge Patch (RFC 6902/7396)
 ├── jsonpath.mojo              # JSONPath query language
 ├── schema.mojo                # JSON Schema validation
+├── reflection.mojo            # Compile-time reflection serde
+├── deserialize.mojo           # serialize_json / deserialize_json API
 ├── cpu/
 │   ├── __init__.mojo         # CPU backend exports
 │   ├── types.mojo            # Common JSON type constants
 │   ├── mojo_backend.mojo     # Pure Mojo JSON parser
+│   ├── simd_backend.mojo     # SIMD-accelerated CPU parser
 │   ├── simdjson_ffi.mojo     # simdjson FFI bindings
-│   └── simdjson_ffi/         # C++ simdjson wrapper
+│   └── simdjson_ffi/         # C++ simdjson wrapper (libsimdjson via conda)
 └── gpu/
     ├── parser.mojo            # GPU parser implementation
     ├── kernels.mojo           # GPU kernel functions
     ├── stream_compact.mojo    # GPU stream compaction
-    └── bracket_match.mojo     # CPU bracket matching
+    └── bracket_match.mojo     # GPU parallel bracket-match (experimental)
 
 tests/
 ├── test_api.mojo              # Unified API tests (loads/dumps/load/dump)
@@ -202,11 +205,15 @@ tests/
 ├── test_mojo_backend.mojo     # Pure Mojo backend tests
 ├── test_serialize.mojo        # Serialization tests
 ├── test_serde.mojo            # Struct serialization tests
+├── test_reflection.mojo       # Reflection-based serde tests
 ├── test_patch.mojo            # JSON Patch tests
 ├── test_jsonpath.mojo         # JSONPath tests
 ├── test_schema.mojo           # JSON Schema tests
 ├── test_e2e.mojo              # End-to-end tests
-└── test_gpu.mojo              # GPU parser tests
+├── test_gpu.mojo              # GPU parser tests
+├── test_gpu_kernels.mojo      # GPU kernel tests (stream compaction)
+├── test_bracket_match.mojo    # GPU bracket-match tests
+└── bench_bracket_match.mojo   # GPU bracket-match microbenchmark
 
 benchmark/
 ├── datasets/                  # Benchmark files
@@ -216,7 +223,8 @@ benchmark/
 │   └── bench_gpu.mojo        # GPU benchmark
 ├── cpp/
 │   └── bench_simdjson.cpp    # Native simdjson C++ benchmark
-└── cuJSON/                    # cuJSON submodule for comparison
+└── cuJSON/                    # Optional cuJSON checkout (cloned manually;
+                               # see benchmark/README.md) for head-to-head
 ```
 
 ## Build & Test
@@ -237,7 +245,13 @@ pixi run bench-gpu-cujson  # GPU: json vs cuJSON
 
 ## Dependencies
 
-- **Mojo:** Latest nightly (with GPU support)
-- **simdjson:** Git submodule in `src/cpu/simdjson_ffi/simdjson/`
-- **cuJSON:** Git submodule in `benchmark/cuJSON/` (for comparison only)
-- **CUDA:** Required for GPU backend and benchmarks
+- **Mojo:** Latest nightly (with GPU support), pulled in automatically by `pixi install`
+- **simdjson:** Installed from conda-forge (`simdjson >=4.2.4,<5`). The thin
+  C++ FFI wrapper in `json/cpu/simdjson_ffi/` is auto-built by `pixi install`
+  via the activation hook.
+- **sysroot_linux-64:** `>=2.34` (Linux only) so `mojo build` can link
+  against glibc 2.34 symbols referenced by Mojo's runtime libs.
+- **cuJSON:** Optional; clone manually into `benchmark/cuJSON` for the
+  head-to-head GPU benchmark. See `benchmark/README.md`.
+- **CUDA:** Required for the GPU backend (any SM70+ NVIDIA GPU works;
+  the library has also been tested on AMD ROCm and Apple Silicon).

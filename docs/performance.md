@@ -85,19 +85,35 @@ Throughput:           7.0 GB/s
 
 ## Performance Metrics Explained
 
-json reports three timing metrics:
+`pixi run bench-gpu` reports a single `std.benchmark.Bench` table with
+four rows so you can see where time goes across the pipeline:
 
-| Metric | What It Includes | Use Case |
-|--------|------------------|----------|
-| **Pinned memory path** | H2D + GPU kernels + stream compaction + D2H + bracket matching | Direct comparison with cuJSON |
-| **Raw GPU parse** | Pinned path + pageable→pinned memcpy | End-to-end from file buffer |
-| **Full `loads[target='gpu']`** | Everything + Value tree construction | Real-world application performance |
+| Row | What It Includes | Use Case |
+|-----|------------------|----------|
+| **from host bytes: memcpy + parse (wall-clock)** | host→pinned memcpy + `parse_json_gpu_from_pinned` | Realistic "bytes in memory → parsed" cost |
+| **parse_json_gpu_from_pinned (pinned, wall-clock)** | H2D + GPU kernels + stream compaction + D2H + CPU bracket matching | Apples-to-apples comparison with cuJSON (both assume pinned input) |
+| **parse_json_gpu_from_pinned (device-only)** | Same call, timed via `DeviceContext.execution_time` (CUDA events) | Pure device-queue time, excludes host-side CPU post-processing |
+| **loads[target='gpu']** | Everything + `Value` tree construction on CPU | Real-world application performance |
 
-### Why Three Metrics?
+### Why Four Rows?
 
-1. **Pinned memory path (121ms, 7.0 GB/s):** Apples-to-apples comparison with cuJSON, which assumes pinned input
-2. **Raw GPU parse (~230ms, 3.7 GB/s):** Includes realistic pageable→pinned copy overhead (~110ms for 804MB)
-3. **Full pipeline (~890ms, 1.0 GB/s):** Includes CPU-bound Value tree construction (~770ms)
+1. **Pinned wall-clock (~121 ms, 7.0 GB/s):** apples-to-apples with cuJSON
+   (both assume pinned input). This is the headline GPU-parse number.
+2. **Pinned device-only (~100 ms, ~8 GB/s):** drops the host-side
+   bracket-matching and list-build work. Use this to compare against
+   kernel-only timings from other frameworks.
+3. **from host bytes (~280 ms, ~2.9 GB/s):** adds the realistic
+   host→pinned memcpy (~120 ms for 804 MB on DDR5).
+4. **Full `loads[target='gpu']` (~900 ms, ~1.0 GB/s):** adds the
+   CPU-bound `Value` tree construction on top of everything.
+
+Pass `--debug-timing` to get a per-phase breakdown (H2D, GPU kernels,
+position extraction, bracket matching, total) printed alongside the
+summary table:
+
+```bash
+pixi run bench-gpu -- --debug-timing benchmark/datasets/twitter_large_record.json
+```
 
 ## Benchmark Results
 
