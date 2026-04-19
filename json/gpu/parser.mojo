@@ -14,6 +14,7 @@ from std.gpu.memory import AddressSpace
 from std.collections import List
 from std.memory import UnsafePointer, memcpy
 from std.math import ceildiv
+from std.sys import has_accelerator
 from std.time import perf_counter_ns
 from std.utils.static_tuple import StaticTuple
 
@@ -38,6 +39,14 @@ def parse_json_gpu(
         verbose: If True, print per-phase timings to stdout. Useful for
             profiling with `pixi run bench-gpu -- --debug-timing <file>`.
     """
+    comptime if not has_accelerator():
+        raise Error(
+            "parse_json_gpu requires a supported accelerator at compile"
+            " time. None was detected on this host (Mojo's has_accelerator()"
+            " returned False). Use loads(...) without target='gpu' to run"
+            " on the CPU backend."
+        )
+
     var size = len(input.data)
 
     if size == 0:
@@ -46,7 +55,6 @@ def parse_json_gpu(
 
     var total_padded_32 = (size + 31) // 32
 
-    # Always use GPU (assume it's available)
     var ctx = DeviceContext()
     return _parse_json_gpu_optimized(
         ctx, input^, size, total_padded_32, verbose
@@ -70,6 +78,13 @@ def parse_json_gpu_from_pinned(
         size: Length of the document in bytes.
         verbose: If True, print per-phase timings to stdout.
     """
+    comptime if not has_accelerator():
+        raise Error(
+            "parse_json_gpu_from_pinned requires a supported accelerator at"
+            " compile time. None was detected on this host (Mojo's"
+            " has_accelerator() returned False)."
+        )
+
     if size == 0:
         var result = JSONResult()
         return result^
