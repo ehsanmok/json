@@ -3,12 +3,12 @@ authors = ["ehsanmok <ehsanmok@users.noreply.github.com>"]
 channels = ["https://conda.modular.com/max-nightly", "conda-forge", "https://prefix.dev/modular-community"]
 name = "json"
 platforms = ["linux-64", "osx-arm64"]
-version = "0.1.1"
+version = "0.1.2"
 preview = ["pixi-build"]
 
 [package]
 name = "json"
-version = "0.1.1"
+version = "0.1.2"
 
 [package.build]
 backend = { name = "pixi-build-rattler-build", version = "*" }
@@ -24,7 +24,7 @@ scripts = ["json/cpu/simdjson_ffi/build.sh"]
 # examples, `mojo build`-ing benchmark binaries). The activation hook below
 # compiles the simdjson FFI wrapper on every env activation, so a C++ compiler
 # has to be available here, not gated behind a dev feature.
-mojo = "<1.0"
+mojo = "==0.26.3.0.dev2026041805"
 simdjson = ">=4.2.4,<5"
 
 [target.linux-64.dependencies]

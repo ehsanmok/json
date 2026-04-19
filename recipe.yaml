@@ -3,7 +3,7 @@
 
 context:
   name: json
-  version: "0.1.1"
+  version: "0.1.2"
 
 package:
   name: ${{ name }}
@@ -23,10 +23,10 @@ build:
 
 requirements:
   build:
-    - mojo-compiler
+    - mojo-compiler ==0.26.3.0.dev2026041805
     - ${{ compiler('cxx') }}
   host:
-    - mojo-compiler
+    - mojo-compiler ==0.26.3.0.dev2026041805
     - simdjson >=4.2.4,<5
   run:
     - simdjson >=4.2.4,<5
