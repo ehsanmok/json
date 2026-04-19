@@ -10,9 +10,11 @@ from json.gpu.bracket_match import match_brackets_gpu
 
 def make_char_list(chars: String) -> List[UInt8]:
     """Create a list of char types from a string."""
-    var result = List[UInt8](capacity=len(chars))
-    for i in range(len(chars)):
-        result.append(ord(chars[i]))
+    var bytes = chars.as_bytes()
+    var n = chars.byte_length()
+    var result = List[UInt8](capacity=n)
+    for i in range(n):
+        result.append(bytes[i])
     return result^
 
 
