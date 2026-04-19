@@ -41,7 +41,7 @@ def main() raises:
 
     # Load JSON file
     var content = Path(path).read_text()
-    var size = len(content)
+    var size = content.byte_length()
     var size_mb = Float64(size) / 1024.0 / 1024.0
 
     print("File:", path)

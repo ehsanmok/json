@@ -56,8 +56,13 @@ download-walmart-large = "gdown -O benchmark/datasets/walmart_large_record.json 
 download-wiki-large = "gdown -O benchmark/datasets/wiki_large_record.json 1bXdzhfWSdrnpg9WKOeV-oanYIT2j4yLE"
 
 # Build benchmark binaries
-build-bench-cpu = { cmd = "mkdir -p benchmark/build && mojo build -I . -o benchmark/build/bench_cpu benchmark/mojo/bench_cpu.mojo", depends-on = ["build"] }
-build-bench-gpu = { cmd = "mkdir -p benchmark/build && mojo build -I . -o benchmark/build/bench_gpu benchmark/mojo/bench_gpu.mojo", depends-on = ["build"] }
+# NOTE: On Linux we prepend /usr/bin so Mojo uses the system gcc/ld. The
+# conda-shipped gcc sysroot ships glibc 2.28, which is older than the glibc
+# symbols (>=2.34) required by Mojo's shared libraries, so linking through
+# the conda toolchain fails on recent hosts. On macOS /usr/bin is already
+# on PATH and this prefix is a no-op (Xcode CLT clang is used).
+build-bench-cpu = { cmd = "bash -c 'export PATH=/usr/bin:$PATH && mkdir -p benchmark/build && mojo build -I . -o benchmark/build/bench_cpu benchmark/mojo/bench_cpu.mojo'", depends-on = ["build"] }
+build-bench-gpu = { cmd = "bash -c 'export PATH=/usr/bin:$PATH && mkdir -p benchmark/build && mojo build -I . -o benchmark/build/bench_gpu benchmark/mojo/bench_gpu.mojo'", depends-on = ["build"] }
 build-bench-simdjson = { cmd = "bash -c 'mkdir -p benchmark/build && CXX=$(if [[ $(uname) == Darwin ]]; then echo clang++; else echo g++; fi) && $CXX -O3 -std=c++17 -o benchmark/build/bench_simdjson benchmark/cpp/bench_simdjson.cpp -I$CONDA_PREFIX/include -L$CONDA_PREFIX/lib -lsimdjson -Wl,-rpath,$CONDA_PREFIX/lib'", depends-on = ["build"] }
 build-cujson = "bash -c 'cd benchmark && if [ ! -d cuJSON ]; then echo \"Error: cuJSON not found. Download it first:\\n  cd benchmark && git clone https://github.com/AutomataLab/cuJSON.git\" && exit 1; fi && mkdir -p cuJSON/build && nvcc -O3 -w -std=c++17 -arch=sm_100 -o cuJSON/build/cujson_benchmark cuJSON/paper_reproduced/src/cuJSON-standardjson.cu'"
 
