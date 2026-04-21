@@ -23,10 +23,10 @@ build:
 
 requirements:
   build:
-    - mojo-compiler ==0.26.3.0.dev2026042005
+    - mojo-compiler
     - ${{ compiler('cxx') }}
   host:
-    - mojo-compiler ==0.26.3.0.dev2026042005
+    - mojo-compiler
     - simdjson >=4.2.4,<5
   run:
     - simdjson >=4.2.4,<5
