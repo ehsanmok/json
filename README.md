@@ -43,7 +43,7 @@ channels = ["https://conda.modular.com/max-nightly", "conda-forge"]
 preview = ["pixi-build"]
 
 [dependencies]
-json = { git = "https://github.com/ehsanmok/json.git", tag = "v0.1.2" }
+json = { git = "https://github.com/ehsanmok/json.git", tag = "v0.1.3" }
 ```
 
 Then run:
