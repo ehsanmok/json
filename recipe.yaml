@@ -1,5 +1,26 @@
 # rattler-build recipe for json
-# This builds the json package as a .mojopkg for distribution
+# Distributes json as its *source* tree under $PREFIX/lib/mojo/ rather than
+# as a pre-compiled .mojopkg artifact — same shape as ehsanmok/sqlite.
+# Consumers' Mojo resolves ``from json import ...`` directly from these
+# source files at their own compile time.
+#
+# Why source-level distribution rather than ``mojo package``:
+#   1. A ``.mojopkg`` produced by ``mojo package`` embeds the exact
+#      compiler version it was built with and refuses to load against any
+#      other version (``Mojo package is incompatible: package version X is
+#      newer/older than compiler version Y``). That tightly couples the
+#      published .conda artifact to a specific Mojo nightly, so even a
+#      benign Mojo bump on the consumer side invalidates the artifact
+#      overnight.
+#   2. ``mojo package`` also adds an extra Mojo run during the recipe
+#      build, which a stale build cache or a pre-release Mojo nightly can
+#      break in ways unrelated to json's own source.
+# Source distribution sidesteps both: the .conda has zero ABI-locked
+# binary content from Mojo, only the source files plus the simdjson FFI
+# shared object. The ``run: mojo == ...`` pin in the requirements still
+# tells solvers which compiler to install — the difference is the lock
+# now lives where it's easy to update (a one-line bump in this recipe),
+# not embedded in a binary blob.
 
 context:
   name: json
@@ -14,21 +35,27 @@ source:
 
 build:
   script:
-    - mojo --version
-    # Build the simdjson FFI wrapper
+    - mkdir -p $PREFIX/lib/mojo
+    # ── Source tree (consumed via Mojo's import path) ────────────────────
+    # Mojo discovers this the same way it discovers .mojopkg files in
+    # that directory; no ``mojo package`` step required.
+    - cp -r json $PREFIX/lib/mojo/
+    # ── simdjson FFI wrapper (loaded at runtime by json) ─────────────────
     - mkdir -p $PREFIX/lib
-    - $CXX -O3 -std=c++17 -fPIC -DNDEBUG -shared -o $PREFIX/lib/libsimdjson_wrapper.so json/cpu/simdjson_ffi/simdjson_wrapper.cpp -I$PREFIX/include -L$PREFIX/lib -lsimdjson
-    # Build the Mojo package
-    - mojo package json -o $PREFIX/lib/mojo/json.mojopkg
+    - $CXX -O3 -std=c++17 -fPIC -DNDEBUG -shared
+        -o $PREFIX/lib/libsimdjson_wrapper.so
+        json/cpu/simdjson_ffi/simdjson_wrapper.cpp
+        -I$PREFIX/include
+        -L$PREFIX/lib
+        -lsimdjson
 
 requirements:
   build:
-    - mojo-compiler
     - ${{ compiler('cxx') }}
   host:
-    - mojo-compiler
     - simdjson >=4.2.4,<5
   run:
+    - mojo ==0.26.3.0.dev2026042005
     - simdjson >=4.2.4,<5
 
 about:
