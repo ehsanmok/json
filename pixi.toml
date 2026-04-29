@@ -24,7 +24,7 @@ scripts = ["json/cpu/simdjson_ffi/build.sh"]
 # examples, `mojo build`-ing benchmark binaries). The activation hook below
 # compiles the simdjson FFI wrapper on every env activation, so a C++ compiler
 # has to be available here, not gated behind a dev feature.
-mojo = "==0.26.3.0.dev2026042005"
+mojo = "==1.0.0b1.dev2026042717"
 simdjson = ">=4.2.4,<5"
 
 [target.linux-64.dependencies]
