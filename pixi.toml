@@ -11,7 +11,13 @@ name = "json"
 version = "0.2.0"
 
 [package.build]
-backend = { name = "pixi-build-rattler-build", version = "*" }
+# Pin below the 0.4 series: pixi-build-rattler-build 0.4.0 negotiates build
+# API version 4, which serializes compiler specs (e.g. `${{ compiler('cxx')
+# }}` -> gxx_linux-64) as bare strings that pixi <=0.70.2 rejects with
+# "invalid type: string, expected struct MatchSpec". 0.3.13 is the newest
+# backend that speaks the API version this toolchain understands. Floating
+# this with "*" silently breaks fresh builds (CI) the moment 0.4.x ships.
+backend = { name = "pixi-build-rattler-build", version = "==0.3.13" }
 
 # Binary dependencies are specified in recipe.yaml for rattler-build backend
 
