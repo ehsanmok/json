@@ -163,8 +163,7 @@ def _skip_ws(bytes: Span[UInt8, _], start: Int, end: Int) -> Int:
 
         # pack_bits' output dtype must hold _BLOCK bits. Comptime
         # branch picks the right width with no runtime cost.
-        @parameter
-        if _BLOCK == 16:
+        comptime if _BLOCK == 16:
             var ws_bits = pack_bits[dtype=DType.uint16](is_ws_mask)
             if ws_bits != UInt16(0xFFFF):
                 var first_non_ws = Int(count_trailing_zeros(~ws_bits))
@@ -304,13 +303,13 @@ struct _Frame(Copyable, Movable):
     var headers_lo: Int  # checkpoint into headers_scratch
 
     @always_inline
-    fn __init__(out self, kind: UInt8, headers_lo: Int):
+    def __init__(out self, kind: UInt8, headers_lo: Int):
         self.kind = kind
         self.headers_lo = headers_lo
 
 
-alias _FRAME_ARRAY: UInt8 = 0
-alias _FRAME_OBJECT: UInt8 = 1
+comptime _FRAME_ARRAY: UInt8 = 0
+comptime _FRAME_OBJECT: UInt8 = 1
 
 
 def parse_into_document(
