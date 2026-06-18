@@ -24,7 +24,7 @@ from std.time import perf_counter_ns
 from json import loads
 from json.gpu import parse_json_gpu
 from json.types import JSONInput
-from pathlib import Path
+from std.pathlib import Path
 
 
 def _bench_file(path_str: String) raises:

@@ -151,7 +151,7 @@ def _compute_block_prefix_sums(
         var d_dummy = ctx.enqueue_create_buffer[DType.uint32](1)
         d_dummy.enqueue_fill(0)
 
-        ctx.enqueue_function_unchecked[prefix_sum_kernel](
+        ctx.enqueue_function[prefix_sum_kernel](
             d_block_totals_ptr,
             d_block_prefix_ptr,
             d_dummy.unsafe_ptr(),
@@ -170,7 +170,7 @@ def _compute_block_prefix_sums(
     )
     d_block_totals_l1.enqueue_fill(0)
 
-    ctx.enqueue_function_unchecked[prefix_sum_kernel](
+    ctx.enqueue_function[prefix_sum_kernel](
         d_block_totals_ptr,
         d_block_prefix_ptr,
         d_block_totals_l1.unsafe_ptr(),
@@ -193,7 +193,7 @@ def _compute_block_prefix_sums(
     )
 
     # Propagate offsets back down
-    ctx.enqueue_function_unchecked[add_block_offsets_kernel](
+    ctx.enqueue_function[add_block_offsets_kernel](
         d_block_prefix_ptr,
         d_block_prefix_l1.unsafe_ptr(),
         UInt(num_blocks),
@@ -220,7 +220,7 @@ def extract_positions_gpu_lean(
     var num_blocks = ceildiv(num_words, BLOCK_SIZE_OPT)
 
     var d_popcounts = ctx.enqueue_create_buffer[DType.uint32](num_words)
-    ctx.enqueue_function_unchecked[popcount_kernel](
+    ctx.enqueue_function[popcount_kernel](
         d_bitmap_ptr,
         d_popcounts.unsafe_ptr(),
         UInt(num_words),
@@ -232,7 +232,7 @@ def extract_positions_gpu_lean(
     var d_block_totals = ctx.enqueue_create_buffer[DType.uint32](num_blocks)
     d_block_totals.enqueue_fill(0)
 
-    ctx.enqueue_function_unchecked[prefix_sum_kernel](
+    ctx.enqueue_function[prefix_sum_kernel](
         d_popcounts.unsafe_ptr(),
         d_prefix.unsafe_ptr(),
         d_block_totals.unsafe_ptr(),
@@ -261,7 +261,7 @@ def extract_positions_gpu_lean(
             num_blocks,
         )
 
-        ctx.enqueue_function_unchecked[add_block_offsets_kernel](
+        ctx.enqueue_function[add_block_offsets_kernel](
             d_prefix.unsafe_ptr(),
             d_block_prefix.unsafe_ptr(),
             UInt(num_words),
@@ -289,7 +289,7 @@ def extract_positions_gpu_lean(
     var d_positions = ctx.enqueue_create_buffer[DType.int32](total_count)
     d_positions.enqueue_fill(0)
 
-    ctx.enqueue_function_unchecked[scatter_positions_lean_kernel](
+    ctx.enqueue_function[scatter_positions_lean_kernel](
         d_bitmap_ptr,
         d_prefix.unsafe_ptr(),
         d_positions.unsafe_ptr(),

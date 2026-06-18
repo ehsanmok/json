@@ -46,38 +46,38 @@ from .deserialize import get_string, get_int, get_bool, get_float
 # Compile-time type name constants
 # ---------------------------------------------------------------------------
 
-comptime _INT_NAME = reflect[Int]().name()
-comptime _INT64_NAME = reflect[Int64]().name()
-comptime _BOOL_NAME = reflect[Bool]().name()
-comptime _STRING_NAME = reflect[String]().name()
-comptime _FLOAT64_NAME = reflect[Float64]().name()
-comptime _FLOAT32_NAME = reflect[Float32]().name()
-comptime _VALUE_NAME = reflect[Value]().name()
+comptime _INT_NAME = reflect[Int].name()
+comptime _INT64_NAME = reflect[Int64].name()
+comptime _BOOL_NAME = reflect[Bool].name()
+comptime _STRING_NAME = reflect[String].name()
+comptime _FLOAT64_NAME = reflect[Float64].name()
+comptime _FLOAT32_NAME = reflect[Float32].name()
+comptime _VALUE_NAME = reflect[Value].name()
 
-comptime _OPT_INT_NAME = reflect[Optional[Int]]().name()
-comptime _OPT_STRING_NAME = reflect[Optional[String]]().name()
-comptime _OPT_FLOAT64_NAME = reflect[Optional[Float64]]().name()
-comptime _OPT_BOOL_NAME = reflect[Optional[Bool]]().name()
+comptime _OPT_INT_NAME = reflect[Optional[Int]].name()
+comptime _OPT_STRING_NAME = reflect[Optional[String]].name()
+comptime _OPT_FLOAT64_NAME = reflect[Optional[Float64]].name()
+comptime _OPT_BOOL_NAME = reflect[Optional[Bool]].name()
 
-comptime _LIST_INT_NAME = reflect[List[Int]]().name()
-comptime _LIST_STRING_NAME = reflect[List[String]]().name()
-comptime _LIST_FLOAT64_NAME = reflect[List[Float64]]().name()
-comptime _LIST_BOOL_NAME = reflect[List[Bool]]().name()
+comptime _LIST_INT_NAME = reflect[List[Int]].name()
+comptime _LIST_STRING_NAME = reflect[List[String]].name()
+comptime _LIST_FLOAT64_NAME = reflect[List[Float64]].name()
+comptime _LIST_BOOL_NAME = reflect[List[Bool]].name()
 
 # Composite reflected types: Dict[String, T], nested Lists, Optional<->List combos.
-comptime _DICT_STRING_INT_NAME = reflect[Dict[String, Int]]().name()
-comptime _DICT_STRING_STRING_NAME = reflect[Dict[String, String]]().name()
-comptime _DICT_STRING_FLOAT64_NAME = reflect[Dict[String, Float64]]().name()
-comptime _DICT_STRING_BOOL_NAME = reflect[Dict[String, Bool]]().name()
+comptime _DICT_STRING_INT_NAME = reflect[Dict[String, Int]].name()
+comptime _DICT_STRING_STRING_NAME = reflect[Dict[String, String]].name()
+comptime _DICT_STRING_FLOAT64_NAME = reflect[Dict[String, Float64]].name()
+comptime _DICT_STRING_BOOL_NAME = reflect[Dict[String, Bool]].name()
 
-comptime _LIST_OPT_INT_NAME = reflect[List[Optional[Int]]]().name()
-comptime _LIST_OPT_STRING_NAME = reflect[List[Optional[String]]]().name()
+comptime _LIST_OPT_INT_NAME = reflect[List[Optional[Int]]].name()
+comptime _LIST_OPT_STRING_NAME = reflect[List[Optional[String]]].name()
 
-comptime _OPT_LIST_INT_NAME = reflect[Optional[List[Int]]]().name()
-comptime _OPT_LIST_STRING_NAME = reflect[Optional[List[String]]]().name()
+comptime _OPT_LIST_INT_NAME = reflect[Optional[List[Int]]].name()
+comptime _OPT_LIST_STRING_NAME = reflect[Optional[List[String]]].name()
 
-comptime _LIST_LIST_INT_NAME = reflect[List[List[Int]]]().name()
-comptime _LIST_LIST_STRING_NAME = reflect[List[List[String]]]().name()
+comptime _LIST_LIST_INT_NAME = reflect[List[List[Int]]].name()
+comptime _LIST_LIST_STRING_NAME = reflect[List[List[String]]].name()
 
 comptime _Base = ImplicitlyDestructible & Movable
 comptime _JsonStruct = Defaultable & Movable & ImplicitlyDestructible
@@ -271,7 +271,7 @@ def try_deserialize_json[
 
 def _ser[T: AnyType](value: T) raises -> String:
     """Dispatch serialization by compile-time type."""
-    comptime tname = reflect[T]().name()
+    comptime tname = reflect[T].name()
 
     comptime if tname == _STRING_NAME:
         return _escape_string(rebind[String](value))
@@ -324,7 +324,7 @@ def _ser[T: AnyType](value: T) raises -> String:
         return _ser_list_list_int(rebind[List[List[Int]]](value))
     elif tname == _LIST_LIST_STRING_NAME:
         return _ser_list_list_string(rebind[List[List[String]]](value))
-    elif reflect[T]().is_struct():
+    elif reflect[T].is_struct():
         comptime if conforms_to(T, JsonSerializable):
             ref custom = trait_downcast[JsonSerializable](value)
             var val = custom.to_json_value()
@@ -337,9 +337,9 @@ def _ser[T: AnyType](value: T) raises -> String:
 
 def _ser_struct[T: AnyType](value: T) raises -> String:
     """Serialize a struct as ``{"field":value, ...}``."""
-    comptime field_count = reflect[T]().field_count()
-    comptime field_names = reflect[T]().field_names()
-    comptime field_types = reflect[T]().field_types()
+    comptime field_count = reflect[T].field_count()
+    comptime field_names = reflect[T].field_names()
+    comptime field_types = reflect[T].field_types()
 
     if field_count == 0:
         return "{}"
@@ -357,7 +357,7 @@ def _ser_struct[T: AnyType](value: T) raises -> String:
 
         out += '"' + String(field_name) + '":'
 
-        ref field = reflect[T]().field_ref[idx](value)
+        ref field = reflect[T].field_ref[idx](value)
         out += _ser[field_type](rebind[field_type](field))
 
     out += "}"
@@ -584,17 +584,17 @@ def _deser_fill[T: AnyType](mut result: T, json: Value) raises:
     values into reflected struct fields. The struct must already be
     default-initialized; old field values are destroyed before writing.
     """
-    comptime field_count = reflect[T]().field_count()
-    comptime field_names = reflect[T]().field_names()
-    comptime field_types = reflect[T]().field_types()
+    comptime field_count = reflect[T].field_count()
+    comptime field_names = reflect[T].field_names()
+    comptime field_types = reflect[T].field_types()
 
     comptime for idx in range(field_count):
         comptime field_name = field_names[idx]
         comptime field_type = field_types[idx]
-        comptime field_type_name = reflect[field_type]().name()
+        comptime field_type_name = reflect[field_type].name()
         var key = String(field_name)
 
-        ref field = trait_downcast[_Base](reflect[T]().field_ref[idx](result))
+        ref field = trait_downcast[_Base](reflect[T].field_ref[idx](result))
         var ptr = UnsafePointer(to=field)
 
         comptime if field_type_name == _STRING_NAME:
@@ -720,7 +720,7 @@ def _deser_fill[T: AnyType](mut result: T, json: Value) raises:
                 _deser_list_list_string(json, key)
             )
         # ----- Nested struct (fill existing default in-place) -----
-        elif reflect[field_type]().is_struct():
+        elif reflect[field_type].is_struct():
             var raw = json.get(key)
             var sub_json = loads(raw)
             if not sub_json.is_object():

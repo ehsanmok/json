@@ -159,7 +159,7 @@ def _parse_lean(
         var t_h2d = perf_counter_ns()
         print("    H2D + alloc:", Float64(t_h2d - t0) / 1e6, "ms")
 
-    ctx.enqueue_function_unchecked[fused_json_kernel](
+    ctx.enqueue_function[fused_json_kernel](
         d_input.unsafe_ptr(),
         d_structural.unsafe_ptr(),
         d_open_close.unsafe_ptr(),

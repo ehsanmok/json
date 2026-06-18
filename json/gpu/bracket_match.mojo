@@ -212,7 +212,7 @@ def _exclusive_scan_block_totals(
         var d_dummy = ctx.enqueue_create_buffer[DType.int32](1)
         d_dummy.enqueue_fill(0)
 
-        ctx.enqueue_function_unchecked[depth_prefix_sum_kernel](
+        ctx.enqueue_function[depth_prefix_sum_kernel](
             d_block_totals,
             d_block_offsets,
             d_dummy.unsafe_ptr(),
@@ -229,7 +229,7 @@ def _exclusive_scan_block_totals(
     )
     d_block_totals_l1.enqueue_fill(0)
 
-    ctx.enqueue_function_unchecked[depth_prefix_sum_kernel](
+    ctx.enqueue_function[depth_prefix_sum_kernel](
         d_block_totals,
         d_block_offsets,
         d_block_totals_l1.unsafe_ptr(),
@@ -250,7 +250,7 @@ def _exclusive_scan_block_totals(
         num_blocks_l1,
     )
 
-    ctx.enqueue_function_unchecked[_shift_in_place_kernel](
+    ctx.enqueue_function[_shift_in_place_kernel](
         d_block_offsets,
         d_block_offsets_l1.unsafe_ptr(),
         UInt(num_blocks),
@@ -280,7 +280,7 @@ def match_brackets_gpu(
     var d_depth_deltas = ctx.enqueue_create_buffer[DType.int32](n)
     d_depth_deltas.enqueue_fill(0)
 
-    ctx.enqueue_function_unchecked[compute_depth_delta_kernel](
+    ctx.enqueue_function[compute_depth_delta_kernel](
         d_char_types,
         d_depth_deltas.unsafe_ptr(),
         UInt(n),
@@ -295,7 +295,7 @@ def match_brackets_gpu(
     var d_block_totals = ctx.enqueue_create_buffer[DType.int32](num_blocks)
     d_block_totals.enqueue_fill(0)
 
-    ctx.enqueue_function_unchecked[depth_prefix_sum_kernel](
+    ctx.enqueue_function[depth_prefix_sum_kernel](
         d_depth_deltas.unsafe_ptr(),
         d_depth_excl.unsafe_ptr(),
         d_block_totals.unsafe_ptr(),
@@ -313,7 +313,7 @@ def match_brackets_gpu(
     if num_blocks == 1:
         # One CTA: block-local exclusive IS global exclusive; the delta
         # step below turns it into a global inclusive scan.
-        ctx.enqueue_function_unchecked[add_depth_offsets_kernel](
+        ctx.enqueue_function[add_depth_offsets_kernel](
             d_depth_excl.unsafe_ptr(),
             d_block_totals.unsafe_ptr(),  # unused but need a valid pointer
             d_depth_deltas.unsafe_ptr(),
@@ -333,7 +333,7 @@ def match_brackets_gpu(
             num_blocks,
         )
 
-        ctx.enqueue_function_unchecked[add_depth_offsets_kernel](
+        ctx.enqueue_function[add_depth_offsets_kernel](
             d_depth_excl.unsafe_ptr(),
             d_block_offsets.unsafe_ptr(),
             d_depth_deltas.unsafe_ptr(),
@@ -344,7 +344,7 @@ def match_brackets_gpu(
         )
 
     # Phase 3: Adjust opening bracket depths so they match their close's.
-    ctx.enqueue_function_unchecked[adjust_open_depths_kernel](
+    ctx.enqueue_function[adjust_open_depths_kernel](
         d_char_types,
         d_depths.unsafe_ptr(),
         UInt(n),
