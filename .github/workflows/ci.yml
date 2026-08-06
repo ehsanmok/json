@@ -32,6 +32,13 @@ jobs:
       - name: Setup Pixi
         uses: prefix-dev/setup-pixi@v0.9.4
         with:
+          # Pin pixi: unpinned "latest" now ships a build-api-version >=5
+          # that drops pixi-build-rattler-build 0.3.13 (the backend this
+          # repo and its mojodoc/mozz git dependencies pin in
+          # [package.build]), breaking source-package resolution with "no
+          # candidates were found". v0.70.2 is the newest pixi compatible
+          # with 0.3.13.
+          pixi-version: v0.70.2
           cache: false
           post-cleanup: false
 
