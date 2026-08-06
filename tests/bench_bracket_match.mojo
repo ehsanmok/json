@@ -1,7 +1,7 @@
 # Benchmark: GPU vs CPU bracket matching
 
 from std.time import perf_counter_ns
-from std.gpu.host import DeviceContext
+from max.gpu.host import DeviceContext
 from std.collections import List
 from std.memory import memcpy
 

@@ -1,7 +1,7 @@
 # Tests for GPU bracket matching
 
 from std.testing import assert_equal, assert_true
-from std.gpu.host import DeviceContext
+from max.gpu.host import DeviceContext
 from std.collections import List
 from std.memory import memcpy
 

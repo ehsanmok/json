@@ -55,7 +55,8 @@ requirements:
   host:
     - simdjson >=4.2.4,<5
   run:
-    - mojo ==1.0.0b2
+    - mojo ==1.0.0rc0
+    - max ==26.5.0rc0
     - simdjson >=4.2.4,<5
 
 about:

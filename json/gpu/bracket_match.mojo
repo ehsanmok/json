@@ -6,10 +6,11 @@
 # 3. For opening brackets: depth -= 1 (to match closing bracket's depth)
 # 4. Within each depth, pair opening with next closing
 
-from std.gpu.host import DeviceContext, DeviceBuffer, HostBuffer
-from std.gpu import block_dim, block_idx, thread_idx, barrier
+from max.gpu.host import DeviceContext, DeviceBuffer, HostBuffer
+from max.gpu import barrier
+from max.gpu.primitives import block
+from std.gpu import block_dim, block_idx, thread_idx
 from std.gpu.globals import MAX_THREADS_PER_BLOCK_METADATA
-from std.gpu.primitives import block
 from std.collections import List
 from std.memory import UnsafePointer, memcpy
 from std.math import ceildiv

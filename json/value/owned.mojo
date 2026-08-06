@@ -39,7 +39,7 @@ from ..unicode import unescape_json_string, unescape_json_string_span
 # ---------------------------------------------------------------------------
 
 
-struct OwnedValue(Copyable, Movable):
+struct OwnedValue(Copyable, Deinitable, Movable):
     """Structured tree representation of a JSON value.
 
     Unlike `Value`, an `OwnedValue` for an array stores its children in
@@ -67,6 +67,12 @@ struct OwnedValue(Copyable, Movable):
         self.array_val = List[OwnedValue]()
         self.object_keys = List[String]()
         self.object_values = List[OwnedValue]()
+
+    def __deinit__(deinit self):
+        # Explicit (no-op) deinit breaks the self-referential
+        # `List[OwnedValue]` field's `Deinitable` completeness check;
+        # fields are still destroyed automatically after this runs.
+        pass
 
     def copy(self) -> Self:
         var out = Self()

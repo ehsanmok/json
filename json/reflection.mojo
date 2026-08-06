@@ -79,8 +79,8 @@ comptime _OPT_LIST_STRING_NAME = reflect[Optional[List[String]]].name()
 comptime _LIST_LIST_INT_NAME = reflect[List[List[Int]]].name()
 comptime _LIST_LIST_STRING_NAME = reflect[List[List[String]]].name()
 
-comptime _Base = ImplicitlyDestructible & Movable
-comptime _JsonStruct = Defaultable & Movable & ImplicitlyDestructible
+comptime _Base = Deinitable & Movable
+comptime _JsonStruct = Defaultable & Movable & Deinitable
 
 
 # ===================================================================
@@ -598,125 +598,117 @@ def _deser_fill[T: AnyType](mut result: T, json: Value) raises:
         var ptr = UnsafePointer(to=field)
 
         comptime if field_type_name == _STRING_NAME:
-            ptr.destroy_pointee()
-            ptr.bitcast[String]().init_pointee_move(get_string(json, key))
+            ptr.unsafe_deinit_pointee()
+            ptr.bitcast[String]().unsafe_write(get_string(json, key))
         elif field_type_name == _INT_NAME:
-            ptr.destroy_pointee()
-            ptr.bitcast[Int]().init_pointee_move(get_int(json, key))
+            ptr.unsafe_deinit_pointee()
+            ptr.bitcast[Int]().unsafe_write(get_int(json, key))
         elif field_type_name == _INT64_NAME:
-            ptr.destroy_pointee()
+            ptr.unsafe_deinit_pointee()
             var raw = json.get(key)
             var parsed = loads(raw)
             if not parsed.is_int():
                 raise _field_type_error(key, "Int64", parsed)
-            ptr.bitcast[Int64]().init_pointee_move(parsed.int_value())
+            ptr.bitcast[Int64]().unsafe_write(parsed.int_value())
         elif field_type_name == _BOOL_NAME:
-            ptr.destroy_pointee()
-            ptr.bitcast[Bool]().init_pointee_move(get_bool(json, key))
+            ptr.unsafe_deinit_pointee()
+            ptr.bitcast[Bool]().unsafe_write(get_bool(json, key))
         elif field_type_name == _FLOAT64_NAME or "SIMD[DType.float64" in field_type_name:
-            ptr.destroy_pointee()
-            ptr.bitcast[Float64]().init_pointee_move(get_float(json, key))
+            ptr.unsafe_deinit_pointee()
+            ptr.bitcast[Float64]().unsafe_write(get_float(json, key))
         elif field_type_name == _FLOAT32_NAME or "SIMD[DType.float32" in field_type_name:
-            ptr.destroy_pointee()
-            ptr.bitcast[Float32]().init_pointee_move(
-                Float32(get_float(json, key))
-            )
+            ptr.unsafe_deinit_pointee()
+            ptr.bitcast[Float32]().unsafe_write(Float32(get_float(json, key)))
         elif field_type_name == _VALUE_NAME:
-            ptr.destroy_pointee()
+            ptr.unsafe_deinit_pointee()
             var raw = json.get(key)
             var v = loads(raw)
-            ptr.bitcast[Value]().init_pointee_move(v^)
+            ptr.bitcast[Value]().unsafe_write(v^)
         # ----- Optional scalars -----
         elif field_type_name == _OPT_INT_NAME:
-            ptr.destroy_pointee()
-            ptr.bitcast[Optional[Int]]().init_pointee_move(
-                _deser_opt_int(json, key)
-            )
+            ptr.unsafe_deinit_pointee()
+            ptr.bitcast[Optional[Int]]().unsafe_write(_deser_opt_int(json, key))
         elif field_type_name == _OPT_STRING_NAME:
-            ptr.destroy_pointee()
-            ptr.bitcast[Optional[String]]().init_pointee_move(
+            ptr.unsafe_deinit_pointee()
+            ptr.bitcast[Optional[String]]().unsafe_write(
                 _deser_opt_string(json, key)
             )
         elif field_type_name == _OPT_FLOAT64_NAME:
-            ptr.destroy_pointee()
-            ptr.bitcast[Optional[Float64]]().init_pointee_move(
+            ptr.unsafe_deinit_pointee()
+            ptr.bitcast[Optional[Float64]]().unsafe_write(
                 _deser_opt_float64(json, key)
             )
         elif field_type_name == _OPT_BOOL_NAME:
-            ptr.destroy_pointee()
-            ptr.bitcast[Optional[Bool]]().init_pointee_move(
+            ptr.unsafe_deinit_pointee()
+            ptr.bitcast[Optional[Bool]]().unsafe_write(
                 _deser_opt_bool(json, key)
             )
         # ----- List scalars -----
         elif field_type_name == _LIST_INT_NAME:
-            ptr.destroy_pointee()
-            ptr.bitcast[List[Int]]().init_pointee_move(
-                _deser_list_int(json, key)
-            )
+            ptr.unsafe_deinit_pointee()
+            ptr.bitcast[List[Int]]().unsafe_write(_deser_list_int(json, key))
         elif field_type_name == _LIST_STRING_NAME:
-            ptr.destroy_pointee()
-            ptr.bitcast[List[String]]().init_pointee_move(
+            ptr.unsafe_deinit_pointee()
+            ptr.bitcast[List[String]]().unsafe_write(
                 _deser_list_string(json, key)
             )
         elif field_type_name == _LIST_FLOAT64_NAME:
-            ptr.destroy_pointee()
-            ptr.bitcast[List[Float64]]().init_pointee_move(
+            ptr.unsafe_deinit_pointee()
+            ptr.bitcast[List[Float64]]().unsafe_write(
                 _deser_list_float64(json, key)
             )
         elif field_type_name == _LIST_BOOL_NAME:
-            ptr.destroy_pointee()
-            ptr.bitcast[List[Bool]]().init_pointee_move(
-                _deser_list_bool(json, key)
-            )
+            ptr.unsafe_deinit_pointee()
+            ptr.bitcast[List[Bool]]().unsafe_write(_deser_list_bool(json, key))
         # ----- Combinator types: Dict, nested List, Optional<->List combos. -----
         elif field_type_name == _DICT_STRING_INT_NAME:
-            ptr.destroy_pointee()
-            ptr.bitcast[Dict[String, Int]]().init_pointee_move(
+            ptr.unsafe_deinit_pointee()
+            ptr.bitcast[Dict[String, Int]]().unsafe_write(
                 _deser_dict_string_int(json, key)
             )
         elif field_type_name == _DICT_STRING_STRING_NAME:
-            ptr.destroy_pointee()
-            ptr.bitcast[Dict[String, String]]().init_pointee_move(
+            ptr.unsafe_deinit_pointee()
+            ptr.bitcast[Dict[String, String]]().unsafe_write(
                 _deser_dict_string_string(json, key)
             )
         elif field_type_name == _DICT_STRING_FLOAT64_NAME:
-            ptr.destroy_pointee()
-            ptr.bitcast[Dict[String, Float64]]().init_pointee_move(
+            ptr.unsafe_deinit_pointee()
+            ptr.bitcast[Dict[String, Float64]]().unsafe_write(
                 _deser_dict_string_float64(json, key)
             )
         elif field_type_name == _DICT_STRING_BOOL_NAME:
-            ptr.destroy_pointee()
-            ptr.bitcast[Dict[String, Bool]]().init_pointee_move(
+            ptr.unsafe_deinit_pointee()
+            ptr.bitcast[Dict[String, Bool]]().unsafe_write(
                 _deser_dict_string_bool(json, key)
             )
         elif field_type_name == _LIST_OPT_INT_NAME:
-            ptr.destroy_pointee()
-            ptr.bitcast[List[Optional[Int]]]().init_pointee_move(
+            ptr.unsafe_deinit_pointee()
+            ptr.bitcast[List[Optional[Int]]]().unsafe_write(
                 _deser_list_opt_int(json, key)
             )
         elif field_type_name == _LIST_OPT_STRING_NAME:
-            ptr.destroy_pointee()
-            ptr.bitcast[List[Optional[String]]]().init_pointee_move(
+            ptr.unsafe_deinit_pointee()
+            ptr.bitcast[List[Optional[String]]]().unsafe_write(
                 _deser_list_opt_string(json, key)
             )
         elif field_type_name == _OPT_LIST_INT_NAME:
-            ptr.destroy_pointee()
-            ptr.bitcast[Optional[List[Int]]]().init_pointee_move(
+            ptr.unsafe_deinit_pointee()
+            ptr.bitcast[Optional[List[Int]]]().unsafe_write(
                 _deser_opt_list_int(json, key)
             )
         elif field_type_name == _OPT_LIST_STRING_NAME:
-            ptr.destroy_pointee()
-            ptr.bitcast[Optional[List[String]]]().init_pointee_move(
+            ptr.unsafe_deinit_pointee()
+            ptr.bitcast[Optional[List[String]]]().unsafe_write(
                 _deser_opt_list_string(json, key)
             )
         elif field_type_name == _LIST_LIST_INT_NAME:
-            ptr.destroy_pointee()
-            ptr.bitcast[List[List[Int]]]().init_pointee_move(
+            ptr.unsafe_deinit_pointee()
+            ptr.bitcast[List[List[Int]]]().unsafe_write(
                 _deser_list_list_int(json, key)
             )
         elif field_type_name == _LIST_LIST_STRING_NAME:
-            ptr.destroy_pointee()
-            ptr.bitcast[List[List[String]]]().init_pointee_move(
+            ptr.unsafe_deinit_pointee()
+            ptr.bitcast[List[List[String]]]().unsafe_write(
                 _deser_list_list_string(json, key)
             )
         # ----- Nested struct (fill existing default in-place) -----
@@ -1159,4 +1151,3 @@ def _field_type_error(field: String, expected: String, got: Value) -> Error:
         + ", got "
         + _type_label(got)
     )
-

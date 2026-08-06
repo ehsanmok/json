@@ -63,7 +63,7 @@ def target(data: List[UInt8]) raises:
         # raw_json must be a non-empty UTF-8 byte sequence for any
         # successful parse.
         var raw = v.raw_json()
-        if len(raw) == 0:
+        if raw.byte_length() == 0:
             raise Error("raw_json on parsed Value returned empty")
 
         # COW property: re-dumping the value must round-trip.

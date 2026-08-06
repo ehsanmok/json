@@ -530,8 +530,8 @@ def parse_into_document(
                     raise Error("Stage 2: unterminated object")
 
             var b = bytes2[j]
-            var matching_close = (
-                UInt8(ord("]")) if is_array else UInt8(ord("}"))
+            var matching_close = UInt8(ord("]")) if is_array else UInt8(
+                ord("}")
             )
 
             if b == matching_close:
@@ -619,8 +619,7 @@ def parse_into_document(
                     )
             if is_array and nb == UInt8(ord(",")):
                 raise Error(
-                    "Stage 2: empty element between commas in array at"
-                    " offset "
+                    "Stage 2: empty element between commas in array at offset "
                     + String(next_cursor)
                 )
 
@@ -679,9 +678,7 @@ def _parse_object_key(
     `tests/test_stage2_tape.mojo` stays green."""
     var bytes = doc.input.as_bytes()
     if bytes[cursor] != UInt8(ord('"')):
-        raise Error(
-            "Stage 2: expected string key at offset " + String(cursor)
-        )
+        raise Error("Stage 2: expected string key at offset " + String(cursor))
 
     if pos_idx + 1 >= len(positions) or Int(positions[pos_idx]) != cursor:
         raise Error("Stage 2: cursor desync at object key")

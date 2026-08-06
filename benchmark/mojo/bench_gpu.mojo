@@ -20,7 +20,8 @@ from std.collections import List
 
 from json import loads
 from json.gpu import parse_json_gpu_from_pinned
-from std.gpu.host import DeviceContext
+from max.gpu.host import DeviceContext
+from max.benchmark import bencher_iter_custom
 
 
 def main() raises:
@@ -147,13 +148,13 @@ def main() raises:
     def bench_pinned_device(mut b: Bencher) raises capturing:
         @parameter
         @always_inline
-        def launch(launch_ctx: DeviceContext) raises:
+        def launch(launch_ctx: DeviceContext) raises capturing:
             var result = parse_json_gpu_from_pinned(
                 launch_ctx, h_input, n, verbose=verbose
             )
             _ = len(result.structural)
 
-        b.iter_custom[launch](ctx)
+        bencher_iter_custom[launch](b, ctx)
 
     bench.bench_function[bench_pinned_device](
         BenchId("json_gpu", "parse_json_gpu_from_pinned (device-only)"),

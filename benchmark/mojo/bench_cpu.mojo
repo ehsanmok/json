@@ -143,13 +143,13 @@ def _make_pool(json_str: String, n: Int) raises -> List[String]:
 
 
 def _percentiles(
-    times_ns: List[UInt],
+    times_ns: List[Int],
 ) raises -> Tuple[Float64, Float64, Float64]:
     """Return (min, avg, max) milliseconds from a list of nanosecond
     durations."""
     var min_ns = times_ns[0]
     var max_ns = times_ns[0]
-    var sum_ns: UInt = 0
+    var sum_ns: Int = 0
     for t in times_ns:
         if t < min_ns:
             min_ns = t
@@ -207,7 +207,7 @@ def _bench_parse_only[
         _ = v.is_object()
 
     var pool = _make_pool(json_str, num_iters)
-    var times = List[UInt](capacity=num_iters)
+    var times = List[Int](capacity=num_iters)
     for i in range(num_iters):
         var t0 = perf_counter_ns()
         var v = parse_cpu_native_tape[force_scalar=force_scalar](pool[i].copy())
@@ -238,7 +238,7 @@ def _bench_parse_traverse[
         _ = _walk(v)
 
     var pool = _make_pool(json_str, num_iters)
-    var times = List[UInt](capacity=num_iters)
+    var times = List[Int](capacity=num_iters)
     for i in range(num_iters):
         var t0 = perf_counter_ns()
         var v = parse_cpu_native_tape[force_scalar=force_scalar](pool[i].copy())

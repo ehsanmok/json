@@ -1,7 +1,7 @@
 # Tests for GPU kernels - stream compaction (lean variant).
 
 from std.testing import assert_equal, assert_true
-from std.gpu.host import DeviceContext
+from max.gpu.host import DeviceContext
 from std.collections import List
 from std.memory import memcpy
 
@@ -23,7 +23,10 @@ def test_stream_compact_simple() raises:
     ctx.synchronize()
 
     var positions = extract_positions_gpu_lean(
-        ctx, d_bitmap.unsafe_ptr(), num_words, 32
+        ctx,
+        d_bitmap.unsafe_ptr().unsafe_origin_cast[MutAnyOrigin](),
+        num_words,
+        32,
     )
 
     assert_equal(len(positions), 2)
@@ -51,7 +54,10 @@ def test_stream_compact_multiple_words() raises:
     ctx.synchronize()
 
     var positions = extract_positions_gpu_lean(
-        ctx, d_bitmap.unsafe_ptr(), num_words, 100
+        ctx,
+        d_bitmap.unsafe_ptr().unsafe_origin_cast[MutAnyOrigin](),
+        num_words,
+        100,
     )
 
     assert_equal(len(positions), 3)
@@ -80,7 +86,10 @@ def test_stream_compact_empty() raises:
     ctx.synchronize()
 
     var positions = extract_positions_gpu_lean(
-        ctx, d_bitmap.unsafe_ptr(), num_words, 128
+        ctx,
+        d_bitmap.unsafe_ptr().unsafe_origin_cast[MutAnyOrigin](),
+        num_words,
+        128,
     )
 
     assert_equal(len(positions), 0)
@@ -103,7 +112,10 @@ def test_stream_compact_all_set() raises:
     ctx.synchronize()
 
     var positions = extract_positions_gpu_lean(
-        ctx, d_bitmap.unsafe_ptr(), num_words, 32
+        ctx,
+        d_bitmap.unsafe_ptr().unsafe_origin_cast[MutAnyOrigin](),
+        num_words,
+        32,
     )
 
     assert_equal(len(positions), 32)
@@ -135,7 +147,10 @@ def test_stream_compact_large() raises:
     ctx.synchronize()
 
     var positions = extract_positions_gpu_lean(
-        ctx, d_bitmap.unsafe_ptr(), num_words, max_pos
+        ctx,
+        d_bitmap.unsafe_ptr().unsafe_origin_cast[MutAnyOrigin](),
+        num_words,
+        max_pos,
     )
 
     assert_equal(len(positions), 1024)

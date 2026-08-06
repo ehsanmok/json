@@ -70,7 +70,7 @@ comptime _CAT_STRUCT_MASK: UInt8 = 0xEE
 
 @always_inline
 def _classify_chunk[
-    W: Int
+    W: SIMDLength
 ](chunk: SIMD[DType.uint8, W]) -> SIMD[DType.uint8, W]:
     """Two-PSHUFB nibble-lookup marker classifier."""
     comptime _LOW_TABLE = SIMD[DType.uint8, 16](
