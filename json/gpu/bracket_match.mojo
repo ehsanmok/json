@@ -246,8 +246,8 @@ def _exclusive_scan_block_totals(
 
     _exclusive_scan_block_totals(
         ctx,
-        d_block_totals_l1.unsafe_ptr(),
-        d_block_offsets_l1.unsafe_ptr(),
+        d_block_totals_l1.unsafe_ptr().unsafe_origin_cast[MutAnyOrigin](),
+        d_block_offsets_l1.unsafe_ptr().unsafe_origin_cast[MutAnyOrigin](),
         num_blocks_l1,
     )
 
@@ -329,8 +329,8 @@ def match_brackets_gpu(
 
         _exclusive_scan_block_totals(
             ctx,
-            d_block_totals.unsafe_ptr(),
-            d_block_offsets.unsafe_ptr(),
+            d_block_totals.unsafe_ptr().unsafe_origin_cast[MutAnyOrigin](),
+            d_block_offsets.unsafe_ptr().unsafe_origin_cast[MutAnyOrigin](),
             num_blocks,
         )
 

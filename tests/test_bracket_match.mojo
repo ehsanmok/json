@@ -32,7 +32,9 @@ def test_simple_braces() raises:
     ctx.enqueue_copy(d_char_types, h_char_types)
     ctx.synchronize()
 
-    var result = match_brackets_gpu(ctx, d_char_types.unsafe_ptr(), n)
+    var result = match_brackets_gpu(
+        ctx, d_char_types.unsafe_ptr().unsafe_origin_cast[MutAnyOrigin](), n
+    )
     var depths = result[0].copy()
     var pair_pos = result[1].copy().copy()
 
@@ -60,7 +62,9 @@ def test_nested_braces() raises:
     ctx.enqueue_copy(d_char_types, h_char_types)
     ctx.synchronize()
 
-    var result = match_brackets_gpu(ctx, d_char_types.unsafe_ptr(), n)
+    var result = match_brackets_gpu(
+        ctx, d_char_types.unsafe_ptr().unsafe_origin_cast[MutAnyOrigin](), n
+    )
     var depths = result[0].copy()
     var pair_pos = result[1].copy().copy()
 
@@ -98,7 +102,9 @@ def test_mixed_brackets() raises:
     ctx.enqueue_copy(d_char_types, h_char_types)
     ctx.synchronize()
 
-    var result = match_brackets_gpu(ctx, d_char_types.unsafe_ptr(), n)
+    var result = match_brackets_gpu(
+        ctx, d_char_types.unsafe_ptr().unsafe_origin_cast[MutAnyOrigin](), n
+    )
     var pair_pos = result[1].copy()
 
     # { at 0 matches } at 3
@@ -124,7 +130,9 @@ def test_with_other_chars() raises:
     ctx.enqueue_copy(d_char_types, h_char_types)
     ctx.synchronize()
 
-    var result = match_brackets_gpu(ctx, d_char_types.unsafe_ptr(), n)
+    var result = match_brackets_gpu(
+        ctx, d_char_types.unsafe_ptr().unsafe_origin_cast[MutAnyOrigin](), n
+    )
     var pair_pos = result[1].copy()
 
     # { at 0 matches } at 3
@@ -150,7 +158,9 @@ def test_deeply_nested() raises:
     ctx.enqueue_copy(d_char_types, h_char_types)
     ctx.synchronize()
 
-    var result = match_brackets_gpu(ctx, d_char_types.unsafe_ptr(), n)
+    var result = match_brackets_gpu(
+        ctx, d_char_types.unsafe_ptr().unsafe_origin_cast[MutAnyOrigin](), n
+    )
     var depths = result[0].copy()
     var pair_pos = result[1].copy().copy()
 
@@ -189,7 +199,9 @@ def test_sibling_objects() raises:
     ctx.enqueue_copy(d_char_types, h_char_types)
     ctx.synchronize()
 
-    var result = match_brackets_gpu(ctx, d_char_types.unsafe_ptr(), n)
+    var result = match_brackets_gpu(
+        ctx, d_char_types.unsafe_ptr().unsafe_origin_cast[MutAnyOrigin](), n
+    )
     var pair_pos = result[1].copy()
 
     # { at 0 matches } at 1
