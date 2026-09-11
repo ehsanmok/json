@@ -37,8 +37,8 @@ Deserialization requires Defaultable and Movable:
 from std.builtin.rebind import trait_downcast, downcast
 from std.collections import Optional, List, Dict
 
-from .value import Value
-from .writer import JsonWriter, Null
+from .value import Value, Null
+from .writer import JsonWriter
 from .parser import loads
 from .serialize import _escape_string
 from .deserialize import get_string, get_int, get_bool, get_float

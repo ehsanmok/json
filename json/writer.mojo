@@ -493,7 +493,3 @@ struct JsonWriter(Movable):
         if self.pos < len(self.buf):
             self.buf.resize(unsafe_uninit_length=self.pos)
         return String(unsafe_from_utf8=self.buf)
-
-    def as_span(self) -> Span[UInt8, __origin_of(self.buf)]:
-        """The bytes written so far, without finishing."""
-        return self.buf[0 : self.pos]
