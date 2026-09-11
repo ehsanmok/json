@@ -631,8 +631,12 @@ def _get_sized_int(json: Value, key: String, type_name: String) raises -> Int64:
     Factored out of the `Int64` arm so every width shares one code path
     and one error message. Narrower widths convert at the call site; the
     value is not range-checked, matching the existing `Int64` behaviour.
+
+    Reads the child `Value` directly. This used to serialize the child
+    subtree to a raw-JSON `String` and run a full parse over it to
+    recover one integer.
     """
-    var parsed = loads(json.get(key))
+    var parsed = json[key]
     if not parsed.is_int():
         raise _field_type_error(key, type_name, parsed)
     return parsed.int_value()
@@ -715,8 +719,7 @@ def _deser_fill[T: AnyType](mut result: T, json: Value) raises:
             ptr.bitcast[Float32]().unsafe_write(Float32(get_float(json, key)))
         elif field_type_name == _VALUE_NAME:
             ptr.unsafe_deinit_pointee()
-            var raw = json.get(key)
-            var v = loads(raw)
+            var v = json[key]
             ptr.bitcast[Value]().unsafe_write(v^)
         # ----- Optional scalars -----
         elif field_type_name == _OPT_INT_NAME:
@@ -824,8 +827,7 @@ def _deser_fill[T: AnyType](mut result: T, json: Value) raises:
             )
         # ----- Nested struct (fill existing default in-place) -----
         elif reflect[field_type].is_struct():
-            var raw = json.get(key)
-            var sub_json = loads(raw)
+            var sub_json = json[key]
             if not sub_json.is_object():
                 raise _field_type_error(key, "object", sub_json)
             _deser_fill[field_type](ptr.bitcast[field_type]()[], sub_json)
@@ -869,8 +871,7 @@ def _deser_opt_bool(json: Value, key: String) raises -> Optional[Bool]:
 
 
 def _deser_list_int(json: Value, key: String) raises -> List[Int]:
-    var raw = json.get(key)
-    var arr = loads(raw)
+    var arr = json[key]
     if not arr.is_array():
         raise _field_type_error(key, "array", arr)
     var items = arr.array_items()
@@ -890,8 +891,7 @@ def _deser_list_int(json: Value, key: String) raises -> List[Int]:
 
 
 def _deser_list_string(json: Value, key: String) raises -> List[String]:
-    var raw = json.get(key)
-    var arr = loads(raw)
+    var arr = json[key]
     if not arr.is_array():
         raise _field_type_error(key, "array", arr)
     var items = arr.array_items()
@@ -911,8 +911,7 @@ def _deser_list_string(json: Value, key: String) raises -> List[String]:
 
 
 def _deser_list_float64(json: Value, key: String) raises -> List[Float64]:
-    var raw = json.get(key)
-    var arr = loads(raw)
+    var arr = json[key]
     if not arr.is_array():
         raise _field_type_error(key, "array", arr)
     var items = arr.array_items()
@@ -935,8 +934,7 @@ def _deser_list_float64(json: Value, key: String) raises -> List[Float64]:
 
 
 def _deser_list_bool(json: Value, key: String) raises -> List[Bool]:
-    var raw = json.get(key)
-    var arr = loads(raw)
+    var arr = json[key]
     if not arr.is_array():
         raise _field_type_error(key, "array", arr)
     var items = arr.array_items()
@@ -961,8 +959,7 @@ def _deser_list_bool(json: Value, key: String) raises -> List[Bool]:
 def _deser_dict_string_int(
     json: Value, key: String
 ) raises -> Dict[String, Int]:
-    var raw = json.get(key)
-    var obj = loads(raw)
+    var obj = json[key]
     if not obj.is_object():
         raise _field_type_error(key, "object", obj)
     var result = Dict[String, Int]()
@@ -986,8 +983,7 @@ def _deser_dict_string_int(
 def _deser_dict_string_string(
     json: Value, key: String
 ) raises -> Dict[String, String]:
-    var raw = json.get(key)
-    var obj = loads(raw)
+    var obj = json[key]
     if not obj.is_object():
         raise _field_type_error(key, "object", obj)
     var result = Dict[String, String]()
@@ -1011,8 +1007,7 @@ def _deser_dict_string_string(
 def _deser_dict_string_float64(
     json: Value, key: String
 ) raises -> Dict[String, Float64]:
-    var raw = json.get(key)
-    var obj = loads(raw)
+    var obj = json[key]
     if not obj.is_object():
         raise _field_type_error(key, "object", obj)
     var result = Dict[String, Float64]()
@@ -1039,8 +1034,7 @@ def _deser_dict_string_float64(
 def _deser_dict_string_bool(
     json: Value, key: String
 ) raises -> Dict[String, Bool]:
-    var raw = json.get(key)
-    var obj = loads(raw)
+    var obj = json[key]
     if not obj.is_object():
         raise _field_type_error(key, "object", obj)
     var result = Dict[String, Bool]()
@@ -1065,8 +1059,7 @@ def _deser_dict_string_bool(
 
 
 def _deser_list_opt_int(json: Value, key: String) raises -> List[Optional[Int]]:
-    var raw = json.get(key)
-    var arr = loads(raw)
+    var arr = json[key]
     if not arr.is_array():
         raise _field_type_error(key, "array", arr)
     var items = arr.array_items()
@@ -1091,8 +1084,7 @@ def _deser_list_opt_int(json: Value, key: String) raises -> List[Optional[Int]]:
 def _deser_list_opt_string(
     json: Value, key: String
 ) raises -> List[Optional[String]]:
-    var raw = json.get(key)
-    var arr = loads(raw)
+    var arr = json[key]
     if not arr.is_array():
         raise _field_type_error(key, "array", arr)
     var items = arr.array_items()
@@ -1135,8 +1127,7 @@ def _deser_opt_list_string(
 
 
 def _deser_list_list_int(json: Value, key: String) raises -> List[List[Int]]:
-    var raw = json.get(key)
-    var arr = loads(raw)
+    var arr = json[key]
     if not arr.is_array():
         raise _field_type_error(key, "array", arr)
     var outer = arr.array_items()
@@ -1173,8 +1164,7 @@ def _deser_list_list_int(json: Value, key: String) raises -> List[List[Int]]:
 def _deser_list_list_string(
     json: Value, key: String
 ) raises -> List[List[String]]:
-    var raw = json.get(key)
-    var arr = loads(raw)
+    var arr = json[key]
     if not arr.is_array():
         raise _field_type_error(key, "array", arr)
     var outer = arr.array_items()
@@ -1227,8 +1217,7 @@ def _has_key(json: Value, key: String) -> Bool:
 def _is_null_field(json: Value, key: String) -> Bool:
     """Return True if the field is missing or its raw value is ``null``."""
     try:
-        var raw = json.get(key)
-        return raw == "null"
+        return json[key].is_null()
     except:
         return True
 

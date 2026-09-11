@@ -1,4 +1,10 @@
 # json - JSON field extraction helpers
+#
+# These read a field straight off the parsed `Value`. They used to go
+# `value.get(key)` -> a raw-JSON `String` of the child subtree -> a full
+# `loads` of that string -> read one scalar. That is a serialize plus a
+# complete SIMD parse per field, and for a nested struct it repeated at
+# every level of depth.
 
 from .value import Value
 from .parser import loads
@@ -18,11 +24,10 @@ def get_string(value: Value, key: String) raises -> String:
         var json = loads('{"name": "Alice"}')
         var name = get_string(json, "name")  # Returns "Alice".
     """
-    var raw_value = value.get(key)
-    var parsed = loads[target="cpu"](raw_value)
-    if not parsed.is_string():
+    var field = value[key]
+    if not field.is_string():
         raise Error("Field '" + key + "' is not a string")
-    return parsed.string_value()
+    return field.string_value()
 
 
 def get_int(value: Value, key: String) raises -> Int:
@@ -39,11 +44,10 @@ def get_int(value: Value, key: String) raises -> Int:
         var json = loads('{"age": 30}')
         var age = get_int(json, "age")  # Returns 30.
     """
-    var raw_value = value.get(key)
-    var parsed = loads[target="cpu"](raw_value)
-    if not parsed.is_int():
+    var field = value[key]
+    if not field.is_int():
         raise Error("Field '" + key + "' is not an int")
-    return Int(parsed.int_value())
+    return Int(field.int_value())
 
 
 def get_bool(value: Value, key: String) raises -> Bool:
@@ -60,11 +64,10 @@ def get_bool(value: Value, key: String) raises -> Bool:
         var json = loads('{"active": true}')
         var active = get_bool(json, "active")  # Returns True.
     """
-    var raw_value = value.get(key)
-    var parsed = loads[target="cpu"](raw_value)
-    if not parsed.is_bool():
+    var field = value[key]
+    if not field.is_bool():
         raise Error("Field '" + key + "' is not a bool")
-    return parsed.bool_value()
+    return field.bool_value()
 
 
 def get_float(value: Value, key: String) raises -> Float64:
@@ -81,12 +84,11 @@ def get_float(value: Value, key: String) raises -> Float64:
         var json = loads('{"price": 19.99}')
         var price = get_float(json, "price")  # Returns 19.99.
     """
-    var raw_value = value.get(key)
-    var parsed = loads[target="cpu"](raw_value)
-    if parsed.is_float():
-        return parsed.float_value()
-    elif parsed.is_int():
-        return Float64(parsed.int_value())
+    var field = value[key]
+    if field.is_float():
+        return field.float_value()
+    elif field.is_int():
+        return Float64(field.int_value())
     else:
         raise Error("Field '" + key + "' is not a number")
 
