@@ -37,7 +37,8 @@ Deserialization requires Defaultable and Movable:
 from std.builtin.rebind import trait_downcast, downcast
 from std.collections import Optional, List, Dict
 
-from .value import Value, Null
+from .value import Value
+from .writer import JsonWriter, Null
 from .parser import loads
 from .serialize import _escape_string
 from .deserialize import get_string, get_int, get_bool, get_float
@@ -88,6 +89,49 @@ comptime _LIST_LIST_STRING_NAME = reflect[List[List[String]]].name()
 
 comptime _Base = Deinitable & Movable
 comptime _JsonStruct = Defaultable & Movable & Deinitable
+
+
+# ===================================================================
+# Generic container emission
+# ===================================================================
+#
+# `List[E]` for arbitrary `E` cannot be handled by the type-name ladder
+# in `_ser`. Inside a function parametric on `T`, a reflected field type
+# stays symbolic -- it is bound only by `AnyType`, so `E` cannot be
+# deduced from it, no `[E](List[E])` overload matches, and even `len()`
+# does not resolve.
+#
+# Retroactive conformance solves it. Inside the extension body below,
+# `List`'s own element parameter is concrete for each instantiation, so
+# an ordinary generic call deduces the element type by argument
+# deduction. `_ser_into` then reaches this through `trait_downcast`
+# without ever naming `E`.
+#
+# This is what makes `List[<struct>]` work, and it replaces eight
+# hand-written monomorphic list arms with one path.
+#
+# Only `List` gets an extension. `Optional` and `Dict` keep their
+# name-matched arms on the String path: conforming `Optional` here made
+# `Optional[List[Int]]` miss the conformance check and fall through to
+# `is_struct()`, which then reflected `Optional`'s own internals and
+# recursed.
+
+
+trait _JsonEmit:
+    """Emit self as JSON into a writer. Internal."""
+
+    def emit_json(self, mut w: JsonWriter) raises:
+        ...
+
+
+__extension List(_JsonEmit):
+    def emit_json(self, mut w: JsonWriter) raises:
+        w.write_byte(UInt8(0x5B))
+        for i in range(len(self)):
+            if i > 0:
+                w.write_byte(UInt8(0x2C))
+            _ser_into(w, self[i])
+        w.write_byte(UInt8(0x5D))
 
 
 # ===================================================================
@@ -166,15 +210,16 @@ def serialize_json[T: AnyType, pretty: Bool = False](value: T) raises -> String:
     Returns:
         A JSON string representation.
     """
-    var json = _ser[T](value)
+    var w = JsonWriter(capacity=256)
+    _ser_into[T](w, value)
 
     comptime if pretty:
-        var parsed = loads(json)
-        from .serialize import dumps as _dumps
+        # Re-emit with indentation from the parsed form. Still one parse,
+        # but the compact pass no longer happens twice.
+        var parsed = loads(w^.finish_string())
+        return parsed.pretty_json("  ")
 
-        return _dumps(parsed, indent="  ")
-
-    return json^
+    return w^.finish_string()
 
 
 def serialize_value[T: AnyType](value: T) raises -> Value:
@@ -276,6 +321,115 @@ def try_deserialize_json[
 # ===================================================================
 
 
+def _ser_into[T: AnyType](mut w: JsonWriter, value: T) raises:
+    """Emit `value` as JSON into `w`.
+
+    The writer-based counterpart of `_ser`. Scalars are matched by
+    reflected type name as before; containers go through `_JsonEmit`,
+    which is how `List[E]` works for any `E`.
+
+    Ordering matters: the `_JsonEmit` check has to precede
+    `reflect[T].is_struct()`, because `List` and `Optional` are
+    themselves structs and would otherwise be reflected field-by-field
+    -- which is how `List[<struct>]` used to serialize its internal
+    data pointer, length and capacity as a JSON object.
+    """
+    comptime tname = reflect[T].name()
+
+    comptime if tname == _STRING_NAME:
+        w.write_string(rebind[String](value))
+    elif tname == _INT_NAME:
+        w.write_int(Int64(rebind[Int](value)))
+    elif tname == _INT64_NAME:
+        w.write_int(rebind[Int64](value))
+    elif tname == _INT32_NAME:
+        w.write_int(Int64(rebind[Int32](value)))
+    elif tname == _INT16_NAME:
+        w.write_int(Int64(rebind[Int16](value)))
+    elif tname == _INT8_NAME:
+        w.write_int(Int64(rebind[Int8](value)))
+    elif tname == _UINT64_NAME:
+        w.write_int(Int64(rebind[UInt64](value)))
+    elif tname == _UINT32_NAME:
+        w.write_int(Int64(rebind[UInt32](value)))
+    elif tname == _UINT16_NAME:
+        w.write_int(Int64(rebind[UInt16](value)))
+    elif tname == _UINT8_NAME:
+        w.write_int(Int64(rebind[UInt8](value)))
+    elif tname == _BOOL_NAME:
+        w.write_bool(rebind[Bool](value))
+    elif tname == _FLOAT64_NAME or "SIMD[DType.float64" in tname:
+        w.write_float(rebind[Float64](value))
+    elif tname == _FLOAT32_NAME or "SIMD[DType.float32" in tname:
+        w.write_float(Float64(rebind[Float32](value)))
+    elif tname == _VALUE_NAME:
+        w.write_bytes(_ser_value(rebind[Value](value)).as_bytes())
+    elif conforms_to(T, _JsonEmit):
+        ref c = trait_downcast[_JsonEmit](value)
+        c.emit_json(w)
+    elif (
+        tname == _OPT_INT_NAME
+        or tname == _OPT_STRING_NAME
+        or tname == _OPT_FLOAT64_NAME
+        or tname == _OPT_BOOL_NAME
+        or tname == _OPT_LIST_INT_NAME
+        or tname == _OPT_LIST_STRING_NAME
+        or tname == _DICT_STRING_INT_NAME
+        or tname == _DICT_STRING_STRING_NAME
+        or tname == _DICT_STRING_FLOAT64_NAME
+        or tname == _DICT_STRING_BOOL_NAME
+    ):
+        # `Optional` and `Dict` keep their name-matched arms on the
+        # String path. Matched against the reflected-name constants
+        # rather than a prefix test, because stdlib generics reflect to
+        # qualified names -- and this must be caught before
+        # `is_struct()`, which would try to reflect their private fields.
+        # For `Dict` that is not merely wrong but fatal: `reflect` cannot
+        # produce a name for its internal pointer types.
+        w.write_bytes(_ser[T](value).as_bytes())
+    elif reflect[T].is_struct():
+        comptime if conforms_to(T, JsonSerializable):
+            ref custom = trait_downcast[JsonSerializable](value)
+            var val = custom.to_json_value()
+            w.write_bytes(_ser_value(val).as_bytes())
+        else:
+            _ser_struct_into[T](w, value)
+    else:
+        # Anything the ladder does not cover: fall back to the
+        # String-returning path, which handles the Dict and
+        # Optional-of-List combinators.
+        w.write_bytes(_ser[T](value).as_bytes())
+
+
+def _ser_struct_into[T: AnyType](mut w: JsonWriter, value: T) raises:
+    """Emit a struct as an object, unrolled at compile time.
+
+    The field count and names are comptime, so the separator decision is
+    too -- there is no runtime comma branching.
+    """
+    comptime field_count = reflect[T].field_count()
+    comptime field_names = reflect[T].field_names()
+    comptime field_types = reflect[T].field_types()
+
+    w.write_byte(UInt8(0x7B))
+    comptime for idx in range(field_count):
+        comptime if idx > 0:
+            w.write_byte(UInt8(0x2C))
+        comptime field_name = field_names[idx]
+        comptime field_type = field_types[idx]
+        # The key is emitted from the comptime name's bytes directly.
+        # `write_string(String(field_name))` allocated a String per field
+        # per record. A struct field name is a Mojo identifier, so it
+        # never needs escaping.
+        w.write_byte(UInt8(0x22))
+        w.write_bytes(field_name.as_bytes())
+        w.write_byte(UInt8(0x22))
+        w.write_byte(UInt8(0x3A))
+        ref field = reflect[T].field_ref[idx](value)
+        _ser_into[field_type](w, rebind[field_type](field))
+    w.write_byte(UInt8(0x7D))
+
+
 def _ser[T: AnyType](value: T) raises -> String:
     """Dispatch serialization by compile-time type."""
     comptime tname = reflect[T].name()
@@ -345,33 +499,15 @@ def _ser[T: AnyType](value: T) raises -> String:
         return _ser_list_list_int(rebind[List[List[Int]]](value))
     elif tname == _LIST_LIST_STRING_NAME:
         return _ser_list_list_string(rebind[List[List[String]]](value))
-    elif tname.startswith("List["):
-        # A `List` with an element type none of the arms above cover.
-        #
-        # This arm exists to *fail loudly*. It has to precede the
-        # `is_struct()` arm below, because a `List` is itself a struct:
-        # without it, `List[MyStruct]` fell through to
-        # `_ser_struct[List[MyStruct]]`, which reflected over List's own
-        # fields and silently emitted its internal data pointer, length
-        # and capacity as a JSON object instead of an array. Corrupt
-        # output that looked like success.
-        #
-        # It cannot be made to work generically here: deducing `E` from
-        # `List[E]` needs the element type, and inside a function
-        # parametric on `T` the type stays symbolic -- `reflect` in Mojo
-        # 1.0 exposes `name` / `is_struct` / `field_*` but no parameter
-        # introspection, and a `[E](List[E])` overload alongside
-        # `[T: AnyType](T)` is ambiguous at every call site. Use the
-        # `JsonSerializable` trait on the *containing* struct to
-        # hand-roll these fields.
-        raise Error(
-            "serialize_json: unsupported list element type in '"
-            + String(tname)
-            + "'. Reflection covers List[Int|Int64|String|Float64|Bool],"
-            + " List[Optional[Int|String]] and List[List[Int|String]];"
-            + " for a list of structs, implement JsonSerializable on the"
-            + " containing struct."
-        )
+    elif conforms_to(T, _JsonEmit):
+        # Any list, including of structs. Calls the extension directly
+        # rather than going through `_ser_into`, which would put this
+        # function and that one in a mutual instantiation cycle for
+        # nested combinators like `List[Optional[String]]`.
+        var lw = JsonWriter(capacity=128)
+        ref emitter = trait_downcast[_JsonEmit](value)
+        emitter.emit_json(lw)
+        return lw^.finish_string()
     elif reflect[T].is_struct():
         comptime if conforms_to(T, JsonSerializable):
             ref custom = trait_downcast[JsonSerializable](value)
@@ -809,21 +945,27 @@ def _deser_fill[T: AnyType](mut result: T, json: Value) raises:
                 _deser_list_list_string(json, key)
             )
         elif field_type_name.startswith("List["):
-            # Same story as the serialize side: a `List` is a struct, so
-            # without this arm a `List[MyStruct]` field reached the
-            # nested-struct arm below and failed with the misleading
-            # "expected object, got array". Deducing the element type
-            # generically is not possible here -- see the matching arm in
-            # `_ser`.
+            # A `List` is itself a struct, so without this arm a
+            # `List[MyStruct]` field reached the nested-struct arm below
+            # and failed with the misleading "expected object, got
+            # array". The serialize direction now handles any element
+            # type via retroactive conformance (see `_JsonEmit`); the
+            # read direction needs more than emission -- it has to
+            # construct and fill the list -- so it still declines
+            # explicitly rather than guessing.
             raise Error(
                 "deserialize_json: unsupported list element type for '"
                 + key
                 + "' ("
                 + String(field_type_name)
-                + "). Reflection covers List[Int|Int64|String|Float64|Bool],"
+                + "). Serialization handles any list element type; the"
+                + " deserialize side does not yet, because filling a"
+                + " List[E] in place needs E to be default-constructible"
+                + " and writable through a reflected field pointer."
+                + " Reflection covers List[Int|Int64|String|Float64|Bool],"
                 + " List[Optional[Int|String]] and List[List[Int|String]];"
-                + " for a list of structs, implement JsonDeserializable on"
-                + " the containing struct."
+                + " for other element types implement JsonDeserializable"
+                + " on the containing struct."
             )
         # ----- Nested struct (fill existing default in-place) -----
         elif reflect[field_type].is_struct():

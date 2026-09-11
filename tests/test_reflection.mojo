@@ -106,6 +106,26 @@ struct LineItem(Defaultable, Movable):
 
 
 @fieldwise_init
+struct OrderLine(Defaultable, Movable):
+    var code: String
+    var qty: Int64
+
+    def __init__(out self):
+        self.code = ""
+        self.qty = 0
+
+
+@fieldwise_init
+struct Order(Defaultable, Movable):
+    var order_id: String
+    var lines: List[OrderLine]
+
+    def __init__(out self):
+        self.order_id = ""
+        self.lines = List[OrderLine]()
+
+
+@fieldwise_init
 struct Basket(Defaultable, Movable):
     """`List[<struct>]` -- reflection must reject this, not guess."""
 
@@ -807,21 +827,48 @@ def test_serialize_int32_negative() raises:
 # ---------------------------------------------------------------------------
 
 
-def test_serialize_list_of_structs_raises() raises:
+def test_serialize_list_of_structs() raises:
+    """`List[<struct>]` serializes as an array of objects.
+
+    This used to be impossible two different ways. Originally a `List`
+    is itself a struct, so it reached the nested-struct arm and
+    reflection emitted List's internal data pointer, length and capacity
+    as a JSON object -- corrupt output that looked like success. It was
+    then made an explicit error, on the belief that the element type
+    could not be recovered: inside a function parametric on `T` a
+    reflected field type is bound only by `AnyType`, so no `[E](List[E])`
+    overload matches and even `len()` will not resolve.
+
+    Retroactive conformance is what makes it work. Inside
+    `__extension List(_JsonEmit)` the element parameter is concrete per
+    instantiation, so an ordinary generic call deduces it.
+    """
     var b = Basket()
     b.items.append(LineItem("sku-1"))
-    var raised = False
-    var message = String()
-    try:
-        _ = serialize_json(b)
-    except e:
-        raised = True
-        message = String(e)
-    assert_true(raised, "serialize_json must reject List[<struct>]")
-    # Must not have silently emitted List's internals.
-    assert_true("unsupported list element type" in message)
-    assert_true("JsonSerializable" in message)
-    print("  test_serialize_list_of_structs_raises passed")
+    b.items.append(LineItem("sku-2"))
+    var json = serialize_json(b)
+    assert_equal(json, '{"items":[{"sku":"sku-1"},{"sku":"sku-2"}]}')
+    print("  test_serialize_list_of_structs passed")
+
+
+def test_serialize_empty_list_of_structs() raises:
+    var b = Basket()
+    assert_equal(serialize_json(b), '{"items":[]}')
+    print("  test_serialize_empty_list_of_structs passed")
+
+
+def test_serialize_list_of_structs_nested_deeper() raises:
+    """A struct in a list in a struct, with scalars alongside."""
+    var o = Order()
+    o.order_id = "ord-9"
+    o.lines.append(OrderLine("a", 2))
+    o.lines.append(OrderLine("b", 3))
+    assert_equal(
+        serialize_json(o),
+        '{"order_id":"ord-9","lines":'
+        + '[{"code":"a","qty":2},{"code":"b","qty":3}]}',
+    )
+    print("  test_serialize_list_of_structs_nested_deeper passed")
 
 
 def test_deserialize_list_of_structs_raises() raises:
@@ -909,8 +956,10 @@ def main() raises:
     test_serialize_int32_negative()
     print()
 
-    print("Unsupported list element types:")
-    test_serialize_list_of_structs_raises()
+    print("Generic list elements:")
+    test_serialize_list_of_structs()
+    test_serialize_empty_list_of_structs()
+    test_serialize_list_of_structs_nested_deeper()
     test_deserialize_list_of_structs_raises()
     print()
 
