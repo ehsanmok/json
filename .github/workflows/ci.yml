@@ -42,3 +42,31 @@ jobs:
 
       - name: Run tests
         run: pixi run tests-cpu
+
+  # Build the conda package exactly as a downstream consumer does.
+  #
+  # `tests-cpu` never runs `recipe.yaml`'s build script, so a break in
+  # the packaged build was invisible here and only surfaced downstream:
+  # simdjson 4.6.11 uses `std::inserter` without including <iterator>,
+  # which libstdc++ pulls in transitively but libc++ does not, so
+  # `pixi build` failed on macOS while every test stayed green. Both
+  # platforms are built because that failure was platform-specific.
+  package:
+    name: Package build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-14]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Pixi
+        uses: prefix-dev/setup-pixi@v0.9.4
+        with:
+          cache: false
+          post-cleanup: false
+
+      - name: Build conda package
+        run: pixi build

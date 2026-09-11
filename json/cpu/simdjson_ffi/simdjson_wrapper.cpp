@@ -1,5 +1,15 @@
 // simdjson C wrapper implementation for Mojo FFI
 #include "simdjson_wrapper.h"
+
+// <iterator> must precede <simdjson.h>. simdjson 4.6.11 uses
+// std::inserter in its schema-intersection helpers without including
+// <iterator> itself. libstdc++ happens to pull it in transitively, so
+// Linux builds fine; libc++ does not, and the conda macOS toolchain
+// fails the package build with "no member named 'inserter' in
+// namespace 'std'". Including it here keeps us independent of whichever
+// simdjson the solver picks.
+#include <iterator>
+
 #include <simdjson.h>
 
 #include <cstring>
