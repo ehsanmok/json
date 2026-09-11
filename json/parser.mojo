@@ -2,7 +2,7 @@
 # Unified CPU/GPU parser with compile-time target and backend selection
 
 from std.collections import List
-from std.memory import memcpy, ArcPointer
+from std.memory import unsafe_memcpy, ArcPointer
 
 from .value import Value, Null, make_view_value
 from .serialize import dumps
@@ -230,7 +230,7 @@ def _parse_gpu(s: String) raises -> Value:
     var n = len(data)
     var bytes = List[UInt8](capacity=n)
     bytes.resize(n, 0)
-    memcpy(dest=bytes.unsafe_ptr(), src=data.unsafe_ptr(), count=n)
+    unsafe_memcpy(dest=bytes.unsafe_ptr(), src=data.unsafe_ptr(), count=n)
 
     var input_obj = JSONInput(bytes^)
     var result = parse_json_gpu(input_obj^)

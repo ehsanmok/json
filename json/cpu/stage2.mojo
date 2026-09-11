@@ -36,7 +36,7 @@
 
 from std.bit import count_trailing_zeros
 from std.collections import List
-from std.memory import memcpy
+from std.memory import unsafe_memcpy
 from std.memory.unsafe import pack_bits
 from std.sys import simd_byte_width
 
@@ -98,12 +98,12 @@ def _string_has_escape(bytes: Span[UInt8, _], start: Int, end: Int) -> Bool:
     var i = start
     var stop = end - _BLOCK
     while i <= stop:
-        var chunk = ptr.load[width=_BLOCK](i)
+        var chunk = ptr.unsafe_load[width=_BLOCK](i)
         if chunk.eq(UInt8(ord("\\"))).reduce_or():
             return True
         i += _BLOCK
     while i < end:
-        if ptr[i] == UInt8(ord("\\")):
+        if ptr[unsafe_offset=i] == UInt8(ord("\\")):
             return True
         i += 1
     return False
@@ -145,7 +145,7 @@ def _skip_ws(bytes: Span[UInt8, _], start: Int, end: Int) -> Int:
     # Scalar prelude (up to 4 bytes). Common case for compact / dense
     # JSON: returns after the first byte test.
     var scalar_stop = min(end, start + 4)
-    while i < scalar_stop and _is_ws(ptr[i]):
+    while i < scalar_stop and _is_ws(ptr[unsafe_offset=i]):
         i += 1
     if i < scalar_stop:
         return i
@@ -153,7 +153,7 @@ def _skip_ws(bytes: Span[UInt8, _], start: Int, end: Int) -> Int:
     # SIMD body for long whitespace runs.
     var stop = end - _BLOCK
     while i <= stop:
-        var chunk = ptr.load[width=_BLOCK](i)
+        var chunk = ptr.unsafe_load[width=_BLOCK](i)
         var is_ws_mask = (
             chunk.eq(UInt8(ord(" ")))
             | chunk.eq(UInt8(ord("\t")))
@@ -182,7 +182,7 @@ def _skip_ws(bytes: Span[UInt8, _], start: Int, end: Int) -> Int:
             comptime assert False, "unsupported simd_byte_width()"
         i += _BLOCK
 
-    while i < end and _is_ws(ptr[i]):
+    while i < end and _is_ws(ptr[unsafe_offset=i]):
         i += 1
     return i
 
@@ -549,9 +549,11 @@ def parse_into_document(
                 var child_start = len(doc.tape)
                 if count > 0:
                     doc.tape.resize(child_start + count, 0)
-                    memcpy(
-                        dest=doc.tape.unsafe_ptr() + child_start,
-                        src=headers_scratch.unsafe_ptr() + top.headers_lo,
+                    unsafe_memcpy(
+                        dest=doc.tape.unsafe_ptr().unsafe_offset(child_start),
+                        src=headers_scratch.unsafe_ptr().unsafe_offset(
+                            top.headers_lo
+                        ),
                         count=count,
                     )
                 headers_scratch.shrink(top.headers_lo)

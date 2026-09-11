@@ -3,7 +3,7 @@
 from std.testing import assert_equal, assert_true
 from max.gpu.host import DeviceContext
 from std.collections import List
-from std.memory import memcpy
+from std.memory import unsafe_memcpy
 
 from json.gpu.bracket_match import match_brackets_gpu
 
@@ -28,7 +28,9 @@ def test_simple_braces() raises:
 
     var d_char_types = ctx.enqueue_create_buffer[DType.uint8](n)
     var h_char_types = ctx.enqueue_create_host_buffer[DType.uint8](n)
-    memcpy(dest=h_char_types.unsafe_ptr(), src=char_types.unsafe_ptr(), count=n)
+    unsafe_memcpy(
+        dest=h_char_types.unsafe_ptr(), src=char_types.unsafe_ptr(), count=n
+    )
     ctx.enqueue_copy(d_char_types, h_char_types)
     ctx.synchronize()
 
@@ -58,7 +60,9 @@ def test_nested_braces() raises:
 
     var d_char_types = ctx.enqueue_create_buffer[DType.uint8](n)
     var h_char_types = ctx.enqueue_create_host_buffer[DType.uint8](n)
-    memcpy(dest=h_char_types.unsafe_ptr(), src=char_types.unsafe_ptr(), count=n)
+    unsafe_memcpy(
+        dest=h_char_types.unsafe_ptr(), src=char_types.unsafe_ptr(), count=n
+    )
     ctx.enqueue_copy(d_char_types, h_char_types)
     ctx.synchronize()
 
@@ -98,7 +102,9 @@ def test_mixed_brackets() raises:
 
     var d_char_types = ctx.enqueue_create_buffer[DType.uint8](n)
     var h_char_types = ctx.enqueue_create_host_buffer[DType.uint8](n)
-    memcpy(dest=h_char_types.unsafe_ptr(), src=char_types.unsafe_ptr(), count=n)
+    unsafe_memcpy(
+        dest=h_char_types.unsafe_ptr(), src=char_types.unsafe_ptr(), count=n
+    )
     ctx.enqueue_copy(d_char_types, h_char_types)
     ctx.synchronize()
 
@@ -126,7 +132,9 @@ def test_with_other_chars() raises:
 
     var d_char_types = ctx.enqueue_create_buffer[DType.uint8](n)
     var h_char_types = ctx.enqueue_create_host_buffer[DType.uint8](n)
-    memcpy(dest=h_char_types.unsafe_ptr(), src=char_types.unsafe_ptr(), count=n)
+    unsafe_memcpy(
+        dest=h_char_types.unsafe_ptr(), src=char_types.unsafe_ptr(), count=n
+    )
     ctx.enqueue_copy(d_char_types, h_char_types)
     ctx.synchronize()
 
@@ -154,7 +162,9 @@ def test_deeply_nested() raises:
 
     var d_char_types = ctx.enqueue_create_buffer[DType.uint8](n)
     var h_char_types = ctx.enqueue_create_host_buffer[DType.uint8](n)
-    memcpy(dest=h_char_types.unsafe_ptr(), src=char_types.unsafe_ptr(), count=n)
+    unsafe_memcpy(
+        dest=h_char_types.unsafe_ptr(), src=char_types.unsafe_ptr(), count=n
+    )
     ctx.enqueue_copy(d_char_types, h_char_types)
     ctx.synchronize()
 
@@ -195,7 +205,9 @@ def test_sibling_objects() raises:
 
     var d_char_types = ctx.enqueue_create_buffer[DType.uint8](n)
     var h_char_types = ctx.enqueue_create_host_buffer[DType.uint8](n)
-    memcpy(dest=h_char_types.unsafe_ptr(), src=char_types.unsafe_ptr(), count=n)
+    unsafe_memcpy(
+        dest=h_char_types.unsafe_ptr(), src=char_types.unsafe_ptr(), count=n
+    )
     ctx.enqueue_copy(d_char_types, h_char_types)
     ctx.synchronize()
 

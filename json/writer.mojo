@@ -29,7 +29,7 @@
 
 from std.bit import count_trailing_zeros
 from std.collections import List
-from std.memory import memcpy
+from std.memory import unsafe_memcpy
 from std.memory.unsafe import pack_bits
 from std.sys.info import simd_width_of
 
@@ -194,7 +194,7 @@ struct JsonWriter(Movable):
         if n == 0:
             return
         self.ensure(n)
-        memcpy(
+        unsafe_memcpy(
             dest=self.buf.unsafe_ptr().unsafe_offset(self.pos),
             src=data.unsafe_ptr(),
             count=n,
@@ -275,7 +275,7 @@ struct JsonWriter(Movable):
             self.ensure(n + 2)
             self._put(_QUOTE)
             if n > 0:
-                memcpy(
+                unsafe_memcpy(
                     dest=self.buf.unsafe_ptr().unsafe_offset(self.pos),
                     src=b.unsafe_ptr(),
                     count=n,
@@ -456,7 +456,9 @@ struct JsonWriter(Movable):
         self._put(UInt8(0x0A))
         var dest = self.buf.unsafe_ptr()
         for _ in range(self.depth):
-            memcpy(dest=dest.unsafe_offset(self.pos), src=src, count=unit)
+            unsafe_memcpy(
+                dest=dest.unsafe_offset(self.pos), src=src, count=unit
+            )
             self.pos += unit
 
     def open_container(mut self, brace: UInt8):

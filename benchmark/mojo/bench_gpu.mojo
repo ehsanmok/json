@@ -15,7 +15,7 @@ from std.benchmark import (
 )
 from std.pathlib import Path
 from std.sys import argv
-from std.memory import memcpy
+from std.memory import unsafe_memcpy
 from std.collections import List
 
 from json import loads
@@ -71,7 +71,7 @@ def main() raises:
     # on a B200) so doing it once outside the Bencher is important.
     var ctx = DeviceContext()
     var h_input = ctx.enqueue_create_host_buffer[DType.uint8](n)
-    memcpy(dest=h_input.unsafe_ptr(), src=data.unsafe_ptr(), count=n)
+    unsafe_memcpy(dest=h_input.unsafe_ptr(), src=data.unsafe_ptr(), count=n)
     ctx.synchronize()
 
     # Configure max_iters based on file size so the large-file runs finish
@@ -102,7 +102,9 @@ def main() raises:
         @parameter
         @always_inline
         def call_fn() raises:
-            memcpy(dest=h_input.unsafe_ptr(), src=data.unsafe_ptr(), count=n)
+            unsafe_memcpy(
+                dest=h_input.unsafe_ptr(), src=data.unsafe_ptr(), count=n
+            )
             var result = parse_json_gpu_from_pinned(
                 ctx, h_input, n, verbose=verbose
             )

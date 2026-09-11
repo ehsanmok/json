@@ -12,7 +12,7 @@ from max.gpu.primitives import block
 from std.gpu import block_dim, block_idx, thread_idx
 from std.gpu.globals import MAX_THREADS_PER_BLOCK_METADATA
 from std.collections import List
-from std.memory import UnsafePointer, memcpy
+from std.memory import Pointer, unsafe_memcpy
 from std.math import ceildiv
 from std.utils.static_tuple import StaticTuple
 
@@ -55,8 +55,8 @@ def brackets_match(open_char: UInt8, close_char: UInt8) -> Bool:
     )
 )
 def compute_depth_delta_kernel(
-    char_types: UnsafePointer[UInt8, MutAnyOrigin],
-    depth_deltas: UnsafePointer[Int32, MutAnyOrigin],
+    char_types: Pointer[UInt8, MutAnyOrigin],
+    depth_deltas: Pointer[Int32, MutAnyOrigin],
     n: UInt,
 ):
     """Compute depth delta for each position: +1 for {[, -1 for }], 0 otherwise.
@@ -65,14 +65,14 @@ def compute_depth_delta_kernel(
     if gid >= Int(n):
         return
 
-    var c = char_types[gid]
+    var c = char_types[unsafe_offset=gid]
     var delta: Int32 = 0
     if is_open(c):
         delta = 1
     elif is_close(c):
         delta = -1
 
-    depth_deltas[gid] = delta
+    depth_deltas[unsafe_offset=gid] = delta
 
 
 # ===== Kernel 2: Parallel block-local exclusive prefix sum for depths =====
@@ -82,9 +82,9 @@ def compute_depth_delta_kernel(
     )
 )
 def depth_prefix_sum_kernel(
-    depth_deltas: UnsafePointer[Int32, MutAnyOrigin],
-    depth_prefix: UnsafePointer[Int32, MutAnyOrigin],
-    block_totals: UnsafePointer[Int32, MutAnyOrigin],
+    depth_deltas: Pointer[Int32, MutAnyOrigin],
+    depth_prefix: Pointer[Int32, MutAnyOrigin],
+    block_totals: Pointer[Int32, MutAnyOrigin],
     n: UInt,
 ):
     """Parallel block-local exclusive prefix sum of depth deltas.
@@ -103,21 +103,21 @@ def depth_prefix_sum_kernel(
 
     var val: Int32 = 0
     if gid < Int(n):
-        val = depth_deltas[gid]
+        val = depth_deltas[unsafe_offset=gid]
 
     var prefix = block.prefix_sum[exclusive=True, block_size=BLOCK_SIZE_OPT](
         val
     )
 
     if gid < Int(n):
-        depth_prefix[gid] = prefix
+        depth_prefix[unsafe_offset=gid] = prefix
 
     # Last active thread in the block writes the block total.
     var block_end = min((bid + 1) * Int(block_dim.x), Int(n))
     var last_in_block = block_end - 1 - bid * Int(block_dim.x)
 
     if tid == last_in_block:
-        block_totals[bid] = prefix + val
+        block_totals[unsafe_offset=bid] = prefix + val
 
 
 # ===== Kernel 3: Add block offsets to depths =====
@@ -127,10 +127,10 @@ def depth_prefix_sum_kernel(
     )
 )
 def add_depth_offsets_kernel(
-    depth_prefix_excl: UnsafePointer[Int32, MutAnyOrigin],
-    block_offsets: UnsafePointer[Int32, MutAnyOrigin],
-    depth_deltas: UnsafePointer[Int32, MutAnyOrigin],
-    depths_out: UnsafePointer[Int32, MutAnyOrigin],
+    depth_prefix_excl: Pointer[Int32, MutAnyOrigin],
+    block_offsets: Pointer[Int32, MutAnyOrigin],
+    depth_deltas: Pointer[Int32, MutAnyOrigin],
+    depths_out: Pointer[Int32, MutAnyOrigin],
     n: UInt,
 ):
     """Convert block-local exclusive prefix into a global inclusive scan.
@@ -148,8 +148,10 @@ def add_depth_offsets_kernel(
     if gid >= Int(n):
         return
 
-    depths_out[gid] = (
-        depth_prefix_excl[gid] + block_offsets[bid] + depth_deltas[gid]
+    depths_out[unsafe_offset=gid] = (
+        depth_prefix_excl[unsafe_offset=gid]
+        + block_offsets[unsafe_offset=bid]
+        + depth_deltas[unsafe_offset=gid]
     )
 
 
@@ -160,8 +162,8 @@ def add_depth_offsets_kernel(
     )
 )
 def adjust_open_depths_kernel(
-    char_types: UnsafePointer[UInt8, MutAnyOrigin],
-    depths: UnsafePointer[Int32, MutAnyOrigin],
+    char_types: Pointer[UInt8, MutAnyOrigin],
+    depths: Pointer[Int32, MutAnyOrigin],
     n: UInt,
 ):
     """For opening brackets, subtract 1 from depth so it matches closing bracket.
@@ -170,9 +172,9 @@ def adjust_open_depths_kernel(
     if gid >= Int(n):
         return
 
-    var c = char_types[gid]
+    var c = char_types[unsafe_offset=gid]
     if is_open(c):
-        depths[gid] = depths[gid] - 1
+        depths[unsafe_offset=gid] = depths[unsafe_offset=gid] - 1
 
 
 # ===== Helper: Shift per-block inclusive scan so it adds to a buffer =====
@@ -182,8 +184,8 @@ def adjust_open_depths_kernel(
     )
 )
 def _shift_in_place_kernel(
-    values: UnsafePointer[Int32, MutAnyOrigin],
-    offsets: UnsafePointer[Int32, MutAnyOrigin],
+    values: Pointer[Int32, MutAnyOrigin],
+    offsets: Pointer[Int32, MutAnyOrigin],
     n: UInt,
 ):
     """values[gid] += offsets[block_idx]."""
@@ -191,14 +193,16 @@ def _shift_in_place_kernel(
     var gid = bid * Int(block_dim.x) + Int(thread_idx.x)
     if gid >= Int(n):
         return
-    values[gid] = values[gid] + offsets[bid]
+    values[unsafe_offset=gid] = (
+        values[unsafe_offset=gid] + offsets[unsafe_offset=bid]
+    )
 
 
 # ===== Helper: Exclusive prefix sum over block totals (hierarchical) =====
 def _exclusive_scan_block_totals(
     ctx: DeviceContext,
-    d_block_totals: UnsafePointer[Int32, MutAnyOrigin],
-    d_block_offsets: UnsafePointer[Int32, MutAnyOrigin],
+    d_block_totals: Pointer[Int32, MutAnyOrigin],
+    d_block_offsets: Pointer[Int32, MutAnyOrigin],
     num_blocks: Int,
 ) raises:
     """Compute `d_block_offsets` = exclusive prefix of `d_block_totals`.
@@ -262,7 +266,7 @@ def _exclusive_scan_block_totals(
 
 def match_brackets_gpu(
     ctx: DeviceContext,
-    d_char_types: UnsafePointer[UInt8, MutAnyOrigin],
+    d_char_types: Pointer[UInt8, MutAnyOrigin],
     n: Int,
 ) raises -> Tuple[List[Int32], List[Int32]]:
     """Match brackets using GPU prefix sum.
@@ -368,11 +372,13 @@ def match_brackets_gpu(
     # This is O(n) and simpler than GPU sorting
     var depths = List[Int32](capacity=n)
     depths.resize(n, 0)
-    memcpy(dest=depths.unsafe_ptr(), src=h_depths.unsafe_ptr(), count=n)
+    unsafe_memcpy(dest=depths.unsafe_ptr(), src=h_depths.unsafe_ptr(), count=n)
 
     var char_types = List[UInt8](capacity=n)
     char_types.resize(n, 0)
-    memcpy(dest=char_types.unsafe_ptr(), src=h_char_types.unsafe_ptr(), count=n)
+    unsafe_memcpy(
+        dest=char_types.unsafe_ptr(), src=h_char_types.unsafe_ptr(), count=n
+    )
 
     var pair_pos = List[Int32](capacity=n)
     pair_pos.resize(n, -1)

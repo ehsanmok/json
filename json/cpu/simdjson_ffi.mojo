@@ -93,7 +93,7 @@ struct SimdjsonFFI:
     var _object_count: def(Int) thin abi("C") -> Int
 
     # Memory helper: copies n bytes from src_addr (integer) to dst (pointer as Int).
-    # Avoids int-to-UnsafePointer construction in Mojo, which varies across versions.
+    # Avoids int-to-Pointer construction in Mojo, which varies across versions.
     var _memcpy_from_addr: def(Int, Int, Int) thin abi("C") -> None
 
     def __init__(out self, lib_path: String = "") raises:
@@ -285,7 +285,7 @@ struct SimdjsonFFI:
         if length == 0:
             return String("")
 
-        # Copy via C shim: avoids UnsafePointer-from-Int construction in Mojo.
+        # Copy via C shim: avoids Pointer-from-Int construction in Mojo.
         # simdjson guarantees valid UTF-8; unsafe_from_utf8 takes raw bytes.
         var bytes = List[UInt8](capacity=length)
         bytes.resize(length, 0)
@@ -352,7 +352,7 @@ struct SimdjsonFFI:
         if length == 0:
             return String("")
 
-        # Copy via C shim: avoids UnsafePointer-from-Int construction in Mojo.
+        # Copy via C shim: avoids Pointer-from-Int construction in Mojo.
         # simdjson guarantees valid UTF-8; unsafe_from_utf8 takes raw bytes.
         var bytes = List[UInt8](capacity=length)
         bytes.resize(length, 0)

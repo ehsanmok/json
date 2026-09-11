@@ -90,13 +90,13 @@ def parse_int_swar(bytes: Span[UInt8, _], start: Int, end: Int) -> Int64:
 
     if digit_count >= 8:
         var ptr = bytes.unsafe_ptr()
-        var chunk = ptr.load[width=8](i)
+        var chunk = ptr.unsafe_load[width=8](i)
         if _is_8_digit_block(chunk):
             result = _parse_8_digits_swar(chunk)
             i += 8
             digit_count -= 8
             if digit_count >= 8:
-                var chunk2 = ptr.load[width=8](i)
+                var chunk2 = ptr.unsafe_load[width=8](i)
                 if _is_8_digit_block(chunk2):
                     result = result * 100_000_000 + _parse_8_digits_swar(chunk2)
                     i += 8

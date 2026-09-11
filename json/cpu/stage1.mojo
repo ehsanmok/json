@@ -157,7 +157,7 @@ def parse_structural_simd(input: String) -> StructuralIndex:
     var i = 0
 
     while i + SIMD_WIDTH <= n:
-        var chunk = bytes.unsafe_ptr().load[width=SIMD_WIDTH](i)
+        var chunk = bytes.unsafe_ptr().unsafe_load[width=SIMD_WIDTH](i)
 
         # --- Classify ----------------------------------------------------
         comptime W = SIMD[DType.uint8, SIMD_WIDTH]

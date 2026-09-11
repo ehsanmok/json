@@ -17,7 +17,7 @@
 # so a crashy run doesn't poison the main benchmark binary.
 
 from std.collections import List
-from std.memory import memcpy
+from std.memory import unsafe_memcpy
 from std.sys import argv
 from std.time import perf_counter_ns
 
@@ -47,7 +47,7 @@ def _bench_file(path_str: String) raises:
         # Reload bytes per iteration since parse_json_gpu takes ownership.
         var data = List[UInt8](capacity=n)
         data.resize(n, 0)
-        memcpy(
+        unsafe_memcpy(
             dest=data.unsafe_ptr(),
             src=raw.as_bytes().unsafe_ptr(),
             count=n,

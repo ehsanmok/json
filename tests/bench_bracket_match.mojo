@@ -3,7 +3,7 @@
 from std.time import perf_counter_ns
 from max.gpu.host import DeviceContext
 from std.collections import List
-from std.memory import memcpy
+from std.memory import unsafe_memcpy
 
 from json.gpu.bracket_match import match_brackets_gpu
 from json.types import JSONResult
@@ -63,7 +63,7 @@ def benchmark_bracket_matching(n: Int, iterations: Int) raises:
     var ctx = DeviceContext()
     var d_char_types = ctx.enqueue_create_buffer[DType.uint8](actual_n)
     var h_char_types = ctx.enqueue_create_host_buffer[DType.uint8](actual_n)
-    memcpy(
+    unsafe_memcpy(
         dest=h_char_types.unsafe_ptr(),
         src=char_types.unsafe_ptr(),
         count=actual_n,

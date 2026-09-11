@@ -781,7 +781,7 @@ def _get_sized_int(json: Value, key: String, type_name: String) raises -> Int64:
 def _deser_fill[T: AnyType](mut result: T, json: Value) raises:
     """Fill every field of *result* from the JSON object *json*.
 
-    Uses ``trait_downcast`` + ``UnsafePointer`` to write deserialized
+    Uses ``trait_downcast`` + ``Pointer`` to write deserialized
     values into reflected struct fields. The struct must already be
     default-initialized; old field values are destroyed before writing.
     """
@@ -796,152 +796,160 @@ def _deser_fill[T: AnyType](mut result: T, json: Value) raises:
         var key = String(field_name)
 
         ref field = trait_downcast[_Base](reflect[T].field_ref[idx](result))
-        var ptr = UnsafePointer(to=field)
+        var ptr = Pointer(to=field)
 
         comptime if field_type_name == _STRING_NAME:
             ptr.unsafe_deinit_pointee()
-            ptr.bitcast[String]().unsafe_write(get_string(json, key))
+            ptr.unsafe_bitcast[String]().unsafe_write(get_string(json, key))
         elif field_type_name == _INT_NAME:
             ptr.unsafe_deinit_pointee()
-            ptr.bitcast[Int]().unsafe_write(get_int(json, key))
+            ptr.unsafe_bitcast[Int]().unsafe_write(get_int(json, key))
         elif field_type_name == _INT64_NAME:
             ptr.unsafe_deinit_pointee()
-            ptr.bitcast[Int64]().unsafe_write(
+            ptr.unsafe_bitcast[Int64]().unsafe_write(
                 _get_sized_int(json, key, "Int64")
             )
         elif field_type_name == _INT32_NAME:
             ptr.unsafe_deinit_pointee()
-            ptr.bitcast[Int32]().unsafe_write(
+            ptr.unsafe_bitcast[Int32]().unsafe_write(
                 Int32(_get_sized_int(json, key, "Int32"))
             )
         elif field_type_name == _INT16_NAME:
             ptr.unsafe_deinit_pointee()
-            ptr.bitcast[Int16]().unsafe_write(
+            ptr.unsafe_bitcast[Int16]().unsafe_write(
                 Int16(_get_sized_int(json, key, "Int16"))
             )
         elif field_type_name == _INT8_NAME:
             ptr.unsafe_deinit_pointee()
-            ptr.bitcast[Int8]().unsafe_write(
+            ptr.unsafe_bitcast[Int8]().unsafe_write(
                 Int8(_get_sized_int(json, key, "Int8"))
             )
         elif field_type_name == _UINT64_NAME:
             ptr.unsafe_deinit_pointee()
-            ptr.bitcast[UInt64]().unsafe_write(
+            ptr.unsafe_bitcast[UInt64]().unsafe_write(
                 UInt64(_get_sized_int(json, key, "UInt64"))
             )
         elif field_type_name == _UINT32_NAME:
             ptr.unsafe_deinit_pointee()
-            ptr.bitcast[UInt32]().unsafe_write(
+            ptr.unsafe_bitcast[UInt32]().unsafe_write(
                 UInt32(_get_sized_int(json, key, "UInt32"))
             )
         elif field_type_name == _UINT16_NAME:
             ptr.unsafe_deinit_pointee()
-            ptr.bitcast[UInt16]().unsafe_write(
+            ptr.unsafe_bitcast[UInt16]().unsafe_write(
                 UInt16(_get_sized_int(json, key, "UInt16"))
             )
         elif field_type_name == _UINT8_NAME:
             ptr.unsafe_deinit_pointee()
-            ptr.bitcast[UInt8]().unsafe_write(
+            ptr.unsafe_bitcast[UInt8]().unsafe_write(
                 UInt8(_get_sized_int(json, key, "UInt8"))
             )
         elif field_type_name == _BOOL_NAME:
             ptr.unsafe_deinit_pointee()
-            ptr.bitcast[Bool]().unsafe_write(get_bool(json, key))
+            ptr.unsafe_bitcast[Bool]().unsafe_write(get_bool(json, key))
         elif field_type_name == _FLOAT64_NAME or "SIMD[DType.float64" in field_type_name:
             ptr.unsafe_deinit_pointee()
-            ptr.bitcast[Float64]().unsafe_write(get_float(json, key))
+            ptr.unsafe_bitcast[Float64]().unsafe_write(get_float(json, key))
         elif field_type_name == _FLOAT32_NAME or "SIMD[DType.float32" in field_type_name:
             ptr.unsafe_deinit_pointee()
-            ptr.bitcast[Float32]().unsafe_write(Float32(get_float(json, key)))
+            ptr.unsafe_bitcast[Float32]().unsafe_write(
+                Float32(get_float(json, key))
+            )
         elif field_type_name == _VALUE_NAME:
             ptr.unsafe_deinit_pointee()
             var v = json[key]
-            ptr.bitcast[Value]().unsafe_write(v^)
+            ptr.unsafe_bitcast[Value]().unsafe_write(v^)
         # ----- Optional scalars -----
         elif field_type_name == _OPT_INT_NAME:
             ptr.unsafe_deinit_pointee()
-            ptr.bitcast[Optional[Int]]().unsafe_write(_deser_opt_int(json, key))
+            ptr.unsafe_bitcast[Optional[Int]]().unsafe_write(
+                _deser_opt_int(json, key)
+            )
         elif field_type_name == _OPT_STRING_NAME:
             ptr.unsafe_deinit_pointee()
-            ptr.bitcast[Optional[String]]().unsafe_write(
+            ptr.unsafe_bitcast[Optional[String]]().unsafe_write(
                 _deser_opt_string(json, key)
             )
         elif field_type_name == _OPT_FLOAT64_NAME:
             ptr.unsafe_deinit_pointee()
-            ptr.bitcast[Optional[Float64]]().unsafe_write(
+            ptr.unsafe_bitcast[Optional[Float64]]().unsafe_write(
                 _deser_opt_float64(json, key)
             )
         elif field_type_name == _OPT_BOOL_NAME:
             ptr.unsafe_deinit_pointee()
-            ptr.bitcast[Optional[Bool]]().unsafe_write(
+            ptr.unsafe_bitcast[Optional[Bool]]().unsafe_write(
                 _deser_opt_bool(json, key)
             )
         # ----- List scalars -----
         elif field_type_name == _LIST_INT_NAME:
             ptr.unsafe_deinit_pointee()
-            ptr.bitcast[List[Int]]().unsafe_write(_deser_list_int(json, key))
+            ptr.unsafe_bitcast[List[Int]]().unsafe_write(
+                _deser_list_int(json, key)
+            )
         elif field_type_name == _LIST_STRING_NAME:
             ptr.unsafe_deinit_pointee()
-            ptr.bitcast[List[String]]().unsafe_write(
+            ptr.unsafe_bitcast[List[String]]().unsafe_write(
                 _deser_list_string(json, key)
             )
         elif field_type_name == _LIST_FLOAT64_NAME:
             ptr.unsafe_deinit_pointee()
-            ptr.bitcast[List[Float64]]().unsafe_write(
+            ptr.unsafe_bitcast[List[Float64]]().unsafe_write(
                 _deser_list_float64(json, key)
             )
         elif field_type_name == _LIST_BOOL_NAME:
             ptr.unsafe_deinit_pointee()
-            ptr.bitcast[List[Bool]]().unsafe_write(_deser_list_bool(json, key))
+            ptr.unsafe_bitcast[List[Bool]]().unsafe_write(
+                _deser_list_bool(json, key)
+            )
         # ----- Combinator types: Dict, nested List, Optional<->List combos. -----
         elif field_type_name == _DICT_STRING_INT_NAME:
             ptr.unsafe_deinit_pointee()
-            ptr.bitcast[Dict[String, Int]]().unsafe_write(
+            ptr.unsafe_bitcast[Dict[String, Int]]().unsafe_write(
                 _deser_dict_string_int(json, key)
             )
         elif field_type_name == _DICT_STRING_STRING_NAME:
             ptr.unsafe_deinit_pointee()
-            ptr.bitcast[Dict[String, String]]().unsafe_write(
+            ptr.unsafe_bitcast[Dict[String, String]]().unsafe_write(
                 _deser_dict_string_string(json, key)
             )
         elif field_type_name == _DICT_STRING_FLOAT64_NAME:
             ptr.unsafe_deinit_pointee()
-            ptr.bitcast[Dict[String, Float64]]().unsafe_write(
+            ptr.unsafe_bitcast[Dict[String, Float64]]().unsafe_write(
                 _deser_dict_string_float64(json, key)
             )
         elif field_type_name == _DICT_STRING_BOOL_NAME:
             ptr.unsafe_deinit_pointee()
-            ptr.bitcast[Dict[String, Bool]]().unsafe_write(
+            ptr.unsafe_bitcast[Dict[String, Bool]]().unsafe_write(
                 _deser_dict_string_bool(json, key)
             )
         elif field_type_name == _LIST_OPT_INT_NAME:
             ptr.unsafe_deinit_pointee()
-            ptr.bitcast[List[Optional[Int]]]().unsafe_write(
+            ptr.unsafe_bitcast[List[Optional[Int]]]().unsafe_write(
                 _deser_list_opt_int(json, key)
             )
         elif field_type_name == _LIST_OPT_STRING_NAME:
             ptr.unsafe_deinit_pointee()
-            ptr.bitcast[List[Optional[String]]]().unsafe_write(
+            ptr.unsafe_bitcast[List[Optional[String]]]().unsafe_write(
                 _deser_list_opt_string(json, key)
             )
         elif field_type_name == _OPT_LIST_INT_NAME:
             ptr.unsafe_deinit_pointee()
-            ptr.bitcast[Optional[List[Int]]]().unsafe_write(
+            ptr.unsafe_bitcast[Optional[List[Int]]]().unsafe_write(
                 _deser_opt_list_int(json, key)
             )
         elif field_type_name == _OPT_LIST_STRING_NAME:
             ptr.unsafe_deinit_pointee()
-            ptr.bitcast[Optional[List[String]]]().unsafe_write(
+            ptr.unsafe_bitcast[Optional[List[String]]]().unsafe_write(
                 _deser_opt_list_string(json, key)
             )
         elif field_type_name == _LIST_LIST_INT_NAME:
             ptr.unsafe_deinit_pointee()
-            ptr.bitcast[List[List[Int]]]().unsafe_write(
+            ptr.unsafe_bitcast[List[List[Int]]]().unsafe_write(
                 _deser_list_list_int(json, key)
             )
         elif field_type_name == _LIST_LIST_STRING_NAME:
             ptr.unsafe_deinit_pointee()
-            ptr.bitcast[List[List[String]]]().unsafe_write(
+            ptr.unsafe_bitcast[List[List[String]]]().unsafe_write(
                 _deser_list_list_string(json, key)
             )
         elif field_type_name.startswith("List["):
@@ -972,7 +980,9 @@ def _deser_fill[T: AnyType](mut result: T, json: Value) raises:
             var sub_json = json[key]
             if not sub_json.is_object():
                 raise _field_type_error(key, "object", sub_json)
-            _deser_fill[field_type](ptr.bitcast[field_type]()[], sub_json)
+            _deser_fill[field_type](
+                ptr.unsafe_bitcast[field_type]()[], sub_json
+            )
         else:
             raise Error(
                 "Unsupported field type for '"

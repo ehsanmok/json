@@ -38,7 +38,7 @@ from max.gpu import barrier
 from std.gpu import block_dim, block_idx, thread_idx, global_idx
 from std.gpu.globals import MAX_THREADS_PER_BLOCK_METADATA
 from std.collections import List
-from std.memory import UnsafePointer, memcpy
+from std.memory import Pointer, unsafe_memcpy
 from std.math import ceildiv
 from std.sys import has_accelerator
 from std.time import perf_counter_ns
@@ -85,7 +85,9 @@ def parse_json_gpu(
     var t0 = perf_counter_ns()
     var d_input = ctx.enqueue_create_buffer[DType.uint8](size)
     var h_input = ctx.enqueue_create_host_buffer[DType.uint8](size)
-    memcpy(dest=h_input.unsafe_ptr(), src=input.data.unsafe_ptr(), count=size)
+    unsafe_memcpy(
+        dest=h_input.unsafe_ptr(), src=input.data.unsafe_ptr(), count=size
+    )
     ctx.enqueue_copy(d_input, h_input)
 
     return _parse_lean(ctx, d_input, size, total_padded_32, t0, verbose)
