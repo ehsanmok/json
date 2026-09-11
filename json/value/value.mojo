@@ -29,7 +29,7 @@
 from std.collections import List
 from std.memory import ArcPointer
 
-from .raw_ops import _parse_json_pointer
+from .raw_ops import _parse_json_pointer, escape_json_string
 from .node import (
     OwnedValue,
     OWNED_NULL,
@@ -635,11 +635,12 @@ struct Value(Copyable, Movable, Writable):
 def _value_to_json(v: Value) -> String:
     """Convert a Value to its JSON string representation.
 
-    Used by `Value.set` / `Value.append` to render the new value into
-    JSON text before splicing it into the raw object/array string.
-    The full-featured serializer (indent, escape options, etc.) is
-    `serialize.dumps`; mutation uses the structured copy-on-write
-    path in `value/owned.mojo`.
+    Retained as a cross-module helper (re-exported from
+    `value/__init__.mojo`); it has no in-library callers. The docstring
+    used to describe splicing JSON text into a raw object/array string,
+    which is not how mutation has worked for some time -- `set` /
+    `append` edit the owned tree in place. The full-featured serializer
+    is `serialize.dumps`.
     """
     if v.is_null():
         return "null"
@@ -650,25 +651,7 @@ def _value_to_json(v: Value) -> String:
     elif v.is_float():
         return String(v.float_value())
     elif v.is_string():
-        var result = String('"')
-        var s = v.string_value()
-        var s_bytes = s.as_bytes()
-        for i in range(len(s_bytes)):
-            var c = s_bytes[i]
-            if c == UInt8(ord('"')):
-                result += '\\"'
-            elif c == UInt8(ord("\\")):
-                result += "\\\\"
-            elif c == UInt8(ord("\n")):
-                result += "\\n"
-            elif c == UInt8(ord("\r")):
-                result += "\\r"
-            elif c == UInt8(ord("\t")):
-                result += "\\t"
-            else:
-                result += chr(Int(c))
-        result += '"'
-        return result^
+        return escape_json_string(v.string_value())
     elif v.is_array() or v.is_object():
         return v.raw_json()
     return "null"
@@ -751,37 +734,8 @@ def _emit_view_json(doc: ArcPointer[Document], tape_idx: Int) -> String:
 
 
 def _escape_json_string(s: String) -> String:
-    """Wrap a string in quotes and escape the JSON-mandatory bytes
-    (`\"`, `\\`, control chars 0..31). Used by `_emit_view_json`.
-    """
-    var out = String('"')
-    var b = s.as_bytes()
-    for i in range(len(b)):
-        var c = b[i]
-        if c == UInt8(ord('"')):
-            out += '\\"'
-        elif c == UInt8(ord("\\")):
-            out += "\\\\"
-        elif c == UInt8(ord("\n")):
-            out += "\\n"
-        elif c == UInt8(ord("\r")):
-            out += "\\r"
-        elif c == UInt8(ord("\t")):
-            out += "\\t"
-        elif c == UInt8(ord("\b")):
-            out += "\\b"
-        elif c == UInt8(ord("\f")):
-            out += "\\f"
-        elif c < UInt8(0x20):
-            out += "\\u00"
-            var hi = Int(c) >> 4
-            var lo = Int(c) & 0xF
-            out += chr(ord("0") + hi) if hi < 10 else chr(ord("a") + hi - 10)
-            out += chr(ord("0") + lo) if lo < 10 else chr(ord("a") + lo - 10)
-        else:
-            out += chr(Int(c))
-    out += '"'
-    return out^
+    """Deprecated shim: use `escape_json_string` from `raw_ops`."""
+    return escape_json_string(s)
 
 
 def _view_eq(a: Value, b: Value) -> Bool:

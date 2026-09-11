@@ -26,6 +26,7 @@ from .node import (
     OWNED_ARRAY,
     OWNED_OBJECT,
 )
+from .raw_ops import escape_json_string
 from .value import Value, Null, make_view_value
 from ..document import (
     Document,
@@ -430,25 +431,14 @@ def _owned_to_json(o: OwnedValue) -> String:
 
 
 def _escape_json_string(s: String) -> String:
-    """Render a Mojo string as a JSON string literal."""
-    var out = String('"')
-    var bytes = s.as_bytes()
-    for i in range(len(bytes)):
-        var c = bytes[i]
-        if c == UInt8(ord('"')):
-            out += '\\"'
-        elif c == UInt8(ord("\\")):
-            out += "\\\\"
-        elif c == UInt8(ord("\n")):
-            out += "\\n"
-        elif c == UInt8(ord("\r")):
-            out += "\\r"
-        elif c == UInt8(ord("\t")):
-            out += "\\t"
-        else:
-            out += chr(Int(c))
-    out += '"'
-    return out^
+    """Deprecated shim: use `escape_json_string` from `raw_ops`.
+
+    Kept only so existing callers in this module keep working. This used
+    to be its own implementation that omitted the U+0000..U+001F range,
+    so a control character in a hand-built object serialized to invalid
+    JSON while the same value from a tape did not.
+    """
+    return escape_json_string(s)
 
 
 # ---------------------------------------------------------------------------

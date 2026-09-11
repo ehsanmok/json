@@ -2,7 +2,7 @@
 
 from std.testing import assert_equal, assert_true, TestSuite
 
-from json import Value, Null, dumps
+from json import Value, Null, dumps, loads
 
 
 def test_serialize_null() raises:
@@ -124,6 +124,127 @@ def test_dumps_compact_default() raises:
     assert_true(
         result.find("\n") < 0, "Should not contain newlines in compact mode"
     )
+
+
+# ---------------------------------------------------------------------------
+# Control-character escaping (RFC 8259 s7).
+#
+# The U+0000..U+001F range MUST be escaped. This had zero coverage, and
+# the gap let a real bug ship: escaping was implemented four times over,
+# and the copy used for owned-tree containers omitted the range
+# entirely, so a control character inside a hand-built object serialized
+# to raw bytes -- invalid JSON -- while the identical value read from a
+# tape serialized correctly. Our own parser is lenient enough to accept
+# the bad output, so a round-trip assertion would not have caught it
+# either; these tests assert the exact bytes.
+#
+# Every case is checked on BOTH representations, since that divergence
+# is precisely what went wrong.
+# ---------------------------------------------------------------------------
+
+
+def _ctrl(code: Int) -> String:
+    """A one-character string holding the given control byte."""
+    return String(chr(code))
+
+
+def test_escape_control_char_scalar_both_reprs() raises:
+    """A bare control character escapes the same either way."""
+    var owned = Value("a" + _ctrl(1) + "b")
+    assert_equal(dumps(owned), '"a\\u0001b"')
+    # Same value, but arriving through the parser (tape-backed).
+    var tape = loads('"a\\u0001b"')
+    assert_equal(dumps(tape), '"a\\u0001b"')
+    assert_equal(dumps(owned), dumps(tape))
+
+
+def test_escape_control_char_nested_both_reprs() raises:
+    """Nested in a container -- this is where the two paths diverged."""
+    var built = Value.object()
+    built.set("k", Value("a" + _ctrl(1) + "b"))
+    assert_equal(dumps(built), '{"k":"a\\u0001b"}')
+
+    var parsed = loads('{"k":"a\\u0001b"}')
+    assert_equal(dumps(parsed), '{"k":"a\\u0001b"}')
+    assert_equal(dumps(built), dumps(parsed))
+
+
+def test_escape_control_char_in_array_both_reprs() raises:
+    var built = Value.array()
+    built.append(Value(_ctrl(31)))
+    assert_equal(dumps(built), '["\\u001f"]')
+    assert_equal(dumps(loads('["\\u001f"]')), '["\\u001f"]')
+
+
+def test_escape_control_char_in_key() raises:
+    """Object keys need escaping too, not just values."""
+    var built = Value.object()
+    built.set("a" + _ctrl(2), Value(Int64(1)))
+    assert_equal(dumps(built), '{"a\\u0002":1}')
+    assert_equal(dumps(loads('{"a\\u0002":1}')), '{"a\\u0002":1}')
+
+
+def test_escape_backspace_and_formfeed_short_forms() raises:
+    """0x08 and 0x0C use the short forms, not \\u0008 / \\u000c."""
+    var built = Value.object()
+    built.set("k", Value(_ctrl(8) + _ctrl(12)))
+    assert_equal(dumps(built), '{"k":"\\b\\f"}')
+    assert_equal(dumps(loads('{"k":"\\b\\f"}')), '{"k":"\\b\\f"}')
+
+
+def test_escape_all_short_forms_together() raises:
+    var v = Value.object()
+    v.set("k", Value('"' + "\\" + _ctrl(8) + _ctrl(12) + "\n" + "\r" + "\t"))
+    assert_equal(dumps(v), '{"k":"\\"\\\\\\b\\f\\n\\r\\t"}')
+
+
+def test_escape_every_control_byte_both_reprs() raises:
+    """Sweep 0x00..0x1F. None may appear raw in the output."""
+    for code in range(0, 32):
+        var built = Value.object()
+        built.set("k", Value(_ctrl(code)))
+        var out = dumps(built)
+        # No raw control byte survived.
+        var b = out.as_bytes()
+        for i in range(len(b)):
+            assert_true(
+                Int(b[i]) >= 0x20,
+                String("raw control byte ")
+                + String(Int(b[i]))
+                + " in output for input code "
+                + String(code),
+            )
+        # And it round-trips back to the same single character.
+        var back = loads(out)
+        assert_equal(back["k"].string_value().byte_length(), 1)
+        assert_equal(Int(back["k"].string_value().as_bytes()[0]), code)
+
+
+def test_del_byte_is_not_escaped() raises:
+    """0x7F is legal raw in a JSON string; the RFC does not require escaping."""
+    var built = Value.object()
+    built.set("k", Value(_ctrl(0x7F)))
+    var out = dumps(built)
+    assert_equal(out.byte_length(), 9)  # {"k":"<7f>"}  -> 8 ascii + 1 raw byte
+    assert_equal(Int(out.as_bytes()[6]), 0x7F)
+
+
+def test_non_ascii_passes_through_unescaped() raises:
+    """Multi-byte UTF-8 must survive untouched on both paths."""
+    var built = Value.object()
+    built.set("k", Value("héllo — 日本"))
+    var out = dumps(built)
+    assert_equal(out, '{"k":"héllo — 日本"}')
+    assert_equal(dumps(loads(out)), out)
+
+
+def test_escaped_output_reparses_to_same_value() raises:
+    """Whatever we emit, we must be able to read back identically."""
+    var original = "tab\there\nnewline" + _ctrl(1) + 'quote"back\\slash'
+    var built = Value.object()
+    built.set("k", Value(original))
+    var back = loads(dumps(built))
+    assert_equal(back["k"].string_value(), original)
 
 
 def main() raises:
