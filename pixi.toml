@@ -11,13 +11,17 @@ name = "json"
 version = "0.3.0"
 
 [package.build]
-# Pin below the 0.4 series: pixi-build-rattler-build 0.4.0 negotiates build
-# API version 4, which serializes compiler specs (e.g. `${{ compiler('cxx')
-# }}` -> gxx_linux-64) as bare strings that pixi <=0.70.2 rejects with
-# "invalid type: string, expected struct MatchSpec". 0.3.13 is the newest
-# backend that speaks the API version this toolchain understands. Floating
-# this with "*" silently breaks fresh builds (CI) the moment 0.4.x ships.
-backend = { name = "pixi-build-rattler-build", version = "==0.3.13" }
+# Lower bound only, deliberately.
+#
+# A build backend declares which `pixi-build-api-version` it speaks, and
+# pixi provides that as a virtual package, so the *solver* is what has to
+# match backend to client. Pinning an exact backend takes that choice
+# away and hard-couples the repo to one pixi version: `==0.3.13` speaks
+# API 4, so every pixi newer than 0.70.2 failed to resolve this package
+# at all with "pixi-build-api-version >=4,<5, for which no candidates
+# were found" -- see issue #3. A range lets pixi 0.70.x pick 0.3.13 and
+# newer pixi pick a 0.4.x that speaks its API.
+backend = { name = "pixi-build-rattler-build", version = ">=0.3.13" }
 
 # Binary dependencies are specified in recipe.yaml for rattler-build backend
 
