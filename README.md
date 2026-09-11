@@ -87,6 +87,42 @@ NVIDIA / AMD / Apple all run the same lean pipeline -- a single fused kernel + p
 
 Reproduce with `pixi run -e dev bench-cpu <file>` (3 warmup + 100 measured iterations, min-time-derived throughput). `parse_traverse` only adds a small constant on top of `parse_only` because every `Value` is a stable tape index, so traversal is a tape walk and not a re-parse. The gap to native simdjson on `parse_only` is algorithmic (no Eisel-Lemire float fast path, no AVX-512 64-byte chunks). Full breakdown in [`docs/performance.md`](./docs/performance.md).
 
+### Serialization (write path)
+
+Same fixture and same run as a like-for-like comparison against two other
+Mojo JSON libraries -- the `document` shape from
+[GLD.SerializerBenchmark](https://github.com/leo-gan/GLD.SerializerBenchmark),
+100 records, ~47 KB, best of 15 on an Apple M-series host:
+
+| Path | Serialize |
+|---|---:|
+| `serialize_json(struct)` -- typed, no intermediate tree | 37-40 us |
+| EmberJson `serialize(struct)` -- typed reflection | 32-35 us |
+| mojo-json -- schema-hardcoded writer | 25-26 us |
+| `dumps(value)` after building a `Value` tree | ~1500 us |
+
+Two things worth reading off that table. The typed path is roughly 22x
+faster than routing the same data through a `Value` tree, so when the
+shape is known ahead of time, use `serialize_json` (or write into a
+`JsonWriter` directly) rather than assembling a document. And the
+remaining gap to `mojo-json` is paid for: its decoder asserts fixed byte
+offsets and rejects whitespace, reordered object members and unknown
+members -- all of which RFC 8259 permits and this library accepts -- and
+its float writer is not round-trip exact.
+
+Building a `Value` tree is linear, but each `set` / `append` deep-copies
+the subtree it is given unless you hand over ownership. For large trees,
+transfer with `^`:
+
+```mojo
+var items = Value.array()
+for it in rows:
+    items.append(build_row(it))   # temporary: moved, no copy
+o.set("items", items^)            # named local: `^` avoids a deep copy
+```
+
+Reproduce with `pixi run -e dev bench-build`.
+
 Bench binaries are built with `mojo build -D ASSERT=none` so the Mojo stdlib's safety asserts are stripped, matching simdjson C++'s `-O3` posture for apples-to-apples comparison. `pixi run -e dev bench-cpu` and `bench-gpu` already pass this flag; the default `ASSERT=safe` build keeps the asserts in for development and costs ~20-37% on these workloads.
 
 ```bash

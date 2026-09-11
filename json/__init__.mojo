@@ -17,14 +17,17 @@
 - **Reflection serde with no boilerplate.** `serialize_json(struct)`
   and `deserialize_json[T](json)` walk struct fields at compile time;
   override one type with `JsonSerializable` / `JsonDeserializable`
-  without abandoning reflection for the rest. Covers the scalars
-  (including every sized integer width), `Optional`, `Dict[String, T]`,
-  and lists of scalars; a `List` of *structs* is rejected with an
-  explicit error -- Mojo 1.0's `reflect` exposes no way to recover the
-  element type, so implement `JsonSerializable` on the containing
-  struct for those.
+  without abandoning reflection for the rest. Serialization covers the
+  scalars (including every sized integer width), `Optional`,
+  `Dict[String, T]`, and lists of anything -- scalars, nested lists, and
+  structs. Deserialization covers the same except lists of structs,
+  which it declines explicitly rather than guessing; implement
+  `JsonDeserializable` on the containing struct for those.
 - **RFC-compliant queries.** JSONPath (RFC 9535), JSON Patch
   (RFC 6902), JSON Merge Patch (RFC 7396), JSON Schema validation.
+- **A writer for the hot path.** `JsonWriter` is the buffered byte sink
+  every serializer emits into, and is public: when the shape is known
+  ahead of time, writing into it directly is the fastest route out.
 
 See the [API reference](https://ehsanmok.github.io/json/) for the
 full public surface; benchmark numbers and the `pixi` task list
@@ -106,3 +109,6 @@ from .schema import validate, is_valid, ValidationResult, ValidationError
 # Streaming/lazy parsing (CPU only).
 from .lazy import LazyValue
 from .streaming import StreamingParser, ArrayStreamingParser
+
+# Byte-level serialization sink.
+from .writer import JsonWriter
