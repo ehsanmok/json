@@ -74,6 +74,48 @@ struct Employee(Defaultable, Movable):
 
 
 @fieldwise_init
+struct SizedInts(Defaultable, Movable):
+    """Every sized integer width, to pin the reflection arms."""
+
+    var i8: Int8
+    var i16: Int16
+    var i32: Int32
+    var i64: Int64
+    var u8: UInt8
+    var u16: UInt16
+    var u32: UInt32
+    var u64: UInt64
+
+    def __init__(out self):
+        self.i8 = 0
+        self.i16 = 0
+        self.i32 = 0
+        self.i64 = 0
+        self.u8 = 0
+        self.u16 = 0
+        self.u32 = 0
+        self.u64 = 0
+
+
+@fieldwise_init
+struct LineItem(Defaultable, Movable):
+    var sku: String
+
+    def __init__(out self):
+        self.sku = ""
+
+
+@fieldwise_init
+struct Basket(Defaultable, Movable):
+    """`List[<struct>]` -- reflection must reject this, not guess."""
+
+    var items: List[LineItem]
+
+    def __init__(out self):
+        self.items = List[LineItem]()
+
+
+@fieldwise_init
 struct Config(Defaultable, Movable):
     var name: String
     var score: Optional[Int]
@@ -697,6 +739,105 @@ def test_round_trip_combinator_box_null_optional_list() raises:
 # ===================================================================
 
 
+# ---------------------------------------------------------------------------
+# Sized integer widths.
+#
+# Before these arms existed, only `Int` and `Int64` were reflected; an
+# `Int32` field fell through to the "Unsupported field type" error, which
+# is what forced a caller with an `Int32` field off the reflection path
+# entirely.
+# ---------------------------------------------------------------------------
+
+
+def test_serialize_sized_ints() raises:
+    var v = SizedInts(-8, -16, -32, -64, 8, 16, 32, 64)
+    var json = serialize_json(v)
+    assert_equal(
+        json,
+        '{"i8":-8,"i16":-16,"i32":-32,"i64":-64,'
+        + '"u8":8,"u16":16,"u32":32,"u64":64}',
+    )
+    print("  test_serialize_sized_ints passed")
+
+
+def test_deserialize_sized_ints() raises:
+    var json = (
+        '{"i8":-1,"i16":-2,"i32":-3,"i64":-4,'
+        + '"u8":1,"u16":2,"u32":3,"u64":4}'
+    )
+    var v = deserialize_json[SizedInts](json)
+    assert_equal(Int(v.i8), -1)
+    assert_equal(Int(v.i16), -2)
+    assert_equal(Int(v.i32), -3)
+    assert_equal(Int(v.i64), -4)
+    assert_equal(Int(v.u8), 1)
+    assert_equal(Int(v.u16), 2)
+    assert_equal(Int(v.u32), 3)
+    assert_equal(Int(v.u64), 4)
+    print("  test_deserialize_sized_ints passed")
+
+
+def test_round_trip_sized_ints() raises:
+    var original = SizedInts(-128, -32768, -2147483648, -64, 255, 65535, 7, 9)
+    var back = deserialize_json[SizedInts](serialize_json(original))
+    assert_equal(Int(back.i8), -128)
+    assert_equal(Int(back.i16), -32768)
+    assert_equal(Int(back.i32), -2147483648)
+    assert_equal(Int(back.u8), 255)
+    assert_equal(Int(back.u16), 65535)
+    print("  test_round_trip_sized_ints passed")
+
+
+def test_serialize_int32_negative() raises:
+    """The specific gap that pushed callers off reflection."""
+    var v = SizedInts()
+    v.i32 = -12345
+    assert_true('"i32":-12345' in serialize_json(v))
+    print("  test_serialize_int32_negative passed")
+
+
+# ---------------------------------------------------------------------------
+# Unsupported list element types must fail loudly.
+#
+# A `List` is itself a struct, so `List[LineItem]` used to reach the
+# nested-struct arm: serialization reflected over List's *internal*
+# fields and emitted its data pointer, length and capacity as a JSON
+# object -- corrupt output that looked like success. Both directions now
+# raise instead.
+# ---------------------------------------------------------------------------
+
+
+def test_serialize_list_of_structs_raises() raises:
+    var b = Basket()
+    b.items.append(LineItem("sku-1"))
+    var raised = False
+    var message = String()
+    try:
+        _ = serialize_json(b)
+    except e:
+        raised = True
+        message = String(e)
+    assert_true(raised, "serialize_json must reject List[<struct>]")
+    # Must not have silently emitted List's internals.
+    assert_true("unsupported list element type" in message)
+    assert_true("JsonSerializable" in message)
+    print("  test_serialize_list_of_structs_raises passed")
+
+
+def test_deserialize_list_of_structs_raises() raises:
+    var raised = False
+    var message = String()
+    try:
+        _ = deserialize_json[Basket]('{"items":[{"sku":"a"}]}')
+    except e:
+        raised = True
+        message = String(e)
+    assert_true(raised, "deserialize_json must reject List[<struct>]")
+    assert_true("unsupported list element type" in message)
+    assert_true("JsonDeserializable" in message)
+    print("  test_deserialize_list_of_structs_raises passed")
+
+
 def main() raises:
     print("Running reflection-based serde tests...")
     print()
@@ -759,6 +900,18 @@ def main() raises:
     test_serialize_list_list_int()
     test_round_trip_combinator_box()
     test_round_trip_combinator_box_null_optional_list()
+    print()
+
+    print("Sized integers:")
+    test_serialize_sized_ints()
+    test_deserialize_sized_ints()
+    test_round_trip_sized_ints()
+    test_serialize_int32_negative()
+    print()
+
+    print("Unsupported list element types:")
+    test_serialize_list_of_structs_raises()
+    test_deserialize_list_of_structs_raises()
     print()
 
     print("All reflection serde tests passed!")

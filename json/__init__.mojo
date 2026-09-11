@@ -17,7 +17,12 @@
 - **Reflection serde with no boilerplate.** `serialize_json(struct)`
   and `deserialize_json[T](json)` walk struct fields at compile time;
   override one type with `JsonSerializable` / `JsonDeserializable`
-  without abandoning reflection for the rest.
+  without abandoning reflection for the rest. Covers the scalars
+  (including every sized integer width), `Optional`, `Dict[String, T]`,
+  and lists of scalars; a `List` of *structs* is rejected with an
+  explicit error -- Mojo 1.0's `reflect` exposes no way to recover the
+  element type, so implement `JsonSerializable` on the containing
+  struct for those.
 - **RFC-compliant queries.** JSONPath (RFC 9535), JSON Patch
   (RFC 6902), JSON Merge Patch (RFC 7396), JSON Schema validation.
 
@@ -32,6 +37,12 @@ var data = loads('{"name": "Alice", "scores": [95, 87, 92]}')
 print(data["name"].string_value())      # Alice
 print(data["scores"][0].int_value())    # 95
 
+var doc = Value.object()                # build from scratch
+doc.set("name", Value("Ada"))
+var scores = Value.array()
+scores.append(Value(95))
+doc.set("scores", scores)
+
 var fast = loads[target="cpu-simdjson"]('{"x": 1}')   # simdjson FFI
 var big  = load[target="gpu"]("huge.json")            # GPU (>100 MB)
 
@@ -39,8 +50,13 @@ print(dumps(data, indent="  "))         # pretty print
 ```
 
 Notes:
-- `Value` is a view over a tape-backed `Document`; mutation is
-  copy-on-write, so nested `set` / `append` propagates correctly.
+- `Value` holds either a tape-backed view over a `Document` (what the
+  parsers return) or an owned tree (what the constructors and
+  `Value.object()` / `Value.array()` return, and what a parsed value
+  becomes on first mutation). Which one is an implementation detail:
+  the whole API behaves identically either way. Building a tree with
+  `set` / `append` is O(1) amortized per node, and scalars and empty
+  containers allocate nothing.
 - The default CPU parser is the two-pass stage 1 + stage 2 walker
   (`json.cpu.parse_cpu_native_tape`).
 - `loads[target='gpu']` emits a raw structural bitmap on the GPU

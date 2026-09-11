@@ -2,8 +2,11 @@
 #
 # The split isolates pure string utilities (`raw_ops.mojo`) from the
 # type itself (`value.mojo`):
-#   - `value.mojo`     : tape-backed `Value` view over a `Document`.
-#   - `owned.mojo`     : copy-on-write `OwnedValue` mutation tree.
+#   - `node.mojo`      : the owned, mutable `OwnedValue` tree node.
+#   - `value.mojo`     : `Value`, holding either a tape-backed view over
+#       a `Document` or an owned `OwnedValue` tree.
+#   - `owned.mojo`     : conversion between the two, plus the
+#       JSON-Pointer mutation walk.
 #   - `raw_ops.mojo`   : pure JSON byte-level helpers shared with the
 #       lazy parser.
 #
@@ -25,8 +28,17 @@ from .raw_ops import (
     _extract_object_keys,
     _parse_json_pointer,
 )
-from .owned import (
+from .node import (
     OwnedValue,
+    OWNED_NULL,
+    OWNED_BOOL,
+    OWNED_INT,
+    OWNED_FLOAT,
+    OWNED_STRING,
+    OWNED_ARRAY,
+    OWNED_OBJECT,
+)
+from .owned import (
     _value_to_owned,
     _parse_owned_value,
     _owned_to_json,

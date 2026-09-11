@@ -48,6 +48,13 @@ from .deserialize import get_string, get_int, get_bool, get_float
 
 comptime _INT_NAME = reflect[Int].name()
 comptime _INT64_NAME = reflect[Int64].name()
+comptime _INT32_NAME = reflect[Int32].name()
+comptime _INT16_NAME = reflect[Int16].name()
+comptime _INT8_NAME = reflect[Int8].name()
+comptime _UINT64_NAME = reflect[UInt64].name()
+comptime _UINT32_NAME = reflect[UInt32].name()
+comptime _UINT16_NAME = reflect[UInt16].name()
+comptime _UINT8_NAME = reflect[UInt8].name()
 comptime _BOOL_NAME = reflect[Bool].name()
 comptime _STRING_NAME = reflect[String].name()
 comptime _FLOAT64_NAME = reflect[Float64].name()
@@ -279,6 +286,20 @@ def _ser[T: AnyType](value: T) raises -> String:
         return String(rebind[Int](value))
     elif tname == _INT64_NAME:
         return String(rebind[Int64](value))
+    elif tname == _INT32_NAME:
+        return String(rebind[Int32](value))
+    elif tname == _INT16_NAME:
+        return String(rebind[Int16](value))
+    elif tname == _INT8_NAME:
+        return String(rebind[Int8](value))
+    elif tname == _UINT64_NAME:
+        return String(rebind[UInt64](value))
+    elif tname == _UINT32_NAME:
+        return String(rebind[UInt32](value))
+    elif tname == _UINT16_NAME:
+        return String(rebind[UInt16](value))
+    elif tname == _UINT8_NAME:
+        return String(rebind[UInt8](value))
     elif tname == _BOOL_NAME:
         return "true" if rebind[Bool](value) else "false"
     elif tname == _FLOAT64_NAME or "SIMD[DType.float64" in tname:
@@ -324,6 +345,33 @@ def _ser[T: AnyType](value: T) raises -> String:
         return _ser_list_list_int(rebind[List[List[Int]]](value))
     elif tname == _LIST_LIST_STRING_NAME:
         return _ser_list_list_string(rebind[List[List[String]]](value))
+    elif tname.startswith("List["):
+        # A `List` with an element type none of the arms above cover.
+        #
+        # This arm exists to *fail loudly*. It has to precede the
+        # `is_struct()` arm below, because a `List` is itself a struct:
+        # without it, `List[MyStruct]` fell through to
+        # `_ser_struct[List[MyStruct]]`, which reflected over List's own
+        # fields and silently emitted its internal data pointer, length
+        # and capacity as a JSON object instead of an array. Corrupt
+        # output that looked like success.
+        #
+        # It cannot be made to work generically here: deducing `E` from
+        # `List[E]` needs the element type, and inside a function
+        # parametric on `T` the type stays symbolic -- `reflect` in Mojo
+        # 1.0 exposes `name` / `is_struct` / `field_*` but no parameter
+        # introspection, and a `[E](List[E])` overload alongside
+        # `[T: AnyType](T)` is ambiguous at every call site. Use the
+        # `JsonSerializable` trait on the *containing* struct to
+        # hand-roll these fields.
+        raise Error(
+            "serialize_json: unsupported list element type in '"
+            + String(tname)
+            + "'. Reflection covers List[Int|Int64|String|Float64|Bool],"
+            + " List[Optional[Int|String]] and List[List[Int|String]];"
+            + " for a list of structs, implement JsonSerializable on the"
+            + " containing struct."
+        )
     elif reflect[T].is_struct():
         comptime if conforms_to(T, JsonSerializable):
             ref custom = trait_downcast[JsonSerializable](value)
@@ -577,6 +625,19 @@ def _ser_list_list_string(lst: List[List[String]]) -> String:
 # ===================================================================
 
 
+def _get_sized_int(json: Value, key: String, type_name: String) raises -> Int64:
+    """Read an integer field as `Int64`, for the sized-integer arms.
+
+    Factored out of the `Int64` arm so every width shares one code path
+    and one error message. Narrower widths convert at the call site; the
+    value is not range-checked, matching the existing `Int64` behaviour.
+    """
+    var parsed = loads(json.get(key))
+    if not parsed.is_int():
+        raise _field_type_error(key, type_name, parsed)
+    return parsed.int_value()
+
+
 def _deser_fill[T: AnyType](mut result: T, json: Value) raises:
     """Fill every field of *result* from the JSON object *json*.
 
@@ -605,11 +666,44 @@ def _deser_fill[T: AnyType](mut result: T, json: Value) raises:
             ptr.bitcast[Int]().unsafe_write(get_int(json, key))
         elif field_type_name == _INT64_NAME:
             ptr.unsafe_deinit_pointee()
-            var raw = json.get(key)
-            var parsed = loads(raw)
-            if not parsed.is_int():
-                raise _field_type_error(key, "Int64", parsed)
-            ptr.bitcast[Int64]().unsafe_write(parsed.int_value())
+            ptr.bitcast[Int64]().unsafe_write(
+                _get_sized_int(json, key, "Int64")
+            )
+        elif field_type_name == _INT32_NAME:
+            ptr.unsafe_deinit_pointee()
+            ptr.bitcast[Int32]().unsafe_write(
+                Int32(_get_sized_int(json, key, "Int32"))
+            )
+        elif field_type_name == _INT16_NAME:
+            ptr.unsafe_deinit_pointee()
+            ptr.bitcast[Int16]().unsafe_write(
+                Int16(_get_sized_int(json, key, "Int16"))
+            )
+        elif field_type_name == _INT8_NAME:
+            ptr.unsafe_deinit_pointee()
+            ptr.bitcast[Int8]().unsafe_write(
+                Int8(_get_sized_int(json, key, "Int8"))
+            )
+        elif field_type_name == _UINT64_NAME:
+            ptr.unsafe_deinit_pointee()
+            ptr.bitcast[UInt64]().unsafe_write(
+                UInt64(_get_sized_int(json, key, "UInt64"))
+            )
+        elif field_type_name == _UINT32_NAME:
+            ptr.unsafe_deinit_pointee()
+            ptr.bitcast[UInt32]().unsafe_write(
+                UInt32(_get_sized_int(json, key, "UInt32"))
+            )
+        elif field_type_name == _UINT16_NAME:
+            ptr.unsafe_deinit_pointee()
+            ptr.bitcast[UInt16]().unsafe_write(
+                UInt16(_get_sized_int(json, key, "UInt16"))
+            )
+        elif field_type_name == _UINT8_NAME:
+            ptr.unsafe_deinit_pointee()
+            ptr.bitcast[UInt8]().unsafe_write(
+                UInt8(_get_sized_int(json, key, "UInt8"))
+            )
         elif field_type_name == _BOOL_NAME:
             ptr.unsafe_deinit_pointee()
             ptr.bitcast[Bool]().unsafe_write(get_bool(json, key))
@@ -710,6 +804,23 @@ def _deser_fill[T: AnyType](mut result: T, json: Value) raises:
             ptr.unsafe_deinit_pointee()
             ptr.bitcast[List[List[String]]]().unsafe_write(
                 _deser_list_list_string(json, key)
+            )
+        elif field_type_name.startswith("List["):
+            # Same story as the serialize side: a `List` is a struct, so
+            # without this arm a `List[MyStruct]` field reached the
+            # nested-struct arm below and failed with the misleading
+            # "expected object, got array". Deducing the element type
+            # generically is not possible here -- see the matching arm in
+            # `_ser`.
+            raise Error(
+                "deserialize_json: unsupported list element type for '"
+                + key
+                + "' ("
+                + String(field_type_name)
+                + "). Reflection covers List[Int|Int64|String|Float64|Bool],"
+                + " List[Optional[Int|String]] and List[List[Int|String]];"
+                + " for a list of structs, implement JsonDeserializable on"
+                + " the containing struct."
             )
         # ----- Nested struct (fill existing default in-place) -----
         elif reflect[field_type].is_struct():

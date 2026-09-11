@@ -1,23 +1,47 @@
 # json - Core Value type.
 #
-# `Value` is the public JSON value type. Every `Value` is a
-# tape-backed view over a `Document`: the data lives in
-# `_doc[].tape[_tape_idx]` plus the side pools of `_doc`, and the
-# accessors below read it back. Primitive constructors
-# (`Value(Null())`, `Value(42)`, `Value("hi")`, ...) build a
-# single-entry `Document` and wrap it. Mutations (`set` / `append`
-# / `set_at`) materialise the view into an `OwnedValue` tree, splice
-# in the change, and rebuild the document so every accessor still
-# reads from a tape.
+# `Value` carries one of two representations, and which one it holds is
+# an implementation detail no caller has to think about:
+#
+#   read  -- a tape-backed view over a `Document`. `_doc` is `Some`, the
+#            data lives in `_doc[].tape[_tape_idx]` plus the side pools,
+#            and child views share the `ArcPointer` (a refcount bump, not
+#            a copy). This is what every parser produces.
+#
+#   write -- an owned `OwnedValue` tree in `_owned`, with `_doc` empty.
+#            This is what the primitive constructors and the `object()` /
+#            `array()` factories produce, and what a tape-backed value
+#            converts to the first time it is mutated.
+#
+# Why two: the tape is a build-once layout. A container's children are a
+# contiguous run written *before* the parent header, and the child count
+# is packed into the parent entry, so you cannot append one element to an
+# existing array in place -- see `document.mojo`. Mutating a tape
+# therefore means rebuilding it. Doing that per mutation made growing a
+# tree quadratic; keeping the owned tree live across mutations makes it
+# O(1) amortized per node, and a conversion happens at most once.
+#
+# A default `OwnedValue` heap-allocates nothing (see `node.mojo`), so a
+# scalar or empty container costs no allocation at all -- where the old
+# representation built a whole single-entry `Document` behind an
+# `ArcPointer` for every `Value(1)`.
 
 from std.collections import List
 from std.memory import ArcPointer
 
 from .raw_ops import _parse_json_pointer
-from .owned import (
+from .node import (
     OwnedValue,
-    _materialize_for_write,
-    _serialize_into_value,
+    OWNED_NULL,
+    OWNED_BOOL,
+    OWNED_INT,
+    OWNED_FLOAT,
+    OWNED_STRING,
+    OWNED_ARRAY,
+    OWNED_OBJECT,
+)
+from .owned import (
+    _owned_to_json,
     _set_at_pointer,
     _value_to_owned,
 )
@@ -49,72 +73,126 @@ struct Null(Writable):
 
 
 struct Value(Copyable, Movable, Writable):
-    """A JSON value: a tape-backed view over a `Document`.
+    """A JSON value.
 
-    `_doc` is shared via an `ArcPointer` so child views (e.g. those
-    returned by `array_items()` / `__getitem__`) bump a refcount
-    instead of cloning the document. `_tape_idx` is the entry's slot
-    in `_doc[].tape`; the tag at that slot is what `is_*` /
-    `*_value` / iteration walk.
+    Holds either a tape-backed view over a shared `Document` (what the
+    parsers produce) or an owned mutable tree (what the constructors and
+    factories produce, and what a parsed value becomes on first
+    mutation). See the module header for why both exist; callers use the
+    same API either way.
     """
 
-    var _doc: ArcPointer[Document]
+    # `Some` => tape view, and `_tape_idx` is its slot. Empty => `_owned`
+    # is authoritative. An `Optional` rather than a sentinel `Document`
+    # so the owned representation costs no allocation.
+    var _doc: Optional[ArcPointer[Document]]
     var _tape_idx: Int
+    var _owned: OwnedValue
 
     def __init__(out self, doc: ArcPointer[Document], tape_idx: Int):
-        """Primary constructor: a tape-backed view over `doc[].tape[tape_idx]`.
+        """Tape-backed view over `doc[].tape[tape_idx]`.
 
-        All other public constructors delegate here by building a
-        single-entry `Document` and wrapping it in an `ArcPointer`.
+        The parser entry point: `make_view_value` and `_make_view_child`
+        both land here, sharing one `ArcPointer` across every view into
+        the same document.
         """
         self._doc = doc
         self._tape_idx = tape_idx
+        self._owned = OwnedValue()
+
+    def __init__(out self, var owned: OwnedValue):
+        """Owned-tree value. Takes ownership; no document is built."""
+        self._doc = None
+        self._tape_idx = 0
+        self._owned = owned^
+
+    @staticmethod
+    def object() -> Value:
+        """An empty JSON object, ready to `set` into.
+
+        Allocation-free, and the intended way to build an object from
+        scratch. Before this existed the only route to an empty object
+        was `loads("{}")` -- a full parser invocation per node.
+
+        Example:
+            var o = Value.object()
+            o.set("name", Value("Ada"))
+        """
+        return Value(OwnedValue.make_object(List[String](), List[OwnedValue]()))
+
+    @staticmethod
+    def array() -> Value:
+        """An empty JSON array, ready to `append` into.
+
+        Allocation-free. See `object()`.
+
+        Example:
+            var a = Value.array()
+            a.append(Value(1))
+        """
+        return Value(OwnedValue.make_array(List[OwnedValue]()))
+
+    @always_inline
+    def _is_view(self) -> Bool:
+        """True when this value reads from a tape."""
+        return Bool(self._doc)
+
+    def _to_owned_in_place(mut self) raises:
+        """Switch to the owned representation, converting once if needed.
+
+        Called by every mutator. After this the value stays owned, so a
+        run of mutations converts at most once rather than per call.
+        """
+        if self._is_view():
+            self._owned = _value_to_owned(self)
+            self._doc = None
+            self._tape_idx = 0
+
+    def _as_owned(self) raises -> OwnedValue:
+        """This value as an owned tree, converting a view if necessary."""
+        if self._is_view():
+            return _value_to_owned(self)
+        return self._owned.copy()
+
+    # Scalar constructors. Each builds an owned node, which allocates
+    # nothing -- previously each built a single-entry `Document` behind an
+    # `ArcPointer`, i.e. one heap allocation per scalar.
 
     def __init__(out self, null: Null):
-        var d = Document()
-        _ = d.append_null()
-        self = Self(ArcPointer[Document](d^), 0)
+        self = Self(OwnedValue.make_null())
 
     def __init__(out self, none: NoneType):
-        var d = Document()
-        _ = d.append_null()
-        self = Self(ArcPointer[Document](d^), 0)
+        self = Self(OwnedValue.make_null())
 
     def __init__(out self, b: Bool):
-        var d = Document()
-        _ = d.append_bool(b)
-        self = Self(ArcPointer[Document](d^), 0)
+        self = Self(OwnedValue.make_bool(b))
 
     def __init__(out self, i: Int):
-        var d = Document()
-        _ = d.append_int(Int64(i))
-        self = Self(ArcPointer[Document](d^), 0)
+        self = Self(OwnedValue.make_int(Int64(i)))
 
     def __init__(out self, i: Int64):
-        var d = Document()
-        _ = d.append_int(i)
-        self = Self(ArcPointer[Document](d^), 0)
+        self = Self(OwnedValue.make_int(i))
 
     def __init__(out self, f: Float64):
-        var d = Document()
-        _ = d.append_float(f)
-        self = Self(ArcPointer[Document](d^), 0)
+        self = Self(OwnedValue.make_float(f))
 
     def __init__(out self, var s: String):
-        var d = Document()
-        _ = d.append_string_owned(s^)
-        self = Self(ArcPointer[Document](d^), 0)
+        self = Self(OwnedValue.make_string(s^))
 
     def copy(self) -> Self:
         """Create a copy of this Value.
 
-        Cheap: the document lives behind an ArcPointer, so we bump a
-        refcount and clone the tape index.
+        A tape view copies for free -- the document lives behind an
+        `ArcPointer`, so this is a refcount bump plus the tape index. An
+        owned tree is deep-copied, giving the copy independent value
+        semantics.
 
         Returns:
             A new Value with the same content.
         """
-        return Value(self._doc.copy(), self._tape_idx)
+        if self._is_view():
+            return Value(self._doc.value().copy(), self._tape_idx)
+        return Value(self._owned.copy())
 
     def clone(self) -> Self:
         """Alias for copy(). Creates a deep copy of this Value.
@@ -126,57 +204,96 @@ struct Value(Copyable, Movable, Writable):
 
     @always_inline
     def _view_tag(self) -> UInt8:
-        """Return the tape tag for the entry this view points at."""
-        return self._doc[].get_tag(self._tape_idx)
+        """Tape tag for the entry this view points at. View mode only."""
+        return self._doc.value()[].get_tag(self._tape_idx)
+
+    @always_inline
+    def _kind(self) -> Int:
+        """The value's kind as an `OWNED_*` constant.
+
+        The single place the two representations are reconciled: every
+        predicate below is a comparison against this, so `is_object()`
+        means the same thing whether the value came from a parser or was
+        built by hand.
+        """
+        if not self._is_view():
+            return self._owned.kind
+        var t = self._view_tag()
+        if t == TAPE_TAG_NULL:
+            return OWNED_NULL
+        if t == TAPE_TAG_BOOL:
+            return OWNED_BOOL
+        if t == TAPE_TAG_INT:
+            return OWNED_INT
+        if t == TAPE_TAG_FLOAT:
+            return OWNED_FLOAT
+        if t == TAPE_TAG_STRING or t == TAPE_TAG_STRING_OWNED:
+            return OWNED_STRING
+        if t == TAPE_TAG_ARRAY:
+            return OWNED_ARRAY
+        return OWNED_OBJECT
 
     # Type checking
     def is_null(self) -> Bool:
-        return self._view_tag() == TAPE_TAG_NULL
+        return self._kind() == OWNED_NULL
 
     def is_bool(self) -> Bool:
-        return self._view_tag() == TAPE_TAG_BOOL
+        return self._kind() == OWNED_BOOL
 
     def is_int(self) -> Bool:
-        return self._view_tag() == TAPE_TAG_INT
+        return self._kind() == OWNED_INT
 
     def is_float(self) -> Bool:
-        return self._view_tag() == TAPE_TAG_FLOAT
+        return self._kind() == OWNED_FLOAT
 
     def is_string(self) -> Bool:
-        var t = self._view_tag()
-        return t == TAPE_TAG_STRING or t == TAPE_TAG_STRING_OWNED
+        return self._kind() == OWNED_STRING
 
     def is_array(self) -> Bool:
-        return self._view_tag() == TAPE_TAG_ARRAY
+        return self._kind() == OWNED_ARRAY
 
     def is_object(self) -> Bool:
-        return self._view_tag() == TAPE_TAG_OBJECT
+        return self._kind() == OWNED_OBJECT
 
     def is_number(self) -> Bool:
-        var t = self._view_tag()
-        return t == TAPE_TAG_INT or t == TAPE_TAG_FLOAT
+        var k = self._kind()
+        return k == OWNED_INT or k == OWNED_FLOAT
 
     # Value extraction
     def bool_value(self) -> Bool:
-        return self._doc[].get_bool(self._tape_idx)
+        if self._is_view():
+            return self._doc.value()[].get_bool(self._tape_idx)
+        return self._owned.bool_val
 
     def int_value(self) -> Int64:
-        return self._doc[].get_int(self._tape_idx)
+        if self._is_view():
+            return self._doc.value()[].get_int(self._tape_idx)
+        return self._owned.int_val
 
     def float_value(self) -> Float64:
-        return self._doc[].get_float(self._tape_idx)
+        if self._is_view():
+            return self._doc.value()[].get_float(self._tape_idx)
+        return self._owned.float_val
 
     def string_value(self) -> String:
-        return self._doc[].get_string(self._tape_idx)
+        if self._is_view():
+            return self._doc.value()[].get_string(self._tape_idx)
+        return self._owned.str_val
 
     def raw_json(self) -> String:
-        return _emit_view_json(self._doc, self._tape_idx)
+        if self._is_view():
+            return _emit_view_json(self._doc.value(), self._tape_idx)
+        return _owned_to_json(self._owned)
 
     def array_count(self) -> Int:
-        return self._doc[].get_count(self._tape_idx)
+        if self._is_view():
+            return self._doc.value()[].get_count(self._tape_idx)
+        return len(self._owned.array_val)
 
     def object_keys(self) -> List[String]:
-        ref doc = self._doc[]
+        if not self._is_view():
+            return self._owned.object_keys.copy()
+        ref doc = self._doc.value()[]
         var pair_count = doc.get_count(self._tape_idx)
         var child_start = doc.get_child_start(self._tape_idx)
         var keys = List[String](capacity=pair_count)
@@ -185,11 +302,15 @@ struct Value(Copyable, Movable, Writable):
         return keys^
 
     def object_count(self) -> Int:
-        return self._doc[].get_count(self._tape_idx)
+        if self._is_view():
+            return self._doc.value()[].get_count(self._tape_idx)
+        return len(self._owned.object_keys)
 
     # Stringable
     def __str__(self) -> String:
-        return _emit_view_json(self._doc, self._tape_idx)
+        if self._is_view():
+            return _emit_view_json(self._doc.value(), self._tape_idx)
+        return _owned_to_json(self._owned)
 
     def write_to[W: Writer](self, mut writer: W):
         writer.write(self.__str__())
@@ -225,12 +346,20 @@ struct Value(Copyable, Movable, Writable):
         if not self.is_object():
             raise Error("get() can only be called on JSON objects")
 
-        ref doc = self._doc[]
+        if not self._is_view():
+            var pos = self._owned.find_key(key)
+            if pos < 0:
+                raise Error("Key '" + key + "' not found in JSON object")
+            return _owned_to_json(self._owned.object_values[pos])
+
+        ref doc = self._doc.value()[]
         var pair_count = doc.get_count(self._tape_idx)
         var child_start = doc.get_child_start(self._tape_idx)
         for i in range(pair_count):
             if doc.get_key(child_start + 2 * i) == key:
-                var v = _make_view_child(self._doc, child_start + 2 * i + 1)
+                var v = _make_view_child(
+                    self._doc.value(), child_start + 2 * i + 1
+                )
                 return _view_to_json(v)
         raise Error("Key '" + key + "' not found in JSON object")
 
@@ -251,12 +380,18 @@ struct Value(Copyable, Movable, Writable):
         if not self.is_array():
             raise Error("array_items() can only be called on JSON arrays")
 
-        ref doc = self._doc[]
+        if not self._is_view():
+            var owned_items = List[Value](capacity=len(self._owned.array_val))
+            for i in range(len(self._owned.array_val)):
+                owned_items.append(Value(self._owned.array_val[i].copy()))
+            return owned_items^
+
+        ref doc = self._doc.value()[]
         var count = doc.get_count(self._tape_idx)
         var child_start = doc.get_child_start(self._tape_idx)
         var result = List[Value](capacity=count)
         for i in range(count):
-            result.append(_make_view_child(self._doc, child_start + i))
+            result.append(_make_view_child(self._doc.value(), child_start + i))
         return result^
 
     def object_items(self) raises -> List[Tuple[String, Value]]:
@@ -278,13 +413,22 @@ struct Value(Copyable, Movable, Writable):
         if not self.is_object():
             raise Error("object_items() can only be called on JSON objects")
 
-        ref doc = self._doc[]
+        if not self._is_view():
+            var n = len(self._owned.object_keys)
+            var owned_pairs = List[Tuple[String, Value]](capacity=n)
+            for i in range(n):
+                var ok = self._owned.object_keys[i]
+                var ov = Value(self._owned.object_values[i].copy())
+                owned_pairs.append((ok, ov^))
+            return owned_pairs^
+
+        ref doc = self._doc.value()[]
         var pair_count = doc.get_count(self._tape_idx)
         var child_start = doc.get_child_start(self._tape_idx)
         var result = List[Tuple[String, Value]](capacity=pair_count)
         for i in range(pair_count):
             var k = doc.get_key(child_start + 2 * i)
-            var v = _make_view_child(self._doc, child_start + 2 * i + 1)
+            var v = _make_view_child(self._doc.value(), child_start + 2 * i + 1)
             result.append((k, v^))
         return result^
 
@@ -304,11 +448,16 @@ struct Value(Copyable, Movable, Writable):
         if not self.is_array():
             raise Error("Index access requires a JSON array")
 
-        var count = self._doc[].get_count(self._tape_idx)
+        if not self._is_view():
+            if index < 0 or index >= len(self._owned.array_val):
+                raise Error("Array index out of bounds: " + String(index))
+            return Value(self._owned.array_val[index].copy())
+
+        var count = self._doc.value()[].get_count(self._tape_idx)
         if index < 0 or index >= count:
             raise Error("Array index out of bounds: " + String(index))
-        var child_start = self._doc[].get_child_start(self._tape_idx)
-        return _make_view_child(self._doc, child_start + index)
+        var child_start = self._doc.value()[].get_child_start(self._tape_idx)
+        return _make_view_child(self._doc.value(), child_start + index)
 
     def __getitem__(self, key: String) raises -> Value:
         """Get object value by key.
@@ -326,12 +475,20 @@ struct Value(Copyable, Movable, Writable):
         if not self.is_object():
             raise Error("Key access requires a JSON object")
 
-        ref doc = self._doc[]
+        if not self._is_view():
+            var pos = self._owned.find_key(key)
+            if pos < 0:
+                raise Error("Key not found: " + key)
+            return Value(self._owned.object_values[pos].copy())
+
+        ref doc = self._doc.value()[]
         var pair_count = doc.get_count(self._tape_idx)
         var child_start = doc.get_child_start(self._tape_idx)
         for i in range(pair_count):
             if doc.get_key(child_start + 2 * i) == key:
-                return _make_view_child(self._doc, child_start + 2 * i + 1)
+                return _make_view_child(
+                    self._doc.value(), child_start + 2 * i + 1
+                )
         raise Error("Key not found: " + key)
 
     def set(mut self, key: String, value: Value) raises:
@@ -353,25 +510,8 @@ struct Value(Copyable, Movable, Writable):
         if not self.is_object():
             raise Error("set() can only be called on JSON objects")
 
-        var owned = _materialize_for_write(self)
-        var owned_value = _value_to_owned(value)
-
-        var key_pos = -1
-        for i in range(len(owned.object_keys)):
-            if owned.object_keys[i] == key:
-                key_pos = i
-                break
-
-        if key_pos >= 0:
-            owned.object_values[key_pos] = owned_value^
-        else:
-            owned.object_keys.append(key)
-            owned.object_values.append(owned_value^)
-
-        var rebuilt = _serialize_into_value(owned)
-        # Install the rebuilt tape view in place of the current one.
-        self._doc = rebuilt._doc.copy()
-        self._tape_idx = rebuilt._tape_idx
+        self._to_owned_in_place()
+        self._owned.set_key(key, value._as_owned())
 
     def set(mut self, index: Int, value: Value) raises:
         """Set a value at an array index.
@@ -386,17 +526,11 @@ struct Value(Copyable, Movable, Writable):
         """
         if not self.is_array():
             raise Error("set(index) can only be called on JSON arrays")
-        var current_count = self.array_count()
-        if index < 0 or index >= current_count:
+        if index < 0 or index >= self.array_count():
             raise Error("Array index out of bounds: " + String(index))
 
-        var owned = _materialize_for_write(self)
-        var owned_value = _value_to_owned(value)
-        owned.array_val[index] = owned_value^
-
-        var rebuilt = _serialize_into_value(owned)
-        self._doc = rebuilt._doc.copy()
-        self._tape_idx = rebuilt._tape_idx
+        self._to_owned_in_place()
+        self._owned.array_val[index] = value._as_owned()
 
     def append(mut self, value: Value) raises:
         """Append a value to a JSON array.
@@ -411,13 +545,8 @@ struct Value(Copyable, Movable, Writable):
         if not self.is_array():
             raise Error("append() can only be called on JSON arrays")
 
-        var owned = _materialize_for_write(self)
-        var owned_value = _value_to_owned(value)
-        owned.array_val.append(owned_value^)
-
-        var rebuilt = _serialize_into_value(owned)
-        self._doc = rebuilt._doc.copy()
-        self._tape_idx = rebuilt._tape_idx
+        self._to_owned_in_place()
+        self._owned.push(value._as_owned())
 
     def set_at(mut self, pointer: String, value: Value) raises:
         """Set a nested value via JSON Pointer (RFC 6901).
@@ -435,19 +564,16 @@ struct Value(Copyable, Movable, Writable):
             doc.set_at("/a/b", Value(42))  # Result is `{"a":{"b":42}}`.
         """
         if pointer == "":
-            # Whole-document replacement.
+            # Whole-document replacement: adopt both halves of the other
+            # value's representation, whichever one is live.
             self._doc = value._doc.copy()
             self._tape_idx = value._tape_idx
+            self._owned = value._owned.copy()
             return
 
         var tokens = _parse_json_pointer(pointer)
-        var tree = _materialize_for_write(self)
-        var new_val = _value_to_owned(value)
-        _set_at_pointer(tree, tokens, 0, new_val^)
-
-        var rebuilt = _serialize_into_value(tree)
-        self._doc = rebuilt._doc.copy()
-        self._tape_idx = rebuilt._tape_idx
+        self._to_owned_in_place()
+        _set_at_pointer(self._owned, tokens, 0, value._as_owned())
 
     def at(self, pointer: String) raises -> Value:
         """Navigate to a value using JSON Pointer (RFC 6901).
@@ -570,14 +696,18 @@ def _make_view_child(doc: ArcPointer[Document], tape_idx: Int) -> Value:
 
 
 def _view_to_json(v: Value) -> String:
-    """Serialize a tape-backed view into a JSON string.
+    """Serialize a value into a JSON string, whichever half is live.
 
     Used by `Value.raw_json()` / `Value.__str__()` / equality
-    comparison. Walks the tape recursively. Non-raising: on a corrupt
-    tape the function returns a sentinel "<bad-tape>" string, which is
-    a strictly better failure mode than panicking inside `__str__`.
+    comparison. A tape view walks the tape recursively; an owned tree
+    serializes directly, without building a tape first. Non-raising: on
+    a corrupt tape the function returns a sentinel "<bad-tape>" string,
+    which is a strictly better failure mode than panicking inside
+    `__str__`.
     """
-    return _emit_view_json(v._doc, v._tape_idx)
+    if v._is_view():
+        return _emit_view_json(v._doc.value(), v._tape_idx)
+    return _owned_to_json(v._owned)
 
 
 def _emit_view_json(doc: ArcPointer[Document], tape_idx: Int) -> String:
