@@ -41,10 +41,13 @@ from .node import (
     OWNED_OBJECT,
 )
 from .owned import (
+    _estimate_owned_bytes,
     _owned_to_json,
+    _write_owned,
     _set_at_pointer,
     _value_to_owned,
 )
+from ..writer import JsonWriter
 from ..document import (
     Document,
     TAPE_TAG_NULL,
@@ -284,6 +287,25 @@ struct Value(Copyable, Movable, Writable):
         if self._is_view():
             return _emit_view_json(self._doc.value(), self._tape_idx)
         return _owned_to_json(self._owned)
+
+    def pretty_json(self, indent: String) -> String:
+        """This value as indented JSON.
+
+        One structural walk with an indent-aware writer, rather than
+        serializing compactly and re-scanning the text.
+        """
+        if self._is_view():
+            var w = JsonWriter(
+                capacity=_estimate_view_bytes(self._doc.value()) * 2,
+                indent=indent,
+            )
+            _write_view(w, self._doc.value(), self._tape_idx)
+            return w^.finish_string()
+        var ow = JsonWriter(
+            capacity=_estimate_owned_bytes(self._owned) * 2, indent=indent
+        )
+        _write_owned(ow, self._owned)
+        return ow^.finish_string()
 
     def array_count(self) -> Int:
         if self._is_view():
@@ -694,43 +716,77 @@ def _view_to_json(v: Value) -> String:
 
 
 def _emit_view_json(doc: ArcPointer[Document], tape_idx: Int) -> String:
+    """Serialize a tape entry to JSON.
+
+    Sizes a writer once, then walks the tape into it.
+    """
+    var w = JsonWriter(capacity=_estimate_view_bytes(doc))
+    _write_view(w, doc, tape_idx)
+    return w^.finish_string()
+
+
+def _estimate_view_bytes(doc: ArcPointer[Document]) -> Int:
+    """Cheap output-size estimate, to size the writer up front.
+
+    Not exact -- escaping expands and the tape may be a subtree of a
+    larger document -- so `ensure` still covers the shortfall. The point
+    is only that the common case allocates once. Using the parsed input
+    length is O(1) and, for a whole document, very close.
+    """
+    var input_len = doc[].input.byte_length()
+    var est = input_len + 16 if input_len > 0 else doc[].size() * 12 + 16
+    return est if est > 32 else 32
+
+
+def _write_view(mut w: JsonWriter, doc: ArcPointer[Document], tape_idx: Int):
+    """Walk a tape entry into `w`.
+
+    Recurses structurally but writes into one buffer, so a leaf's bytes
+    are copied exactly once. The previous version returned a fresh
+    `String` per node and concatenated it into its parent, which copied
+    every leaf's bytes once per ancestor level.
+
+    Non-raising, like the function it replaced: an unrecognised tag
+    emits a marker rather than panicking inside `__str__`.
+    """
     ref d = doc[]
     var tag = d.get_tag(tape_idx)
     if tag == TAPE_TAG_NULL:
-        return "null"
+        w.write_null()
+        return
     if tag == TAPE_TAG_BOOL:
-        return "true" if d.get_bool(tape_idx) else "false"
+        w.write_bool(d.get_bool(tape_idx))
+        return
     if tag == TAPE_TAG_INT:
-        return String(d.get_int(tape_idx))
+        w.write_int(d.get_int(tape_idx))
+        return
     if tag == TAPE_TAG_FLOAT:
-        return String(d.get_float(tape_idx))
+        w.write_float(d.get_float(tape_idx))
+        return
     if tag == TAPE_TAG_STRING or tag == TAPE_TAG_STRING_OWNED:
-        var s = d.get_string(tape_idx)
-        return _escape_json_string(s)
+        w.write_string(d.get_string(tape_idx))
+        return
     if tag == TAPE_TAG_ARRAY:
         var count = d.get_count(tape_idx)
         var child_start = d.get_child_start(tape_idx)
-        var out = String("[")
+        w.open_container(UInt8(0x5B))
         for i in range(count):
-            if i > 0:
-                out += ","
-            out += _emit_view_json(doc, child_start + i)
-        out += "]"
-        return out^
+            w.next_child(i == 0)
+            _write_view(w, doc, child_start + i)
+        w.close_container(UInt8(0x5D), count == 0)
+        return
     if tag == TAPE_TAG_OBJECT:
         var pair_count = d.get_count(tape_idx)
         var child_start = d.get_child_start(tape_idx)
-        var out = String("{")
+        w.open_container(UInt8(0x7B))
         for i in range(pair_count):
-            if i > 0:
-                out += ","
-            var key = d.get_key(child_start + 2 * i)
-            out += _escape_json_string(key)
-            out += ":"
-            out += _emit_view_json(doc, child_start + 2 * i + 1)
-        out += "}"
-        return out^
-    return String("<bad-tape>")
+            w.next_child(i == 0)
+            w.write_string(d.get_key(child_start + 2 * i))
+            w.colon()
+            _write_view(w, doc, child_start + 2 * i + 1)
+        w.close_container(UInt8(0x7D), pair_count == 0)
+        return
+    w.write_literal("<bad-tape>")
 
 
 def _escape_json_string(s: String) -> String:

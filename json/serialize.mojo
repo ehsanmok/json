@@ -161,20 +161,17 @@ def _format_json(raw: String, indent: String, current_indent: String) -> String:
 def _to_string_pretty(
     v: Value, indent: String, current_indent: String
 ) -> String:
-    """Convert a Value to a pretty-printed JSON string."""
-    if v.is_null():
-        return "null"
-    elif v.is_bool():
-        return "true" if v.bool_value() else "false"
-    elif v.is_int():
-        return String(v.int_value())
-    elif v.is_float():
-        return String(v.float_value())
-    elif v.is_string():
-        return _escape_string(v.string_value())
-    elif v.is_array() or v.is_object():
-        return _format_json(v.raw_json(), indent, current_indent)
-    return "null"
+    """Convert a Value to a pretty-printed JSON string.
+
+    Emits directly, in one structural walk. This used to serialize the
+    whole document compactly via `raw_json()` and then re-scan the
+    result byte-at-a-time in `_format_json`, building a `String` per
+    input character; `current_indent` is accepted for signature
+    compatibility and is no longer needed, since the writer tracks
+    depth itself.
+    """
+    _ = current_indent
+    return v.pretty_json(indent)
 
 
 def dumps(v: Value, indent: String = "") -> String:

@@ -28,6 +28,7 @@ from .node import (
 )
 from .raw_ops import escape_json_string
 from .value import Value, Null, make_view_value
+from ..writer import JsonWriter
 from ..document import (
     Document,
     pack_tape_entry,
@@ -398,36 +399,78 @@ def _skip_to_object_separator(bytes: Span[UInt8, _], start: Int, n: Int) -> Int:
 
 
 def _owned_to_json(o: OwnedValue) -> String:
-    """Serialize an `OwnedValue` back into a JSON string."""
+    """Serialize an `OwnedValue` tree to JSON."""
+    var w = JsonWriter(capacity=_estimate_owned_bytes(o))
+    _write_owned(w, o)
+    return w^.finish_string()
+
+
+def _estimate_owned_bytes(o: OwnedValue) -> Int:
+    """Rough output size, to size the writer once.
+
+    A shallow walk: exact for scalars, and for containers it sums child
+    estimates rather than guessing a constant, since a hand-built tree
+    has no input string to measure against. `ensure` covers any
+    shortfall from escaping.
+    """
     if o.kind == OWNED_NULL:
-        return "null"
+        return 4
     if o.kind == OWNED_BOOL:
-        return "true" if o.bool_val else "false"
+        return 5
     if o.kind == OWNED_INT:
-        return String(o.int_val)
+        return 20
     if o.kind == OWNED_FLOAT:
-        return String(o.float_val)
+        return 24
     if o.kind == OWNED_STRING:
-        return _escape_json_string(o.str_val)
+        return o.str_val.byte_length() + 2
     if o.kind == OWNED_ARRAY:
-        var out = String("[")
+        var n = 2
         for i in range(len(o.array_val)):
-            if i > 0:
-                out += ","
-            out += _owned_to_json(o.array_val[i])
-        out += "]"
-        return out^
+            n += _estimate_owned_bytes(o.array_val[i]) + 1
+        return n
     if o.kind == OWNED_OBJECT:
-        var out = String("{")
+        var n = 2
         for i in range(len(o.object_keys)):
-            if i > 0:
-                out += ","
-            out += _escape_json_string(o.object_keys[i])
-            out += ":"
-            out += _owned_to_json(o.object_values[i])
-        out += "}"
-        return out^
-    return "null"
+            n += o.object_keys[i].byte_length() + 4
+            n += _estimate_owned_bytes(o.object_values[i]) + 1
+        return n
+    return 4
+
+
+def _write_owned(mut w: JsonWriter, o: OwnedValue):
+    """Walk an owned tree into `w`, copying each leaf's bytes once."""
+    if o.kind == OWNED_NULL:
+        w.write_null()
+        return
+    if o.kind == OWNED_BOOL:
+        w.write_bool(o.bool_val)
+        return
+    if o.kind == OWNED_INT:
+        w.write_int(o.int_val)
+        return
+    if o.kind == OWNED_FLOAT:
+        w.write_float(o.float_val)
+        return
+    if o.kind == OWNED_STRING:
+        w.write_string(o.str_val)
+        return
+    if o.kind == OWNED_ARRAY:
+        w.open_container(UInt8(0x5B))
+        for i in range(len(o.array_val)):
+            w.next_child(i == 0)
+            _write_owned(w, o.array_val[i])
+        w.close_container(UInt8(0x5D), len(o.array_val) == 0)
+        return
+    if o.kind == OWNED_OBJECT:
+        w.open_container(UInt8(0x7B))
+        for i in range(len(o.object_keys)):
+            w.next_child(i == 0)
+            w.write_string(o.object_keys[i])
+            w.colon()
+            _write_owned(w, o.object_values[i])
+        w.close_container(UInt8(0x7D), len(o.object_keys) == 0)
+        return
+    w.write_null()
 
 
 def _escape_json_string(s: String) -> String:
