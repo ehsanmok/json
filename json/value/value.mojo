@@ -152,10 +152,31 @@ struct Value(Copyable, Movable, Writable):
             self._tape_idx = 0
 
     def _as_owned(self) raises -> OwnedValue:
-        """This value as an owned tree, converting a view if necessary."""
+        """This value as an owned tree, converting a view if necessary.
+
+        Deep-copies, because the caller only borrowed this value. The
+        `var`-taking mutator overloads use `_into_owned` instead and
+        avoid the copy entirely.
+        """
         if self._is_view():
             return _value_to_owned(self)
         return self._owned.copy()
+
+    def _into_owned(var self) raises -> OwnedValue:
+        """Consume this value, yielding its owned tree without copying.
+
+        The move counterpart of `_as_owned`. A tape-backed value still
+        has to be materialized; an owned one just hands over its tree.
+        """
+        if self._is_view():
+            return _value_to_owned(self)
+        # Swap rather than move the field out: `Value` must stay whole
+        # enough to destroy, and Mojo rejects moving a field from the
+        # middle of a value. Swapping in a default `OwnedValue` costs
+        # nothing -- a default node makes no allocation.
+        var out = OwnedValue()
+        swap(self._owned, out)
+        return out^
 
     # Scalar constructors. Each builds an owned node, which allocates
     # nothing -- previously each built a single-entry `Document` behind an
@@ -535,6 +556,22 @@ struct Value(Copyable, Movable, Writable):
         self._to_owned_in_place()
         self._owned.set_key(key, value._as_owned())
 
+    def set(mut self, var key: String, var value: Value) raises:
+        """`set` that consumes its arguments.
+
+        Selected automatically when the value is a temporary -- the
+        common `o.set("k", Value(1))` shape -- so the subtree is moved
+        in rather than deep-copied. Mojo resolves this against the
+        borrowed overload above by argument convention; existing callers
+        passing a named variable keep the copying behaviour and their
+        value stays usable.
+        """
+        if not self.is_object():
+            raise Error("set() can only be called on JSON objects")
+
+        self._to_owned_in_place()
+        self._owned.set_key(key^, value^._into_owned())
+
     def set(mut self, index: Int, value: Value) raises:
         """Set a value at an array index.
 
@@ -554,6 +591,16 @@ struct Value(Copyable, Movable, Writable):
         self._to_owned_in_place()
         self._owned.array_val[index] = value._as_owned()
 
+    def set(mut self, index: Int, var value: Value) raises:
+        """`set(index, ...)` that consumes its value. See `set(key, ...)`."""
+        if not self.is_array():
+            raise Error("set(index) can only be called on JSON arrays")
+        if index < 0 or index >= self.array_count():
+            raise Error("Array index out of bounds: " + String(index))
+
+        self._to_owned_in_place()
+        self._owned.array_val[index] = value^._into_owned()
+
     def append(mut self, value: Value) raises:
         """Append a value to a JSON array.
 
@@ -569,6 +616,19 @@ struct Value(Copyable, Movable, Writable):
 
         self._to_owned_in_place()
         self._owned.push(value._as_owned())
+
+    def append(mut self, var value: Value) raises:
+        """`append` that consumes its value.
+
+        This is the one that matters for building: appending a freshly
+        built element into a growing array no longer deep-copies the
+        element's whole subtree.
+        """
+        if not self.is_array():
+            raise Error("append() can only be called on JSON arrays")
+
+        self._to_owned_in_place()
+        self._owned.push(value^._into_owned())
 
     def set_at(mut self, pointer: String, value: Value) raises:
         """Set a nested value via JSON Pointer (RFC 6901).
@@ -596,6 +656,21 @@ struct Value(Copyable, Movable, Writable):
         var tokens = _parse_json_pointer(pointer)
         self._to_owned_in_place()
         _set_at_pointer(self._owned, tokens, 0, value._as_owned())
+
+    def set_at(mut self, pointer: String, var value: Value) raises:
+        """`set_at` that consumes its value. See `set(key, ...)`."""
+        if pointer == "":
+            self._doc = value._doc.copy()
+            self._tape_idx = value._tape_idx
+            var taken = OwnedValue()
+            swap(value._owned, taken)
+            self._owned = taken^
+            return
+            return
+
+        var tokens = _parse_json_pointer(pointer)
+        self._to_owned_in_place()
+        _set_at_pointer(self._owned, tokens, 0, value^._into_owned())
 
     def at(self, pointer: String) raises -> Value:
         """Navigate to a value using JSON Pointer (RFC 6901).

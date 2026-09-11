@@ -11,6 +11,13 @@
 #
 #   legacy   -- loads("{}") per node, then set/append   (what the suite ran)
 #   factory  -- Value.object() / Value.array()          (the intended path)
+#   moved    -- same, but transferring containers with `^`
+#
+# The gap between `factory` and `moved` is the cost of deep-copying a
+# subtree on insert. `set`/`append` have both borrowed and `var`
+# overloads; passing a named local takes the borrowed one and copies, so
+# the value stays usable, while `items^` hands the subtree over. Worth
+# knowing when building large trees.
 #
 # Reported per n: build-only, dumps-only, and the sum. The scaling column is
 # what matters: per-element cost must stay flat as n grows. If it climbs
@@ -223,6 +230,63 @@ def bench_factory(n: Int) raises:
     _row("factory", n, best_build, best_dumps, size)
 
 
+# ---------------------------------------------------------------------------
+# Build path C: factories, transferring ownership of each container
+# ---------------------------------------------------------------------------
+
+
+def _moved_doc(d: Doc) raises -> Value:
+    var o = Value.object()
+    o.set("id", Value(d.id))
+    o.set("status", Value(Int(d.status)))
+    var meta = Value.object()
+    meta.set("region", Value(d.region))
+    meta.set("version", Value(Int(d.version)))
+    o.set("meta", meta^)
+    var items = Value.array()
+    for i in range(len(d.items)):
+        var it = Value.object()
+        it.set("sku", Value(d.items[i].sku))
+        it.set("qty", Value(Int(d.items[i].qty)))
+        it.set("price_minor", Value(d.items[i].price_minor))
+        items.append(it^)
+    o.set("items", items^)
+    return o^
+
+
+def build_moved(docs: List[Doc]) raises -> Value:
+    if len(docs) == 1:
+        return _moved_doc(docs[0])
+    var items = Value.array()
+    for i in range(len(docs)):
+        items.append(_moved_doc(docs[i]))
+    var wrap = Value.object()
+    wrap.set("items", items^)
+    return wrap^
+
+
+def bench_moved(n: Int) raises:
+    var docs = make_docs(n)
+    for _ in range(WARMUP):
+        _ = dumps(build_moved(docs))
+
+    var best_build = 0
+    var best_dumps = 0
+    var size = 0
+    for i in range(ITERS):
+        var t0 = Int(perf_counter_ns())
+        var v = build_moved(docs)
+        var t1 = Int(perf_counter_ns())
+        var s = dumps(v)
+        var t2 = Int(perf_counter_ns())
+        size = s.byte_length()
+        if i == 0 or (t1 - t0) < best_build:
+            best_build = t1 - t0
+        if i == 0 or (t2 - t1) < best_dumps:
+            best_dumps = t2 - t1
+    _row("moved", n, best_build, best_dumps, size)
+
+
 def bench_parse(n: Int) raises:
     """Read path, for contrast: parse the same payload back."""
     var docs = make_docs(n)
@@ -264,6 +328,9 @@ def main() raises:
     print()
     for n in [1, 10, 100]:
         bench_factory(n)
+    print()
+    for n in [1, 10, 100]:
+        bench_moved(n)
     print()
     for n in [1, 10, 100]:
         bench_parse(n)
