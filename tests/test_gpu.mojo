@@ -196,17 +196,28 @@ struct _GPUPerson(Defaultable, Movable):
 
 
 def test_gpu_reflection_roundtrip() raises:
-    """Test reflection-based deserialize_json with GPU backend."""
+    """Typed serde over text a GPU parse produced.
+
+    `deserialize_json` no longer takes a backend: it reads bytes
+    straight into the struct rather than building a document first, so
+    there is no parse for a backend to select. A caller who wants the
+    GPU parser calls `loads[target="gpu"]` and gets a `Value`. This
+    checks the two meet: GPU-parsed text round-trips through the typed
+    path.
+    """
     comptime if not GPU_RUNTIME_AVAILABLE:
         return
     var json_str = '{"name":"GPU Test","age":42,"active":true}'
-    var person = deserialize_json[_GPUPerson, target="gpu"](json_str)
+    var parsed = loads[target="gpu"](json_str)
+    assert_equal(parsed["name"].string_value(), "GPU Test")
+
+    var person = deserialize_json[_GPUPerson](json_str)
     assert_equal(person.name, "GPU Test")
     assert_equal(person.age, 42)
     assert_equal(person.active, True)
 
     var back = serialize_json(person)
-    var rt = deserialize_json[_GPUPerson, target="gpu"](back)
+    var rt = deserialize_json[_GPUPerson](back)
     assert_equal(rt.name, "GPU Test")
     assert_equal(rt.age, 42)
 

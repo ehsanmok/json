@@ -98,11 +98,9 @@ struct SizedInts(Defaultable, Movable):
 
 
 @fieldwise_init
-struct LineItem(Defaultable, Movable):
+struct LineItem(Movable):
     var sku: String
-
-    def __init__(out self):
-        self.sku = ""
+    var qty: Int
 
 
 @fieldwise_init
@@ -126,13 +124,13 @@ struct Order(Defaultable, Movable):
 
 
 @fieldwise_init
-struct Basket(Defaultable, Movable):
-    """`List[<struct>]` -- reflection must reject this, not guess."""
+struct Basket(Movable):
+    """A list of structs, and a type with no default constructor.
+
+    Both were refused by the old read path; neither is refused now.
+    """
 
     var items: List[LineItem]
-
-    def __init__(out self):
-        self.items = List[LineItem]()
 
 
 @fieldwise_init
@@ -534,29 +532,32 @@ def test_round_trip_mixed() raises:
 
 
 def test_error_not_object() raises:
+    """A struct needs an object, and the error says which brace it wanted."""
     try:
         var p = deserialize_json[Point]('"not an object"')
         raise Error("Should have raised")
     except e:
-        assert_true("Expected JSON object" in String(e))
+        assert_true("expected '{'" in String(e), String(e))
     print("  test_error_not_object passed")
 
 
 def test_error_missing_required_field() raises:
+    """A missing field names itself rather than leaving a half-built struct."""
     try:
         var p = deserialize_json[Point]('{"x":1}')
         raise Error("Should have raised")
     except e:
-        assert_true("not found" in String(e) or "y" in String(e))
+        assert_true("missing required field 'y'" in String(e), String(e))
     print("  test_error_missing_required_field passed")
 
 
 def test_error_wrong_type() raises:
+    """A type mismatch names the field it happened in."""
     try:
         var p = deserialize_json[Point]('{"x":"nope","y":2}')
         raise Error("Should have raised")
     except e:
-        assert_true("not" in String(e) or "int" in String(e))
+        assert_true("field 'x'" in String(e), String(e))
     print("  test_error_wrong_type passed")
 
 
@@ -891,16 +892,19 @@ def test_serialize_list_of_structs() raises:
     `__extension List(_JsonEmit)` the element parameter is concrete per
     instantiation, so an ordinary generic call deduces it.
     """
-    var b = Basket()
-    b.items.append(LineItem("sku-1"))
-    b.items.append(LineItem("sku-2"))
+    var b = Basket(List[LineItem]())
+    b.items.append(LineItem("sku-1", 1))
+    b.items.append(LineItem("sku-2", 2))
     var json = serialize_json(b)
-    assert_equal(json, '{"items":[{"sku":"sku-1"},{"sku":"sku-2"}]}')
+    assert_equal(
+        json,
+        '{"items":[{"sku":"sku-1","qty":1},{"sku":"sku-2","qty":2}]}',
+    )
     print("  test_serialize_list_of_structs passed")
 
 
 def test_serialize_empty_list_of_structs() raises:
-    var b = Basket()
+    var b = Basket(List[LineItem]())
     assert_equal(serialize_json(b), '{"items":[]}')
     print("  test_serialize_empty_list_of_structs passed")
 
@@ -919,18 +923,39 @@ def test_serialize_list_of_structs_nested_deeper() raises:
     print("  test_serialize_list_of_structs_nested_deeper passed")
 
 
-def test_deserialize_list_of_structs_raises() raises:
-    var raised = False
+def test_deserialize_list_of_structs() raises:
+    """A list of structs decodes, rather than being declined.
+
+    The read path used to refuse this outright: filling a `List[E]`
+    through a reflected field pointer needed `E` to be
+    default-constructible, so it could not be done at all. Reading
+    into a slot rather than over a default removes the requirement.
+    """
+    var basket = deserialize_json[Basket](
+        '{"items":[{"sku":"a","qty":2},{"sku":"b","qty":3}]}'
+    )
+    assert_equal(len(basket.items), 2)
+    assert_equal(basket.items[0].sku, "a")
+    assert_equal(basket.items[0].qty, 2)
+    assert_equal(basket.items[1].sku, "b")
+    assert_equal(basket.items[1].qty, 3)
+
+    var empty = deserialize_json[Basket]('{"items":[]}')
+    assert_equal(len(empty.items), 0)
+    print("  test_deserialize_list_of_structs passed")
+
+
+def test_error_inside_a_list_names_the_element() raises:
+    """A failure deep in a container reports the path to it."""
     var message = String()
     try:
-        _ = deserialize_json[Basket]('{"items":[{"sku":"a"}]}')
+        _ = deserialize_json[Basket]('{"items":[{"sku":"a","qty":"no"}]}')
     except e:
-        raised = True
         message = String(e)
-    assert_true(raised, "deserialize_json must reject List[<struct>]")
-    assert_true("unsupported list element type" in message)
-    assert_true("JsonDeserializable" in message)
-    print("  test_deserialize_list_of_structs_raises passed")
+    assert_true("field 'items'" in message, message)
+    assert_true("element 0" in message, message)
+    assert_true("field 'qty'" in message, message)
+    print("  test_error_inside_a_list_names_the_element passed")
 
 
 def main() raises:
@@ -1008,7 +1033,8 @@ def main() raises:
     test_serialize_list_of_structs()
     test_serialize_empty_list_of_structs()
     test_serialize_list_of_structs_nested_deeper()
-    test_deserialize_list_of_structs_raises()
+    test_deserialize_list_of_structs()
+    test_error_inside_a_list_names_the_element()
     test_serialize_list_of_float64()
     test_round_trip_list_of_float64()
     print()

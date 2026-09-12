@@ -36,7 +36,9 @@ Deserialization requires Defaultable and Movable:
 
 from std.builtin.rebind import downcast
 from std.collections import Optional, List, Dict
+from std.memory import UnsafeMaybeUninit
 
+from .reader import JsonReader
 from .value import Value, Null
 from .value.value import write_value
 from .writer import JsonWriter
@@ -213,6 +215,128 @@ __extension Value(_JsonEmit):
 
 
 # ===================================================================
+# Generic container reading
+# ===================================================================
+#
+# The mirror of `_JsonEmit`, and the same reason for existing: a
+# container's element type is concrete inside its own extension body,
+# so one `read_into` per container covers every element type instead
+# of one arm per combination.
+#
+# These fill through a pointer rather than returning `Self`. Returning
+# would require proving `Optional[T]` movable from inside an extension
+# where `T` is only `AnyType`, which the compiler cannot do; filling a
+# pointer only ever needs the concrete element type, which it can.
+# Filling in place also means a decoded value is constructed once, at
+# its final address, instead of being moved out of a temporary.
+
+
+trait _JsonParse:
+    """Read self from a reader, into a caller-provided slot. Internal."""
+
+    @staticmethod
+    def read_into[
+        o: ImmOrigin, po: MutOrigin
+    ](mut r: JsonReader[o], ptr: Pointer[Self, po]) raises:
+        ...
+
+
+__extension List(_JsonParse):
+    @staticmethod
+    def read_into[
+        o: ImmOrigin, po: MutOrigin
+    ](mut r: JsonReader[o], ptr: Pointer[Self, po]) raises:
+        comptime E = downcast[Self.T, _Base]
+        var out = List[E]()
+        r.expect_array_begin()
+        var first = True
+        var index = 0
+        while r.next_element(first):
+            first = False
+            var slot = UnsafeMaybeUninit[E]()
+            try:
+                _parse_into[E](r, Pointer(to=slot.unsafe_assume_init_ref()))
+            except e:
+                raise Error("element " + String(index) + ": " + String(e))
+            out.append(slot.unsafe_assume_init_take())
+            index += 1
+        ptr.unsafe_bitcast[List[E]]().unsafe_write(out^)
+
+
+__extension Optional(_JsonParse):
+    @staticmethod
+    def read_into[
+        o: ImmOrigin, po: MutOrigin
+    ](mut r: JsonReader[o], ptr: Pointer[Self, po]) raises:
+        comptime E = downcast[Self.T, _Base]
+        if r.try_null():
+            ptr.unsafe_bitcast[Optional[E]]().unsafe_write(Optional[E](None))
+            return
+        var slot = UnsafeMaybeUninit[E]()
+        _parse_into[E](r, Pointer(to=slot.unsafe_assume_init_ref()))
+        var element = slot.unsafe_assume_init_take()
+        ptr.unsafe_bitcast[Optional[E]]().unsafe_write(Optional[E](element^))
+
+
+trait _JsonOptional:
+    """Marker: a field of this type may be absent from the document.
+
+    Needed because "is this type an `Optional`" cannot be asked
+    directly: testing `T == Optional[E]` requires already knowing `E`.
+    A marker conformance answers it for every element type at once.
+    """
+
+    @staticmethod
+    def json_absent[po: MutOrigin](ptr: Pointer[Self, po]):
+        ...
+
+
+__extension Optional(_JsonOptional):
+    @staticmethod
+    def json_absent[po: MutOrigin](ptr: Pointer[Self, po]):
+        comptime E = downcast[Self.T, _Base]
+        ptr.unsafe_bitcast[Optional[E]]().unsafe_write(Optional[E](None))
+
+
+__extension Dict(_JsonParse):
+    @staticmethod
+    def read_into[
+        o: ImmOrigin, po: MutOrigin
+    ](mut r: JsonReader[o], ptr: Pointer[Self, po]) raises:
+        comptime V = downcast[Self.V, _Base]
+        comptime if Self.K == String:
+            var out = Dict[String, V]()
+            r.expect_object_begin()
+            var first = True
+            while r.next_member(first):
+                first = False
+                var key = r.read_key()
+                var name = r.key_text(key)
+                var slot = UnsafeMaybeUninit[V]()
+                try:
+                    _parse_into[V](r, Pointer(to=slot.unsafe_assume_init_ref()))
+                except e:
+                    raise Error("key '" + name + "': " + String(e))
+                out[name] = slot.unsafe_assume_init_take()
+            ptr.unsafe_bitcast[Dict[String, V]]().unsafe_write(out^)
+        else:
+            comptime assert (
+                False
+            ), "a JSON object's keys are strings; Dict[K, V] needs K = String"
+
+
+__extension Value(_JsonParse):
+    @staticmethod
+    def read_into[
+        o: ImmOrigin, po: MutOrigin
+    ](mut r: JsonReader[o], ptr: Pointer[Self, po]) raises:
+        """A raw passthrough field keeps the subtree as a document."""
+        var span = r.skip_value()
+        var text = String(unsafe_from_utf8=r.data[span[0] : span[1]])
+        ptr.unsafe_bitcast[Value]().unsafe_write(loads(text^))
+
+
+# ===================================================================
 # Custom serde traits
 # ===================================================================
 
@@ -344,76 +468,96 @@ def serialize_value[T: AnyType](value: T) raises -> Value:
 # ===================================================================
 
 
-def deserialize_json[
-    T: _JsonStruct, target: StaticString = "cpu"
-](json_str: String,) raises -> T:
-    """Deserialize a JSON string into a struct via compile-time reflection.
+def deserialize_json[T: _Base](json_str: String) raises -> T:
+    """Read JSON into a struct through compile-time reflection.
 
-    Uses ``out``-parameter initialization so the struct does **not** need
-    ``Defaultable``; only ``Movable`` is required.
+    Reads straight from the bytes into the fields. The old path parsed
+    into a tape-backed `Document`, wrapped it in `Value`, then walked
+    that -- so decoding cost a whole document representation that was
+    discarded one field later, an atomic refcount touch per access,
+    and a `String` allocation per object key merely to compare it. It
+    also could not build a list of structs at all.
+
+    `T` needs only to be movable. It used to need a default
+    constructor as well, because fields were overwritten in a
+    default-built instance; they are now written once, into their
+    final addresses.
 
     Parameters:
-        T: The target struct type.
-        target: Parsing backend (``"cpu"`` or ``"gpu"``).
+        T: The struct type to build.
 
     Args:
-        json_str: The JSON string.
+        json_str: The JSON text.
 
     Returns:
-        A populated struct of type T.
+        The decoded value.
 
     Raises:
-        Error on parse failure, missing required fields, or type mismatches.
+        If the text is not valid JSON, a required field is missing, or
+        a field's value does not match its type. The message names the
+        path to the offending field.
     """
-    var json = loads[target](json_str)
-    return deserialize_value[T](json)
+    return deserialize_json[T](json_str.as_bytes())
 
 
-def deserialize_value[T: _JsonStruct](json: Value) raises -> T:
-    """Deserialize a json Value into a struct via compile-time reflection.
-
-    If ``T`` conforms to ``JsonDeserializable``, the custom
-    ``from_json_value`` is called instead of walking fields.
+def deserialize_json[T: _Base](json_bytes: Span[UInt8, _]) raises -> T:
+    """Read JSON bytes into a struct through compile-time reflection.
 
     Parameters:
-        T: The target struct type (Defaultable & Movable).
+        T: The struct type to build.
 
     Args:
-        json: A json Value (must be a JSON object).
+        json_bytes: The JSON text, as bytes.
 
     Returns:
-        A populated struct.
+        The decoded value.
+
+    Raises:
+        If the text is not valid JSON or does not match `T`.
     """
-    comptime if conforms_to(T, JsonDeserializable):
-        return downcast[T, JsonDeserializable].from_json_value(json)
-    else:
-        if not json.is_object():
-            raise Error(
-                "Expected JSON object for struct deserialization, got "
-                + _type_label(json)
-            )
-        var result = T()
-        _deser_fill[T](result, json)
-        return result^
+    var reader = JsonReader(json_bytes)
+    var slot = UnsafeMaybeUninit[T]()
+    _parse_into[T](reader, Pointer(to=slot.unsafe_assume_init_ref()))
+    reader.expect_end()
+    return slot.unsafe_assume_init_take()
 
 
-def try_deserialize_json[
-    T: _JsonStruct, target: StaticString = "cpu"
-](json_str: String,) -> Optional[T]:
-    """Non-raising variant of ``deserialize_json``.
+def deserialize_value[T: _Base](json: Value) raises -> T:
+    """Read a `Value` into a struct.
+
+    Goes through the value's text, because the reader works on bytes
+    and a `Value` is a position in a document rather than one. A
+    caller with the text should hand over the text.
 
     Parameters:
-        T: The target struct type.
-        target: Parsing backend.
+        T: The struct type to build.
 
     Args:
-        json_str: The JSON string.
+        json: The value to read.
 
     Returns:
-        ``Optional`` containing the struct, or ``None`` on any error.
+        The decoded value.
+
+    Raises:
+        If the value does not match `T`.
+    """
+    return deserialize_json[T](dumps(json))
+
+
+def try_deserialize_json[T: _Base](json_str: String) -> Optional[T]:
+    """`deserialize_json` without the raise.
+
+    Parameters:
+        T: The struct type to build.
+
+    Args:
+        json_str: The JSON text.
+
+    Returns:
+        The decoded value, or `None` if anything went wrong.
     """
     try:
-        return deserialize_json[T, target](json_str)
+        return deserialize_json[T](json_str)
     except:
         return None
 
@@ -524,6 +668,165 @@ def _ser_struct_into[T: AnyType](mut w: JsonWriter, value: T) raises:
         ref field = reflect[T].field_ref[idx](value)
         _ser_into[field_type](w, rebind[field_type](field))
     w.write_byte(UInt8(0x7D))
+
+
+# ===================================================================
+# Internal -- typed reading
+# ===================================================================
+
+
+def _parse_into[
+    T: AnyType, o: ImmOrigin, po: MutOrigin
+](mut r: JsonReader[o], ptr: Pointer[T, po]) raises:
+    """Read one value of type `T` into the slot at `ptr`.
+
+    The mirror of `_ser_into`, with the same ordering rules: scalars
+    take a direct arm because reaching them through a trait costs an
+    indirect call and a record is mostly scalars; a custom
+    `from_json_value` wins over the default; and containers are
+    checked before `reflect[T].is_struct()`, because `List`,
+    `Optional` and `Dict` are themselves structs.
+    """
+    comptime if T == String:
+        ptr.unsafe_bitcast[String]().unsafe_write(r.read_string())
+    elif T == Int:
+        ptr.unsafe_bitcast[Int]().unsafe_write(Int(r.read_int[DType.int64]()))
+    elif T == Bool:
+        ptr.unsafe_bitcast[Bool]().unsafe_write(r.read_bool())
+    elif T == Float64:
+        ptr.unsafe_bitcast[Float64]().unsafe_write(
+            r.read_float[DType.float64]()
+        )
+    elif T == Int64:
+        ptr.unsafe_bitcast[Int64]().unsafe_write(r.read_int[DType.int64]())
+    elif T == Int32:
+        ptr.unsafe_bitcast[Int32]().unsafe_write(r.read_int[DType.int32]())
+    elif T == UInt64:
+        ptr.unsafe_bitcast[UInt64]().unsafe_write(r.read_int[DType.uint64]())
+    elif T == UInt:
+        ptr.unsafe_bitcast[UInt]().unsafe_write(
+            UInt(r.read_int[DType.uint64]())
+        )
+    elif T == Float32:
+        ptr.unsafe_bitcast[Float32]().unsafe_write(
+            r.read_float[DType.float32]()
+        )
+    elif T == Int16:
+        ptr.unsafe_bitcast[Int16]().unsafe_write(r.read_int[DType.int16]())
+    elif T == Int8:
+        ptr.unsafe_bitcast[Int8]().unsafe_write(r.read_int[DType.int8]())
+    elif T == UInt32:
+        ptr.unsafe_bitcast[UInt32]().unsafe_write(r.read_int[DType.uint32]())
+    elif T == UInt16:
+        ptr.unsafe_bitcast[UInt16]().unsafe_write(r.read_int[DType.uint16]())
+    elif T == UInt8:
+        ptr.unsafe_bitcast[UInt8]().unsafe_write(r.read_int[DType.uint8]())
+    elif conforms_to(T, JsonDeserializable):
+        comptime C = downcast[T, JsonDeserializable & _Base]
+        var span = r.skip_value()
+        var text = String(unsafe_from_utf8=r.data[span[0] : span[1]])
+        ptr.unsafe_bitcast[C]().unsafe_write(C.from_json_value(loads(text^)))
+    elif conforms_to(T, _JsonParse):
+        comptime P = downcast[T, _JsonParse]
+        P.read_into(r, ptr.unsafe_bitcast[P]())
+    elif reflect[T].is_struct():
+        _parse_struct_into[T](r, ptr)
+    else:
+        comptime assert False, (
+            "deserialize_json: unsupported field type " + reflect[T].name()
+        )
+
+
+def _parse_struct_into[
+    T: AnyType, o: ImmOrigin, po: MutOrigin
+](mut r: JsonReader[o], ptr: Pointer[T, po]) raises:
+    """Fill a struct's fields from a JSON object.
+
+    Field matching is a comptime-unrolled comparison of the key's
+    bytes against each name, so no key is ever materialized as a
+    `String` merely to be compared. A name is a Mojo identifier, so
+    the comparison is a length check and a short memcmp.
+
+    Absent fields are the reason for the `seen` bitmask: a missing
+    `Optional` is `None`, and a missing anything else names itself in
+    the error rather than leaving the struct half-built. The same mask
+    drives the cleanup when a later field raises -- the fields already
+    written have to be destroyed, or a partially filled struct leaks.
+
+    A duplicate key keeps the first value, matching what `Value`
+    lookup does, and an unrecognized key is skipped rather than
+    refused: a reader that fails on a field it was not told about
+    cannot read a document written by a newer version of its own
+    schema.
+    """
+    comptime field_count = reflect[T].field_count()
+    comptime field_names = reflect[T].field_names()
+    comptime field_types = reflect[T].field_types()
+    comptime assert (
+        field_count <= 64
+    ), "deserialize_json: at most 64 fields per struct"
+
+    ref target = ptr[]
+    var seen: UInt64 = 0
+
+    r.expect_object_begin()
+    var first = True
+    while r.next_member(first):
+        first = False
+        var key = r.read_key()
+        var matched = False
+        comptime for idx in range(field_count):
+            comptime field_name = field_names[idx]
+            comptime field_type = field_types[idx]
+            if not matched and r.key_equals(key, field_name):
+                matched = True
+                if (seen >> UInt64(idx)) & 1 != 0:
+                    _ = r.skip_value()
+                else:
+                    ref field = reflect[T].field_ref[idx](target)
+                    try:
+                        _parse_into[field_type](
+                            r,
+                            Pointer(to=field).unsafe_bitcast[field_type](),
+                        )
+                    except e:
+                        _destroy_written[T](target, seen)
+                        raise Error(
+                            "field '" + String(field_name) + "': " + String(e)
+                        )
+                    seen |= UInt64(1) << UInt64(idx)
+        if not matched:
+            _ = r.skip_value()
+
+    comptime for idx in range(field_count):
+        comptime field_name = field_names[idx]
+        comptime field_type = field_types[idx]
+        if (seen >> UInt64(idx)) & 1 == 0:
+            comptime if conforms_to(field_type, _JsonOptional):
+                comptime O = downcast[field_type, _JsonOptional]
+                ref field = reflect[T].field_ref[idx](target)
+                O.json_absent(Pointer(to=field).unsafe_bitcast[O]())
+                seen |= UInt64(1) << UInt64(idx)
+            else:
+                _destroy_written[T](target, seen)
+                raise Error(
+                    "missing required field '"
+                    + String(field_name)
+                    + "' for "
+                    + reflect[T].name()
+                )
+
+
+def _destroy_written[T: AnyType](mut target: T, seen: UInt64):
+    """Destroy the fields already filled, after a later one raised."""
+    comptime field_types = reflect[T].field_types()
+    comptime for idx in range(reflect[T].field_count()):
+        comptime field_type = field_types[idx]
+        if (seen >> UInt64(idx)) & 1 != 0:
+            ref field = reflect[T].field_ref[idx](target)
+            Pointer(to=field).unsafe_bitcast[
+                downcast[field_type, _Base]
+            ]().unsafe_deinit_pointee()
 
 
 # ===================================================================
