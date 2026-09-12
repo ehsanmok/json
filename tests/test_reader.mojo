@@ -15,6 +15,7 @@ from std.testing import assert_equal, assert_false, assert_raises, assert_true
 
 from json import loads
 from json.reader import JsonReader
+from json.reflection import deserialize_json
 
 
 def _read_one(text: String) raises -> String:
@@ -230,6 +231,64 @@ def test_unsigned_fields_reject_negatives() raises:
 
 
 # ===================================================================
+# Keys
+# ===================================================================
+
+
+@fieldwise_init
+struct Row(Movable):
+    var sku: String
+    var qty: Int64
+
+
+@fieldwise_init
+struct One(Movable):
+    var value: Int64
+
+
+def test_key_matching_is_exact() raises:
+    """A key matches a field name only when it is that name.
+
+    The comparison reads the key's bytes out of the document, so a
+    name that is a prefix of the key -- or the other way round -- must
+    be settled by the length test rather than by running off the end
+    of one into whatever follows it.
+    """
+    var exact = deserialize_json[Row]('{"sku":"a","qty":2}')
+    assert_equal(exact.sku, "a")
+    assert_equal(exact.qty, 2)
+
+    # Keys that share a prefix with a field name, in both directions,
+    # are unknown fields and are skipped -- not matched.
+    with assert_raises(contains="missing required field 'sku'"):
+        _ = deserialize_json[Row]('{"sk":"a","qty":2}')
+    with assert_raises(contains="missing required field 'sku'"):
+        _ = deserialize_json[Row]('{"sku_":"a","qty":2}')
+    with assert_raises(contains="missing required field 'qty'"):
+        _ = deserialize_json[Row]('{"sku":"a","qtyx":2}')
+
+    # An escaped key still matches the name it spells.
+    var escaped = deserialize_json[Row]('{"\u0073ku":"a","qty":2}')
+    assert_equal(escaped.sku, "a")
+    print("  test_key_matching_is_exact passed")
+
+
+def test_key_at_the_end_of_the_document() raises:
+    """A key comparison must not read past the document.
+
+    The name is known at compile time and the key's length is known
+    from the scan, so a name longer than the key is settled without a
+    read -- which is what keeps a key at the very end of the buffer
+    from being compared against bytes that are not there.
+    """
+    with assert_raises():
+        _ = deserialize_json[One]('{"v"')
+    var ok = deserialize_json[One]('{"value":1}')
+    assert_equal(ok.value, 1)
+    print("  test_key_at_the_end_of_the_document passed")
+
+
+# ===================================================================
 # Agreement with the tape parser
 # ===================================================================
 
@@ -320,6 +379,11 @@ def main() raises:
     test_integer_fast_path_defers_on_everything_it_cannot_prove()
     test_integer_range_errors_match_the_scanner()
     test_unsigned_fields_reject_negatives()
+    print()
+
+    print("Keys:")
+    test_key_matching_is_exact()
+    test_key_at_the_end_of_the_document()
     print()
 
     print("Agreement:")

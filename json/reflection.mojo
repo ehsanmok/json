@@ -685,6 +685,7 @@ def _ser_struct_into[T: AnyType](mut w: JsonWriter, value: T) raises:
 # ===================================================================
 
 
+@always_inline
 def _parse_into[
     T: AnyType, o: ImmOrigin, po: MutOrigin
 ](mut r: JsonReader[o], ptr: Pointer[T, po]) raises:
@@ -788,7 +789,11 @@ def _parse_struct_into[
         comptime for idx in range(field_count):
             comptime field_name = field_names[idx]
             comptime field_type = field_types[idx]
-            if not matched and r.key_equals(key, field_name):
+            if not matched and (
+                r.key_matches[field_name](
+                    key
+                ) if not key.escaped else r.key_equals(key, field_name)
+            ):
                 matched = True
                 if (seen >> UInt64(idx)) & 1 != 0:
                     _ = r.skip_value()
@@ -807,6 +812,16 @@ def _parse_struct_into[
                     seen |= UInt64(1) << UInt64(idx)
         if not matched:
             _ = r.skip_value()
+
+    # The overwhelmingly common case is that every field was present,
+    # and then there is nothing to look for. Without this the walk runs
+    # over every field of every struct in the document.
+    comptime all_present = (
+        UInt64.MAX if field_count
+        >= 64 else (UInt64(1) << UInt64(field_count)) - 1
+    )
+    if seen == all_present:
+        return
 
     comptime for idx in range(field_count):
         comptime field_name = field_names[idx]

@@ -397,20 +397,44 @@ struct JsonReader[origin: ImmOrigin](Movable):
         self.pos += 1
         return KeySpan(bounds[0], bounds[1], bounds[2] & STR_ESCAPE != 0)
 
-    def key_equals(mut self, key: KeySpan, name: StaticString) -> Bool:
-        """Whether a key spells `name`.
+    @always_inline
+    def key_matches[name: StaticString](self, key: KeySpan) -> Bool:
+        """Whether an unescaped key spells `name`.
 
-        The common case never touches memory beyond the bytes already
-        in cache: lengths differ, or a short comparison settles it. A
-        key written with escapes is expanded into the reader's scratch
-        buffer first, so `"\\u0061"` still matches a field named `a`.
+        Takes `self` immutably and the name as a parameter, both for
+        the same reason: this runs inside a comptime-unrolled loop over
+        a struct's fields, and a method that could mutate the reader
+        forces the compiler to reload its span and position after every
+        call in that loop. With the name known at compile time the
+        length test is a comparison against a constant, which settles
+        most fields without looking at a byte.
+        """
+        comptime wanted = name.as_bytes()
+        comptime width = len(wanted)
+        if key.end - key.start != width:
+            return False
+        var ptr = self.data.unsafe_ptr()
+        comptime for i in range(width):
+            if ptr[unsafe_offset=key.start + i] != wanted[i]:
+                return False
+        return True
+
+    def key_equals(mut self, key: KeySpan, name: StaticString) -> Bool:
+        """Whether a key spells `name`, expanding escapes if it has any.
+
+        The escaped case is why this takes `self` mutably: the key is
+        unescaped into the reader's scratch buffer before comparing, so
+        that a key written `"\u0061"` still matches a field named `a`.
+        Callers on the hot path go through `key_matches` and only reach
+        here when the key actually carries an escape.
         """
         var wanted = name.as_bytes()
         if not key.escaped:
             if key.end - key.start != len(wanted):
                 return False
+            var ptr = self.data.unsafe_ptr()
             for i in range(len(wanted)):
-                if self.data[key.start + i] != wanted[i]:
+                if ptr[unsafe_offset=key.start + i] != wanted[i]:
                     return False
             return True
         self.scratch = unescape_json_string_span(self.data, key.start, key.end)
