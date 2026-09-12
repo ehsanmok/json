@@ -135,6 +135,9 @@ struct JsonWriter(Movable):
     # Non-empty enables pretty output: containers break lines and nest
     # by `indent` per level. Empty (the default) is compact.
     var indent: String
+    var pretty: Bool
+    """Whether `indent` is non-empty, hoisted so the compact path is one
+    predictable branch per child rather than a string length check."""
     var depth: Int
     # True once the current container has at least one member, so the
     # next `key`/value knows whether to emit a leading comma. Stacked in
@@ -149,6 +152,7 @@ struct JsonWriter(Movable):
             self.buf = List[UInt8]()
         self.pos = 0
         self.indent = String()
+        self.pretty = False
         self.depth = 0
         self._has_member = False
         self._depth_flags = List[Bool]()
@@ -160,6 +164,7 @@ struct JsonWriter(Movable):
         else:
             self.buf = List[UInt8]()
         self.pos = 0
+        self.pretty = indent.byte_length() > 0
         self.indent = indent
         self.depth = 0
         self._has_member = False
@@ -170,6 +175,7 @@ struct JsonWriter(Movable):
         self.buf = buf^
         self.pos = 0
         self.indent = String()
+        self.pretty = False
         self.depth = 0
         self._has_member = False
         self._depth_flags = List[Bool]()
@@ -588,25 +594,39 @@ struct JsonWriter(Movable):
             )
             self.pos += unit
 
+    @always_inline
     def open_container(mut self, brace: UInt8):
         self.write_byte(brace)
-        self.depth += 1
+        if self.pretty:
+            self.depth += 1
 
+    @always_inline
     def close_container(mut self, brace: UInt8, empty: Bool):
-        self.depth -= 1
-        if not empty:
-            self._newline()
+        if self.pretty:
+            self.depth -= 1
+            if not empty:
+                self._newline()
         self.write_byte(brace)
 
+    @always_inline
     def next_child(mut self, first: Bool):
-        """Separator before a container child."""
+        """Separator before a container child.
+
+        The compact case -- every child of every container, in the
+        overwhelmingly common configuration -- is one comma and one
+        correctly predicted branch. It used to call into the newline
+        helper regardless, which read the indent string's length per
+        child before deciding to do nothing.
+        """
         if not first:
             self.write_byte(UInt8(0x2C))
-        self._newline()
+        if self.pretty:
+            self._newline()
 
+    @always_inline
     def colon(mut self):
         self.write_byte(UInt8(0x3A))
-        if self.indent.byte_length() > 0:
+        if self.pretty:
             self.write_byte(UInt8(0x20))
 
     # --- finishing ---------------------------------------------------

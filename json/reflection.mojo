@@ -34,13 +34,14 @@ Deserialization requires Defaultable and Movable:
     var p = deserialize_json[Point]('{"x":1,"y":2}')
 """
 
-from std.builtin.rebind import trait_downcast, downcast
+from std.builtin.rebind import downcast
 from std.collections import Optional, List, Dict
 
 from .value import Value, Null
+from .value.value import write_value
 from .writer import JsonWriter
 from .parser import loads
-from .serialize import _escape_string
+from .serialize import dumps
 from .deserialize import get_string, get_int, get_bool, get_float
 
 # ---------------------------------------------------------------------------
@@ -93,26 +94,30 @@ comptime _JsonStruct = Defaultable & Movable & Deinitable
 # Generic container emission
 # ===================================================================
 #
-# `List[E]` for arbitrary `E` cannot be handled by the type-name ladder
-# in `_ser`. Inside a function parametric on `T`, a reflected field type
-# stays symbolic -- it is bound only by `AnyType`, so `E` cannot be
-# deduced from it, no `[E](List[E])` overload matches, and even `len()`
-# does not resolve.
+# Dispatch is by type through a trait, not by the spelling of a type's
+# name. The ladder this replaces matched `reflect[T].name()` against a
+# constant per supported type, which meant a new constant and a new arm
+# for every combination, and one of its comparisons was a substring
+# test that made `List[Float64]` fail to compile.
 #
-# Retroactive conformance solves it. Inside the extension body below,
-# `List`'s own element parameter is concrete for each instantiation, so
-# an ordinary generic call deduces the element type by argument
-# deduction. `_ser_into` then reaches this through `trait_downcast`
-# without ever naming `E`.
+# The obstacle a name ladder was working around is real: inside a
+# function parametric on `T`, a reflected field type stays symbolic --
+# bound only by `AnyType` -- so `E` cannot be deduced from `List[E]`,
+# no `[E](List[E])` overload matches, and even `len()` does not
+# resolve.
 #
-# This is what makes `List[<struct>]` work, and it replaces eight
-# hand-written monomorphic list arms with one path.
+# Retroactive conformance solves it. Inside an extension body, the
+# container's own element parameter is concrete for each
+# instantiation, so an ordinary generic call deduces the element type
+# by argument deduction, and `_ser_into` reaches it through
+# `conforms_to` plus `downcast` without ever naming `E`. That is what
+# makes `List[<struct>]`, `Optional[List[Int]]` and
+# `Dict[String, <struct>]` work through one path.
 #
-# Only `List` gets an extension. `Optional` and `Dict` keep their
-# name-matched arms on the String path: conforming `Optional` here made
-# `Optional[List[Int]]` miss the conformance check and fall through to
-# `is_struct()`, which then reflected `Optional`'s own internals and
-# recursed.
+# Ordering is the one subtlety: `List`, `Optional` and `Dict` are
+# themselves structs, so the conformance check has to run before
+# `reflect[T].is_struct()`, or a list would be serialized as an object
+# holding its data pointer, length and capacity.
 
 
 trait _JsonEmit:
@@ -120,6 +125,48 @@ trait _JsonEmit:
 
     def emit_json(self, mut w: JsonWriter) raises:
         ...
+
+
+__extension String(_JsonEmit):
+    def emit_json(self, mut w: JsonWriter) raises:
+        w.write_string_span(self.as_bytes())
+
+
+__extension Bool(_JsonEmit):
+    def emit_json(self, mut w: JsonWriter) raises:
+        w.write_bool(self)
+
+
+__extension SIMD(_JsonEmit):
+    def emit_json(self, mut w: JsonWriter) raises:
+        """Every numeric width through one arm.
+
+        A `Float64` field reflects under its canonical SIMD spelling,
+        as do `Int32`, `UInt8` and the rest, so matching them by name
+        meant a constant per width and a ladder to walk. The element
+        type is a parameter here, so one branch on what it is covers
+        all of them, and a wider vector -- which JSON has no scalar
+        spelling for -- becomes an array of its lanes.
+        """
+        comptime if Self.length == 1:
+            comptime if Self.dtype.is_floating_point():
+                w.write_float(Float64(self[0]))
+            elif Self.dtype.is_signed():
+                w.write_int(Int64(self[0]))
+            else:
+                w.write_uint(UInt64(self[0]))
+        else:
+            w.write_byte(UInt8(0x5B))
+            comptime for lane in range(Self.length):
+                comptime if lane > 0:
+                    w.write_byte(UInt8(0x2C))
+                comptime if Self.dtype.is_floating_point():
+                    w.write_float(Float64(self[lane]))
+                elif Self.dtype.is_signed():
+                    w.write_int(Int64(self[lane]))
+                else:
+                    w.write_uint(UInt64(self[lane]))
+            w.write_byte(UInt8(0x5D))
 
 
 __extension List(_JsonEmit):
@@ -130,6 +177,39 @@ __extension List(_JsonEmit):
                 w.write_byte(UInt8(0x2C))
             _ser_into(w, self[i])
         w.write_byte(UInt8(0x5D))
+
+
+__extension Optional(_JsonEmit):
+    def emit_json(self, mut w: JsonWriter) raises:
+        if self:
+            _ser_into(w, self.value())
+        else:
+            w.write_null()
+
+
+__extension Dict(_JsonEmit):
+    def emit_json(self, mut w: JsonWriter) raises:
+        w.write_byte(UInt8(0x7B))
+        var first = True
+        for entry in self.items():
+            if not first:
+                w.write_byte(UInt8(0x2C))
+            first = False
+            comptime if Self.K == String:
+                w.write_string_span(rebind[String](entry.key).as_bytes())
+            else:
+                comptime assert False, (
+                    "a JSON object's keys are strings; Dict[K, V] needs K ="
+                    " String"
+                )
+            w.write_byte(UInt8(0x3A))
+            _ser_into(w, entry.value)
+        w.write_byte(UInt8(0x7D))
+
+
+__extension Value(_JsonEmit):
+    def emit_json(self, mut w: JsonWriter) raises:
+        write_value(w, self)
 
 
 # ===================================================================
@@ -196,28 +276,52 @@ trait JsonDeserializable:
 
 
 def serialize_json[T: AnyType, pretty: Bool = False](value: T) raises -> String:
-    """Serialize any struct to a JSON string via compile-time reflection.
+    """Serialize any value to JSON through compile-time reflection.
+
+    Indentation is a second pass over the compact output, on purpose:
+    making it a mode of the first pass turns every separator in the
+    comptime-unrolled emitter into a runtime branch and costs the
+    compact path, which is the one that runs in anger.
 
     Parameters:
-        T: The struct type (inferred).
-        pretty: If True, format with 2-space indentation.
+        T: The type, inferred from the argument.
+        pretty: Indent with two spaces per level.
 
     Args:
-        value: The struct instance to serialize.
+        value: The value to serialize.
 
     Returns:
-        A JSON string representation.
+        The JSON text.
+
+    Raises:
+        If a custom `to_json_value` raises.
     """
     var w = JsonWriter(capacity=256)
     _ser_into[T](w, value)
-
     comptime if pretty:
-        # Re-emit with indentation from the parsed form. Still one parse,
-        # but the compact pass no longer happens twice.
-        var parsed = loads(w^.finish_string())
-        return parsed.pretty_json("  ")
-
+        return dumps(loads(w^.finish_string()), indent="  ")
     return w^.finish_string()
+
+
+def serialize_json_into[T: AnyType](mut w: JsonWriter, value: T) raises:
+    """Serialize into a writer the caller owns.
+
+    For a caller emitting many values: the buffer is the expensive
+    part, and `reset` makes it reusable. Also the way to splice a
+    typed value into a larger document without it becoming its own
+    `String` first.
+
+    Parameters:
+        T: The type, inferred from the argument.
+
+    Args:
+        w: The writer to emit into.
+        value: The value to serialize.
+
+    Raises:
+        If a custom `to_json_value` raises.
+    """
+    _ser_into[T](w, value)
 
 
 def serialize_value[T: AnyType](value: T) raises -> Value:
@@ -232,7 +336,7 @@ def serialize_value[T: AnyType](value: T) raises -> Value:
     Returns:
         A json Value representing the JSON.
     """
-    return loads(_ser[T](value))
+    return loads(serialize_json[T](value))
 
 
 # ===================================================================
@@ -319,91 +423,89 @@ def try_deserialize_json[
 # ===================================================================
 
 
+@always_inline
 def _ser_into[T: AnyType](mut w: JsonWriter, value: T) raises:
     """Emit `value` as JSON into `w`.
 
-    The writer-based counterpart of `_ser`. Scalars are matched by
-    reflected type name as before; containers go through `_JsonEmit`,
-    which is how `List[E]` works for any `E`.
+    Dispatch is by type, not by the spelling of a type's name. The
+    ladder this replaces matched `reflect[T].name()` against a
+    constant per supported type, which meant every new combination
+    needed a new constant and a new arm, `Optional` and `Dict` fields
+    fell through to a path that built a `String` and copied it back
+    in, and one of the comparisons was a substring test that made
+    `List[Float64]` unusable.
 
-    Ordering matters: the `_JsonEmit` check has to precede
-    `reflect[T].is_struct()`, because `List` and `Optional` are
-    themselves structs and would otherwise be reflected field-by-field
-    -- which is how `List[<struct>]` used to serialize its internal
-    data pointer, length and capacity as a JSON object.
+    The scalar arms up front are not redundant with the `_JsonEmit`
+    conformance below, which also covers them. Reaching a scalar
+    through the trait costs an indirect call, and a record is mostly
+    scalars -- routing them through it made the benchmark's document
+    shape 45% slower. These arms compare types, not type names, so
+    the substring test that used to make `List[Float64]` fail cannot
+    come back.
+
+    Order matters after that. A custom `to_json_value` wins over the
+    default, so a type can override its own representation. And
+    `_JsonEmit` has to come before `reflect[T].is_struct()`, because
+    `List`, `Optional` and `Dict` are themselves structs and would
+    otherwise be serialized field by field -- which is how a list once
+    emitted its data pointer, length and capacity as a JSON object.
     """
-    comptime tname = reflect[T].name()
-
-    comptime if tname == _STRING_NAME:
+    comptime if T == String:
         w.write_string(rebind[String](value))
-    elif tname == _INT_NAME:
+    elif T == Int:
         w.write_int(Int64(rebind[Int](value)))
-    elif tname == _INT64_NAME:
-        w.write_int(rebind[Int64](value))
-    elif tname == _INT32_NAME:
-        w.write_int(Int64(rebind[Int32](value)))
-    elif tname == _INT16_NAME:
-        w.write_int(Int64(rebind[Int16](value)))
-    elif tname == _INT8_NAME:
-        w.write_int(Int64(rebind[Int8](value)))
-    elif tname == _UINT64_NAME:
-        w.write_int(Int64(rebind[UInt64](value)))
-    elif tname == _UINT32_NAME:
-        w.write_int(Int64(rebind[UInt32](value)))
-    elif tname == _UINT16_NAME:
-        w.write_int(Int64(rebind[UInt16](value)))
-    elif tname == _UINT8_NAME:
-        w.write_int(Int64(rebind[UInt8](value)))
-    elif tname == _BOOL_NAME:
+    elif T == Bool:
         w.write_bool(rebind[Bool](value))
     elif T == Float64:
         w.write_float(rebind[Float64](value))
+    elif T == Int64:
+        w.write_int(rebind[Int64](value))
+    elif T == Int32:
+        w.write_int(Int64(rebind[Int32](value)))
+    elif T == UInt64:
+        w.write_uint(rebind[UInt64](value))
+    elif T == UInt:
+        w.write_uint(UInt64(rebind[UInt](value)))
     elif T == Float32:
         w.write_float(Float64(rebind[Float32](value)))
-    elif tname == _VALUE_NAME:
-        w.write_bytes(_ser_value(rebind[Value](value)).as_bytes())
+    elif T == Int16:
+        w.write_int(Int64(rebind[Int16](value)))
+    elif T == Int8:
+        w.write_int(Int64(rebind[Int8](value)))
+    elif T == UInt32:
+        w.write_uint(UInt64(rebind[UInt32](value)))
+    elif T == UInt16:
+        w.write_uint(UInt64(rebind[UInt16](value)))
+    elif T == UInt8:
+        w.write_uint(UInt64(rebind[UInt8](value)))
+    elif conforms_to(T, JsonSerializable):
+        ref custom = rebind[downcast[T, JsonSerializable]](value)
+        write_value(w, custom.to_json_value())
     elif conforms_to(T, _JsonEmit):
-        ref c = trait_downcast[_JsonEmit](value)
-        c.emit_json(w)
-    elif (
-        tname == _OPT_INT_NAME
-        or tname == _OPT_STRING_NAME
-        or tname == _OPT_FLOAT64_NAME
-        or tname == _OPT_BOOL_NAME
-        or tname == _OPT_LIST_INT_NAME
-        or tname == _OPT_LIST_STRING_NAME
-        or tname == _DICT_STRING_INT_NAME
-        or tname == _DICT_STRING_STRING_NAME
-        or tname == _DICT_STRING_FLOAT64_NAME
-        or tname == _DICT_STRING_BOOL_NAME
-    ):
-        # `Optional` and `Dict` keep their name-matched arms on the
-        # String path. Matched against the reflected-name constants
-        # rather than a prefix test, because stdlib generics reflect to
-        # qualified names -- and this must be caught before
-        # `is_struct()`, which would try to reflect their private fields.
-        # For `Dict` that is not merely wrong but fatal: `reflect` cannot
-        # produce a name for its internal pointer types.
-        w.write_bytes(_ser[T](value).as_bytes())
+        rebind[downcast[T, _JsonEmit]](value).emit_json(w)
     elif reflect[T].is_struct():
-        comptime if conforms_to(T, JsonSerializable):
-            ref custom = trait_downcast[JsonSerializable](value)
-            var val = custom.to_json_value()
-            w.write_bytes(_ser_value(val).as_bytes())
-        else:
-            _ser_struct_into[T](w, value)
+        _ser_struct_into[T](w, value)
     else:
-        # Anything the ladder does not cover: fall back to the
-        # String-returning path, which handles the Dict and
-        # Optional-of-List combinators.
-        w.write_bytes(_ser[T](value).as_bytes())
+        comptime assert False, (
+            "serialize_json: unsupported field type " + reflect[T].name()
+        )
 
 
 def _ser_struct_into[T: AnyType](mut w: JsonWriter, value: T) raises:
     """Emit a struct as an object, unrolled at compile time.
 
-    The field count and names are comptime, so the separator decision is
-    too -- there is no runtime comma branching.
+    The field count and names are comptime, so the separator decision
+    is too -- there is no runtime comma branching. The key is emitted
+    from the comptime name's bytes directly: a struct field name is a
+    Mojo identifier, so it never needs escaping, and building a
+    `String` for it would allocate once per field per record.
+
+    Separators are emitted under a comptime branch, so an unrolled
+    struct costs no runtime comma decision at all. Routing them
+    through the writer's indent-aware container helpers instead turned
+    each one into a runtime branch and made this shape 45% slower --
+    which is why indentation is a separate pass rather than a mode of
+    this one.
     """
     comptime field_count = reflect[T].field_count()
     comptime field_names = reflect[T].field_names()
@@ -415,10 +517,6 @@ def _ser_struct_into[T: AnyType](mut w: JsonWriter, value: T) raises:
             w.write_byte(UInt8(0x2C))
         comptime field_name = field_names[idx]
         comptime field_type = field_types[idx]
-        # The key is emitted from the comptime name's bytes directly.
-        # `write_string(String(field_name))` allocated a String per field
-        # per record. A struct field name is a Mojo identifier, so it
-        # never needs escaping.
         w.write_byte(UInt8(0x22))
         w.write_bytes(field_name.as_bytes())
         w.write_byte(UInt8(0x22))
@@ -426,332 +524,6 @@ def _ser_struct_into[T: AnyType](mut w: JsonWriter, value: T) raises:
         ref field = reflect[T].field_ref[idx](value)
         _ser_into[field_type](w, rebind[field_type](field))
     w.write_byte(UInt8(0x7D))
-
-
-def _ser[T: AnyType](value: T) raises -> String:
-    """Dispatch serialization by compile-time type."""
-    comptime tname = reflect[T].name()
-
-    comptime if tname == _STRING_NAME:
-        return _escape_string(rebind[String](value))
-    elif tname == _INT_NAME:
-        return String(rebind[Int](value))
-    elif tname == _INT64_NAME:
-        return String(rebind[Int64](value))
-    elif tname == _INT32_NAME:
-        return String(rebind[Int32](value))
-    elif tname == _INT16_NAME:
-        return String(rebind[Int16](value))
-    elif tname == _INT8_NAME:
-        return String(rebind[Int8](value))
-    elif tname == _UINT64_NAME:
-        return String(rebind[UInt64](value))
-    elif tname == _UINT32_NAME:
-        return String(rebind[UInt32](value))
-    elif tname == _UINT16_NAME:
-        return String(rebind[UInt16](value))
-    elif tname == _UINT8_NAME:
-        return String(rebind[UInt8](value))
-    elif tname == _BOOL_NAME:
-        return "true" if rebind[Bool](value) else "false"
-    elif T == Float64:
-        return String(rebind[Float64](value))
-    elif T == Float32:
-        return String(rebind[Float32](value))
-    elif tname == _VALUE_NAME:
-        return _ser_value(rebind[Value](value))
-    elif tname == _OPT_INT_NAME:
-        return _ser_opt_int(rebind[Optional[Int]](value))
-    elif tname == _OPT_STRING_NAME:
-        return _ser_opt_string(rebind[Optional[String]](value))
-    elif tname == _OPT_FLOAT64_NAME:
-        return _ser_opt_float64(rebind[Optional[Float64]](value))
-    elif tname == _OPT_BOOL_NAME:
-        return _ser_opt_bool(rebind[Optional[Bool]](value))
-    elif tname == _LIST_INT_NAME:
-        return _ser_list_int(rebind[List[Int]](value))
-    elif tname == _LIST_STRING_NAME:
-        return _ser_list_string(rebind[List[String]](value))
-    elif tname == _LIST_FLOAT64_NAME:
-        return _ser_list_float64(rebind[List[Float64]](value))
-    elif tname == _LIST_BOOL_NAME:
-        return _ser_list_bool(rebind[List[Bool]](value))
-    # Combinator types: Dict, nested List, Optional<->List combos.
-    elif tname == _DICT_STRING_INT_NAME:
-        return _ser_dict_string_int(rebind[Dict[String, Int]](value))
-    elif tname == _DICT_STRING_STRING_NAME:
-        return _ser_dict_string_string(rebind[Dict[String, String]](value))
-    elif tname == _DICT_STRING_FLOAT64_NAME:
-        return _ser_dict_string_float64(rebind[Dict[String, Float64]](value))
-    elif tname == _DICT_STRING_BOOL_NAME:
-        return _ser_dict_string_bool(rebind[Dict[String, Bool]](value))
-    elif tname == _LIST_OPT_INT_NAME:
-        return _ser_list_opt_int(rebind[List[Optional[Int]]](value))
-    elif tname == _LIST_OPT_STRING_NAME:
-        return _ser_list_opt_string(rebind[List[Optional[String]]](value))
-    elif tname == _OPT_LIST_INT_NAME:
-        return _ser_opt_list_int(rebind[Optional[List[Int]]](value))
-    elif tname == _OPT_LIST_STRING_NAME:
-        return _ser_opt_list_string(rebind[Optional[List[String]]](value))
-    elif tname == _LIST_LIST_INT_NAME:
-        return _ser_list_list_int(rebind[List[List[Int]]](value))
-    elif tname == _LIST_LIST_STRING_NAME:
-        return _ser_list_list_string(rebind[List[List[String]]](value))
-    elif conforms_to(T, _JsonEmit):
-        # Any list, including of structs. Calls the extension directly
-        # rather than going through `_ser_into`, which would put this
-        # function and that one in a mutual instantiation cycle for
-        # nested combinators like `List[Optional[String]]`.
-        var lw = JsonWriter(capacity=128)
-        ref emitter = trait_downcast[_JsonEmit](value)
-        emitter.emit_json(lw)
-        return lw^.finish_string()
-    elif reflect[T].is_struct():
-        comptime if conforms_to(T, JsonSerializable):
-            ref custom = trait_downcast[JsonSerializable](value)
-            var val = custom.to_json_value()
-            return _ser_value(val)
-        else:
-            return _ser_struct[T](value)
-    else:
-        return "null"
-
-
-def _ser_struct[T: AnyType](value: T) raises -> String:
-    """Serialize a struct as ``{"field":value, ...}``."""
-    comptime field_count = reflect[T].field_count()
-    comptime field_names = reflect[T].field_names()
-    comptime field_types = reflect[T].field_types()
-
-    if field_count == 0:
-        return "{}"
-
-    var out = String("{")
-    var first = True
-
-    comptime for idx in range(field_count):
-        if not first:
-            out += ","
-        first = False
-
-        comptime field_name = field_names[idx]
-        comptime field_type = field_types[idx]
-
-        out += '"' + String(field_name) + '":'
-
-        ref field = reflect[T].field_ref[idx](value)
-        out += _ser[field_type](rebind[field_type](field))
-
-    out += "}"
-    return out^
-
-
-# --- Value pass-through ---
-
-
-def _ser_value(v: Value) -> String:
-    if v.is_string():
-        return _escape_string(v.string_value())
-    elif v.is_null():
-        return "null"
-    elif v.is_bool():
-        return "true" if v.bool_value() else "false"
-    elif v.is_int():
-        return String(v.int_value())
-    elif v.is_float():
-        return String(v.float_value())
-    elif v.is_array() or v.is_object():
-        return v.raw_json()
-    return "null"
-
-
-# --- Optional helpers ---
-
-
-def _ser_opt_int(opt: Optional[Int]) -> String:
-    if opt:
-        return String(opt.value())
-    return "null"
-
-
-def _ser_opt_string(opt: Optional[String]) -> String:
-    if opt:
-        return _escape_string(opt.value())
-    return "null"
-
-
-def _ser_opt_float64(opt: Optional[Float64]) -> String:
-    if opt:
-        return String(opt.value())
-    return "null"
-
-
-def _ser_opt_bool(opt: Optional[Bool]) -> String:
-    if opt:
-        return "true" if opt.value() else "false"
-    return "null"
-
-
-# --- List helpers ---
-
-
-def _ser_list_int(lst: List[Int]) -> String:
-    var out = String("[")
-    for i in range(len(lst)):
-        if i > 0:
-            out += ","
-        out += String(lst[i])
-    out += "]"
-    return out^
-
-
-def _ser_list_string(lst: List[String]) -> String:
-    var out = String("[")
-    for i in range(len(lst)):
-        if i > 0:
-            out += ","
-        out += _escape_string(lst[i])
-    out += "]"
-    return out^
-
-
-def _ser_list_float64(lst: List[Float64]) -> String:
-    var out = String("[")
-    for i in range(len(lst)):
-        if i > 0:
-            out += ","
-        out += String(lst[i])
-    out += "]"
-    return out^
-
-
-def _ser_list_bool(lst: List[Bool]) -> String:
-    var out = String("[")
-    for i in range(len(lst)):
-        if i > 0:
-            out += ","
-        out += "true" if lst[i] else "false"
-    out += "]"
-    return out^
-
-
-# --- Dict[String, T] helpers ---
-
-
-def _ser_dict_string_int(d: Dict[String, Int]) -> String:
-    var out = String("{")
-    var first = True
-    for entry in d.items():
-        if not first:
-            out += ","
-        first = False
-        out += _escape_string(entry.key) + ":" + String(entry.value)
-    out += "}"
-    return out^
-
-
-def _ser_dict_string_string(d: Dict[String, String]) -> String:
-    var out = String("{")
-    var first = True
-    for entry in d.items():
-        if not first:
-            out += ","
-        first = False
-        out += _escape_string(entry.key) + ":" + _escape_string(entry.value)
-    out += "}"
-    return out^
-
-
-def _ser_dict_string_float64(d: Dict[String, Float64]) -> String:
-    var out = String("{")
-    var first = True
-    for entry in d.items():
-        if not first:
-            out += ","
-        first = False
-        out += _escape_string(entry.key) + ":" + String(entry.value)
-    out += "}"
-    return out^
-
-
-def _ser_dict_string_bool(d: Dict[String, Bool]) -> String:
-    var out = String("{")
-    var first = True
-    for entry in d.items():
-        if not first:
-            out += ","
-        first = False
-        var v = "true" if entry.value else "false"
-        out += _escape_string(entry.key) + ":" + v
-    out += "}"
-    return out^
-
-
-# --- List[Optional[T]] helpers ---
-
-
-def _ser_list_opt_int(lst: List[Optional[Int]]) -> String:
-    var out = String("[")
-    for i in range(len(lst)):
-        if i > 0:
-            out += ","
-        if lst[i]:
-            out += String(lst[i].value())
-        else:
-            out += "null"
-    out += "]"
-    return out^
-
-
-def _ser_list_opt_string(lst: List[Optional[String]]) -> String:
-    var out = String("[")
-    for i in range(len(lst)):
-        if i > 0:
-            out += ","
-        if lst[i]:
-            out += _escape_string(lst[i].value())
-        else:
-            out += "null"
-    out += "]"
-    return out^
-
-
-# --- Optional[List[T]] helpers ---
-
-
-def _ser_opt_list_int(opt: Optional[List[Int]]) -> String:
-    if opt:
-        return _ser_list_int(opt.value())
-    return "null"
-
-
-def _ser_opt_list_string(opt: Optional[List[String]]) -> String:
-    if opt:
-        return _ser_list_string(opt.value())
-    return "null"
-
-
-# --- List[List[T]] helpers ---
-
-
-def _ser_list_list_int(lst: List[List[Int]]) -> String:
-    var out = String("[")
-    for i in range(len(lst)):
-        if i > 0:
-            out += ","
-        out += _ser_list_int(lst[i])
-    out += "]"
-    return out^
-
-
-def _ser_list_list_string(lst: List[List[String]]) -> String:
-    var out = String("[")
-    for i in range(len(lst)):
-        if i > 0:
-            out += ","
-        out += _ser_list_string(lst[i])
-    out += "]"
-    return out^
 
 
 # ===================================================================
@@ -779,7 +551,7 @@ def _get_sized_int(json: Value, key: String, type_name: String) raises -> Int64:
 def _deser_fill[T: AnyType](mut result: T, json: Value) raises:
     """Fill every field of *result* from the JSON object *json*.
 
-    Uses ``trait_downcast`` + ``Pointer`` to write deserialized
+    Uses ``downcast`` + ``Pointer`` to write deserialized
     values into reflected struct fields. The struct must already be
     default-initialized; old field values are destroyed before writing.
     """
@@ -793,7 +565,9 @@ def _deser_fill[T: AnyType](mut result: T, json: Value) raises:
         comptime field_type_name = reflect[field_type].name()
         var key = String(field_name)
 
-        ref field = trait_downcast[_Base](reflect[T].field_ref[idx](result))
+        ref field = rebind[downcast[field_type, _Base]](
+            reflect[T].field_ref[idx](result)
+        )
         var ptr = Pointer(to=field)
 
         comptime if field_type_name == _STRING_NAME:

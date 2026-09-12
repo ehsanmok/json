@@ -839,6 +839,19 @@ def _estimate_view_bytes(doc: ArcPointer[Document]) -> Int:
     return est if est > 32 else 32
 
 
+def write_value(mut w: JsonWriter, v: Value):
+    """Emit `v` into an existing writer.
+
+    The point is the writer: a caller already building a document can
+    splice a `Value` into it without the value first becoming its own
+    `String` and then being copied in.
+    """
+    if v._is_view():
+        _write_view(w, v._doc.value(), v._tape_idx)
+    else:
+        _write_owned(w, v._owned)
+
+
 def _write_view(mut w: JsonWriter, doc: ArcPointer[Document], tape_idx: Int):
     """Walk a tape entry into `w`.
 
