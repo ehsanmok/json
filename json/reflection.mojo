@@ -342,8 +342,9 @@ __extension Value(_JsonParse):
     ](mut r: JsonReader[o], ptr: Pointer[Self, po]) raises:
         """A raw passthrough field keeps the subtree as a document."""
         var span = r.skip_value()
-        var text = String(unsafe_from_utf8=r.data[span[0] : span[1]])
-        ptr.unsafe_bitcast[Value]().unsafe_write(loads(text^))
+        ptr.unsafe_bitcast[Value]().unsafe_write(
+            loads(r.data[span[0] : span[1]])
+        )
 
 
 # ===================================================================
@@ -735,8 +736,9 @@ def _parse_into[
     elif conforms_to(T, JsonDeserializable):
         comptime C = downcast[T, JsonDeserializable & _Base]
         var span = r.skip_value()
-        var text = String(unsafe_from_utf8=r.data[span[0] : span[1]])
-        ptr.unsafe_bitcast[C]().unsafe_write(C.from_json_value(loads(text^)))
+        ptr.unsafe_bitcast[C]().unsafe_write(
+            C.from_json_value(loads(r.data[span[0] : span[1]]))
+        )
     elif conforms_to(T, _JsonParse):
         comptime P = downcast[T, _JsonParse]
         P.read_into(r, ptr.unsafe_bitcast[P]())

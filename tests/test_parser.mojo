@@ -2,7 +2,7 @@
 
 from std.testing import assert_equal, assert_true, assert_false, TestSuite
 
-from json import loads
+from json import dumps, loads
 
 
 # =============================================================================
@@ -351,6 +351,40 @@ def test_unicode_in_object() raises:
     """Test unicode escapes in object values."""
     var v = loads('{"name": "\\u0041lice", "emoji": "\\u2764"}')
     assert_true(v.is_object(), "Should be object")
+
+
+def test_loads_from_bytes() raises:
+    """The byte overload parses the same document as the string one."""
+    var text = String('{"a": [1, 2.5, "x"], "b": null}')
+    var from_bytes = loads(text.as_bytes())
+    assert_equal(dumps(from_bytes), dumps(loads(text)))
+
+    var owned = List[UInt8](capacity=8)
+    for byte in String("[1,2,3]").as_bytes():
+        owned.append(byte)
+    assert_equal(dumps(loads(Span(owned))), "[1,2,3]")
+
+    var empty = List[UInt8]()
+    var raised = False
+    try:
+        _ = loads(Span(empty))
+    except:
+        raised = True
+    assert_true(raised)
+
+
+def test_loads_from_bytes_rejects_invalid_utf8() raises:
+    """A byte slice is not trusted to be well-formed text."""
+    var bad = List[UInt8](capacity=4)
+    bad.append(0x5B)
+    bad.append(0xFF)
+    bad.append(0x5D)
+    var raised = False
+    try:
+        _ = loads(Span(bad))
+    except:
+        raised = True
+    assert_true(raised)
 
 
 def main() raises:

@@ -147,7 +147,7 @@ def _parse_cpu_simdjson(s: String) raises -> Value:
     return make_view_value(arc, root_idx)
 
 
-def _parse_cpu_mojo(s: String) raises -> Value:
+def _parse_cpu_mojo(var s: String) raises -> Value:
     """Parse JSON using the two-pass CPU parser (stage 1 + stage 2)
     into a tape-backed `Document`. The returned `Value` is a view over
     that document.
@@ -156,7 +156,7 @@ def _parse_cpu_mojo(s: String) raises -> Value:
     walker on the benchmark corpora). Differential testing routes
     through `cpu.parse_cpu_native_tape[force_scalar=True]`.
     """
-    return parse_cpu_native_tape(s)
+    return parse_cpu_native_tape(s^)
 
 
 def _parse_cpu[backend: StaticString = "simdjson"](s: String) raises -> Value:
@@ -302,8 +302,12 @@ def _parse_number_value(s: String, start: Int) raises -> Value:
 # =============================================================================
 
 
-def loads[target: StaticString = "cpu"](s: String) raises -> Value:
+def loads[target: StaticString = "cpu"](var s: String) raises -> Value:
     """Deserialize JSON string to a Value (like Python's json.loads).
+
+    The parsed document owns its input, so `s` is taken by value. Pass
+    a string you no longer need with `^` and it is moved rather than
+    copied.
 
     Parameters:
         target: Parsing target/backend. Options: "cpu" (default, pure Mojo),
@@ -321,8 +325,18 @@ def loads[target: StaticString = "cpu"](s: String) raises -> Value:
         var data = loads[target="cpu-simdjson"](s)  # Use simdjson FFI.
     """
 
+    return _loads_value[target](s^)
+
+
+def _loads_value[target: StaticString](var s: String) raises -> Value:
+    """The body of `loads`, callable without overload ambiguity.
+
+    `loads` is overloaded on its parameters as well as its arguments,
+    so a call with one explicit parameter inside this module can match
+    the NDJSON form. Calls that mean "one value" come here instead.
+    """
     comptime if target == "cpu":
-        return _parse_cpu["mojo"](s)
+        return _parse_cpu_mojo(s^)
     elif target == "cpu-simdjson":
         return _parse_cpu["simdjson"](s)
     elif target == "gpu":
@@ -332,12 +346,41 @@ def loads[target: StaticString = "cpu"](s: String) raises -> Value:
         # CPU-side. See `_parse_gpu` for the entry point.
         return _parse_gpu(s)
     else:
-        return _parse_cpu["mojo"](s)
+        return _parse_cpu_mojo(s^)
+
+
+def loads[target: StaticString = "cpu"](bytes: Span[UInt8, _]) raises -> Value:
+    """Deserialize JSON bytes to a Value.
+
+    The same parse as the string form, for callers that already hold
+    bytes: a file buffer, a `List[UInt8]`, or a slice of a larger
+    document. The bytes are copied once into the document that backs
+    the returned `Value`, instead of being turned into a `String` by
+    the caller and copied again on the way in.
+
+    The bytes are not required to be valid UTF-8 on entry. The parser
+    rejects invalid sequences exactly as it does for a string, so an
+    ill-formed input raises rather than producing a broken document.
+
+    Parameters:
+        target: Parsing target/backend. Options: "cpu" (default, pure Mojo),
+            "cpu-simdjson" (FFI), or "gpu" (for large files).
+
+    Args:
+        bytes: JSON text to parse.
+
+    Returns:
+        Parsed Value.
+
+    Example:
+        var data = loads(buffer.as_bytes()).
+    """
+    return _loads_value[target](String(unsafe_from_utf8=bytes))
 
 
 def loads[
     target: StaticString = "cpu"
-](s: String, config: ParserConfig) raises -> Value:
+](var s: String, config: ParserConfig) raises -> Value:
     """Deserialize JSON with custom configuration.
 
     Parameters:
@@ -355,13 +398,13 @@ def loads[
     """
 
     var preprocessed = preprocess_json(s, config)
-    return loads[target](preprocessed)
+    return _loads_value[target](preprocessed^)
 
 
 def loads[
     target: StaticString = "cpu",
     format: StaticString = "json",
-](s: String) raises -> List[Value]:
+](var s: String) raises -> List[Value]:
     """Deserialize NDJSON string to a list of Values.
 
     Parameters:
@@ -388,7 +431,7 @@ def loads[
         var line = lines[i]
         if _is_whitespace_only(line):
             continue
-        var value = loads[target](line)
+        var value = _loads_value[target](line)
         result.append(value^)
 
     return result^
