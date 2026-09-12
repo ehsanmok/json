@@ -252,7 +252,17 @@ __extension List(_JsonParse):
         var first = True
         var index = 0
         while r.next_element(first):
-            first = False
+            if first:
+                # JSON does not say how long an array is until it ends,
+                # so the length has to be guessed or paid for. Growing
+                # from nothing costs four allocations to reach eight
+                # elements and six to reach thirty-two, which measured
+                # four times the cost of one correctly sized
+                # allocation. Eight covers the common small array in
+                # one go and wastes at most seven slots; past that,
+                # `append` doubles as before.
+                out.reserve(8)
+                first = False
             var slot = UnsafeMaybeUninit[E]()
             try:
                 _parse_into[E](r, Pointer(to=slot.unsafe_assume_init_ref()))
