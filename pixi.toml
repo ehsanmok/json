@@ -151,6 +151,7 @@ build-cujson = "bash -c 'cd benchmark && if [ ! -d cuJSON ]; then echo \"Error: 
 # the production-build convention used by other Mojo libraries.
 build-bench-cpu = { cmd = "mkdir -p benchmark/build && mojo build -D ASSERT=none -I . -o benchmark/build/bench_cpu benchmark/mojo/bench_cpu.mojo", depends-on = ["build"] }
 build-bench-build = { cmd = "mkdir -p benchmark/build && mojo build -D ASSERT=none -I . -o benchmark/build/bench_build benchmark/mojo/bench_build.mojo", depends-on = ["build"] }
+build-bench-serde = { cmd = "mkdir -p benchmark/build && mojo build -D ASSERT=none -I . -o benchmark/build/bench_serde benchmark/mojo/bench_serde.mojo", depends-on = ["build"] }
 # bench_gpu builds on every accelerator backend (NVIDIA, AMD, Apple
 # Metal). The Apple Metal toolchain ships with Xcode (install via
 # `xcodebuild -downloadComponent MetalToolchain` if missing).
@@ -164,6 +165,10 @@ build-bench-simdjson = { cmd = "bash -c 'mkdir -p benchmark/build && CXX=$(if [[
 bench-cpu = { cmd = "bash -c 'F=\"${1:-benchmark/datasets/twitter.json}\"; benchmark/build/bench_simdjson \"$F\" && echo && benchmark/build/bench_cpu \"$F\"' _", depends-on = ["build-bench-cpu", "build-bench-simdjson"] }
 # Write-path benchmark: Value construction + dumps, vs the parse path.
 bench-build = { cmd = "benchmark/build/bench_build", depends-on = ["build-bench-build"] }
+# Typed serde benchmark: serialize_json / deserialize_json against the
+# Value-tree round trip, over five record shapes at n = 1 and n = 100.
+# Pass --json for machine-readable output.
+bench-serde = { cmd = "bash -c 'benchmark/build/bench_serde \"$@\"' _", depends-on = ["build-bench-serde"] }
 bench-gpu = { cmd = "bash -c 'if [ \"$#\" -eq 0 ]; then benchmark/build/bench_gpu benchmark/datasets/twitter.json; else benchmark/build/bench_gpu \"$@\"; fi' _", depends-on = ["build-bench-gpu"] }
 # Apple Metal GPU sweep -- runs `loads[target='gpu']` against multiple
 # file sizes (twitter, citm, twitter_large_record) and reports best-of-N

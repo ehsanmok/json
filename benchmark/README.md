@@ -18,6 +18,53 @@ pixi run bench-gpu -- --debug-timing benchmark/datasets/twitter_large_record.jso
 pixi run bench-cpu benchmark/datasets/twitter.json
 ```
 
+```bash
+# Typed serde benchmark (serialize_json / deserialize_json)
+pixi run -e dev bench-serde
+pixi run -e dev bench-serde -- --json     # machine-readable
+```
+
+## Typed serde (`bench-serde`)
+
+`bench_cpu` measures the parser and `bench_build` measures `Value`
+construction. `bench_serde` covers the two entry points most consumers
+call: a typed struct in, JSON out, and back again.
+
+Five record shapes are generated from a seeded xorshift64\* stream, so a
+run is reproducible and no fixture files are needed:
+
+| Shape | What it stresses |
+|---|---|
+| `message` | flat scalars: bool, int32, int64, float64, two strings |
+| `document` | a nested struct plus a list of structs |
+| `telemetry` | two homogeneous lists, one of them 32 floats |
+| `strings` | a 32-element string list -- escape and copy bound |
+| `event` | string-heavy record plus a list of key/value structs |
+
+Each is wrapped in a `{"items": [...]}` batch so one code path serves
+both `n = 1` and `n = 100`. At `n = 1` the payload is a few hundred
+bytes, which is where per-call fixed cost shows up.
+
+Four lanes run per shape and size:
+
+| Lane | Call |
+|---|---|
+| `serialize` | `serialize_json(batch)` |
+| `deserialize` | `deserialize_json[Batch](payload)` |
+| `loads+walk` | `loads(payload)` then reading fields off `Value` |
+| `dumps` | `dumps(tree)`, with the tree built outside the timer |
+
+`loads+walk` is what a consumer has to write when typed deserialization
+does not cover the shape, so the gap between it and `deserialize` is
+what the typed path is worth. A lane that a release does not support
+prints `n/a` with the reason rather than being omitted.
+
+Timing is 5 warmup calls, then 7 runs of a calibrated iteration count
+(about 20 ms per run, capped), reporting the median of the per-run means
+and the best run. Calibration keeps a slow lane from running for minutes
+while still giving a fast lane enough iterations to be stable. Fidelity
+is checked once per lane, outside the timed region.
+
 ## Setup
 
 ### 1. Clone the Repo
