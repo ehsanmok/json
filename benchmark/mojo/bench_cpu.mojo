@@ -33,9 +33,16 @@ from json.value import Value
 
 
 def _walk_strict(v: Value) -> Bool:
-    """Strict counterpart to `_walk`: returns False if any access
-    raises. Used once outside the bench loop to surface correctness
-    bugs the timing-only walk would otherwise hide."""
+    """Strict counterpart to `_walk`: False if any access fails.
+
+    Run once outside the timed loop, to surface a correctness bug the
+    timing-only walk would hide.
+
+    Only the container iterators can fail here. The scalar accessors
+    do not raise -- they read a tape slot the tag has already
+    identified -- so wrapping them was not defensive, it was dead
+    code the compiler reported as an unreachable `except`.
+    """
     if v.is_object():
         try:
             for pair in v.object_items():
@@ -53,41 +60,23 @@ def _walk_strict(v: Value) -> Bool:
             return False
         return True
     if v.is_string():
-        try:
-            _ = v.string_value()
-        except:
-            return False
-        return True
-    if v.is_int():
-        try:
-            _ = v.int_value()
-        except:
-            return False
-        return True
-    if v.is_float():
-        try:
-            _ = v.float_value()
-        except:
-            return False
-        return True
-    if v.is_bool():
-        try:
-            _ = v.bool_value()
-        except:
-            return False
-        return True
+        _ = v.string_value()
+    elif v.is_int():
+        _ = v.int_value()
+    elif v.is_float():
+        _ = v.float_value()
+    elif v.is_bool():
+        _ = v.bool_value()
     return True
 
 
 def _walk(v: Value) -> Int:
-    """Recursively visit every node, returning a checksum so the
-    traversal cannot be optimised away.
+    """Visit every node, returning a checksum so the walk survives.
 
-    For each leaf we mix one int's worth of payload into the
-    accumulator; for containers we recurse. Errors during access are
-    swallowed so the bench reports throughput even when a backend has
-    a correctness bug under deep traversal — we can spot the bug
-    separately, but we want the wall-clock comparison either way.
+    Each leaf mixes one value's worth of payload into the
+    accumulator; containers recurse. An iteration failure is
+    swallowed so the bench still reports throughput when a backend has
+    a traversal bug -- `_walk_strict` is what reports the bug.
     """
     if v.is_object():
         var sum = 0
@@ -107,25 +96,13 @@ def _walk(v: Value) -> Int:
             pass
         return sum
     if v.is_string():
-        try:
-            return v.string_value().byte_length()
-        except:
-            return 0
+        return v.string_value().byte_length()
     if v.is_int():
-        try:
-            return Int(v.int_value())
-        except:
-            return 0
+        return Int(v.int_value())
     if v.is_float():
-        try:
-            return Int(v.float_value())
-        except:
-            return 0
+        return Int(v.float_value())
     if v.is_bool():
-        try:
-            return 1 if v.bool_value() else 0
-        except:
-            return 0
+        return 1 if v.bool_value() else 0
     return 0
 
 

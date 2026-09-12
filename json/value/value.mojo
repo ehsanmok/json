@@ -692,7 +692,6 @@ struct Value(Copyable, Movable, Writable):
             swap(value._owned, taken)
             self._owned = taken^
             return
-            return
 
         var tokens = _parse_json_pointer(pointer)
         self._to_owned_in_place()

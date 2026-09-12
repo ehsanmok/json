@@ -371,7 +371,7 @@ struct JSONIterator:
             bytes.resize(length, 0)
             unsafe_memcpy(
                 dest=bytes.unsafe_ptr(),
-                src=self.input_data.unsafe_ptr() + i,
+                src=self.input_data.unsafe_ptr().unsafe_offset(i),
                 count=length,
             )
             return String(unsafe_from_utf8=bytes^)
@@ -392,7 +392,7 @@ struct JSONIterator:
         # Use memcpy instead of byte-by-byte loop
         unsafe_memcpy(
             dest=bytes.unsafe_ptr(),
-            src=self.input_data.unsafe_ptr() + start,
+            src=self.input_data.unsafe_ptr().unsafe_offset(start),
             count=length,
         )
         return String(unsafe_from_utf8=bytes^)

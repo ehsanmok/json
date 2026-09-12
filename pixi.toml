@@ -94,7 +94,7 @@ build = "bash json/cpu/simdjson_ffi/build.sh"
 tests = "mojo -I . tests/test_value.mojo && mojo -I . tests/test_value_build_scaling.mojo && mojo -I . tests/test_writer.mojo && mojo -I . tests/test_parser.mojo && mojo -I . tests/test_serialize.mojo && mojo -I . tests/test_serde.mojo && mojo -I . tests/test_reflection.mojo && mojo -I . tests/test_e2e.mojo && mojo -I . tests/test_gpu.mojo && mojo -I . examples/basic/parsing.mojo && mojo -I . examples/basic/file_io.mojo && mojo -I . examples/basic/value_types.mojo && mojo -I . examples/basic/error_handling.mojo && mojo -I . examples/intermediate/reflection_serde.mojo && mojo -I . examples/intermediate/struct_serde.mojo && mojo -I . examples/intermediate/ndjson.mojo && mojo -I . examples/intermediate/jsonpath.mojo && mojo -I . examples/intermediate/schema_validation.mojo && mojo -I . examples/intermediate/json_patch.mojo && mojo -I . examples/advanced/lazy_parsing.mojo && mojo -I . examples/advanced/gpu_parsing.mojo"
 # tests-cpu: full CPU suite. `loads(target='cpu')` routes through the
 # tape-backed Value view, so this is also the tape conformance suite.
-tests-cpu = "mojo -I . tests/test_value.mojo && mojo -I . tests/test_parser.mojo && mojo -I . tests/test_serialize.mojo && mojo -I . tests/test_serde.mojo && mojo -I . tests/test_reflection.mojo && mojo -I . tests/test_jsonpath.mojo && mojo -I . tests/test_patch.mojo && mojo -I . tests/test_schema.mojo && mojo -I . tests/test_value_mutation.mojo && mojo -I . tests/test_value_build_scaling.mojo && mojo -I . tests/test_writer.mojo && mojo -I . tests/test_stage1_equivalence.mojo && mojo -I . tests/test_backend_equivalence.mojo && mojo -I . tests/test_document.mojo && mojo -I . tests/test_stage2_tape.mojo && mojo -I . tests/test_float_format.mojo && mojo -I . tests/test_validate.mojo && mojo -I . tests/test_number_parse.mojo && mojo -I . tests/test_conformance.mojo && mojo -I . examples/basic/parsing.mojo && mojo -I . examples/basic/file_io.mojo && mojo -I . examples/basic/value_types.mojo && mojo -I . examples/basic/error_handling.mojo && mojo -I . examples/advanced/lazy_parsing.mojo && mojo -I . examples/intermediate/jsonpath.mojo && mojo -I . examples/intermediate/schema_validation.mojo && mojo -I . examples/intermediate/json_patch.mojo && mojo -I . examples/intermediate/reflection_serde.mojo"
+tests-cpu = "mojo -I . tests/test_value.mojo && mojo -I . tests/test_parser.mojo && mojo -I . tests/test_serialize.mojo && mojo -I . tests/test_serde.mojo && mojo -I . tests/test_reflection.mojo && mojo -I . tests/test_jsonpath.mojo && mojo -I . tests/test_patch.mojo && mojo -I . tests/test_schema.mojo && mojo -I . tests/test_value_mutation.mojo && mojo -I . tests/test_value_build_scaling.mojo && mojo -I . tests/test_writer.mojo && mojo -I . tests/test_stage1_equivalence.mojo && mojo -I . tests/test_backend_equivalence.mojo && mojo -I . tests/test_document.mojo && mojo -I . tests/test_stage2_tape.mojo && mojo -I . tests/test_api.mojo && mojo -I . tests/test_float_format.mojo && mojo -I . tests/test_validate.mojo && mojo -I . tests/test_number_parse.mojo && mojo -I . tests/test_conformance.mojo && mojo -I . examples/basic/parsing.mojo && mojo -I . examples/basic/file_io.mojo && mojo -I . examples/basic/value_types.mojo && mojo -I . examples/basic/error_handling.mojo && mojo -I . examples/advanced/lazy_parsing.mojo && mojo -I . examples/intermediate/jsonpath.mojo && mojo -I . examples/intermediate/schema_validation.mojo && mojo -I . examples/intermediate/json_patch.mojo && mojo -I . examples/intermediate/reflection_serde.mojo"
 # tests-gpu: GPU suite. Runs natively on NVIDIA, AMD, and Apple Metal.
 tests-gpu = "mojo -I . tests/test_gpu.mojo && mojo -I . examples/advanced/gpu_parsing.mojo"
 tests-e2e = "mojo -I . tests/test_e2e.mojo"
@@ -134,6 +134,18 @@ format-check = { cmd = "bash -c 'mojo format json tests benchmark/mojo && git di
 #             each binary one at a time. Linux-only on this Mojo
 #             nightly; the script prints a clear skip message on macOS.
 tests-asan = "bash tools/run_sanitizer_tests.sh asan"
+
+# warnings-check: build the package, every test, every benchmark and
+# every example, and fail on any compiler warning. A library's
+# deprecation warnings are reported in its consumers' builds, so this
+# is about the published artifact rather than tidiness here.
+warnings-check = "bash tools/check_warnings.sh"
+
+# check-gpu-build: compile every GPU source. Running them needs a
+# device; compiling them does not, and a type error in a kernel
+# signature is exactly the kind of break that otherwise sits unnoticed
+# until someone with a GPU tries it.
+check-gpu-build = "bash -c 'mkdir -p target/gpu-check && for f in tests/test_gpu.mojo tests/test_gpu_kernels.mojo tests/test_bracket_match.mojo tests/bench_bracket_match.mojo examples/advanced/gpu_parsing.mojo benchmark/mojo/bench_gpu.mojo benchmark/mojo/bench_gpu_apple.mojo; do echo \"  $f\"; mojo build -I . -o target/gpu-check/$(basename $f .mojo) $f || exit 1; done && echo \"All GPU sources compile.\"'"
 
 # Download benchmark datasets from Google Drive (cuJSON datasets)
 # Full folder: https://drive.google.com/drive/folders/1PkDEy0zWOkVREfL7VuINI-m9wJe45P2Q

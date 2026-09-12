@@ -1,5 +1,6 @@
 # Comprehensive tests for the unified API
 
+from std.os import remove
 from std.testing import assert_equal, assert_true, TestSuite
 
 from json import (
@@ -263,13 +264,13 @@ def main() raises:
     print()
     TestSuite.discover_tests[__functions_in_module()]().run()
 
-    # Cleanup
-    import os
-
+    # Cleanup. The files are written by the round-trip tests above;
+    # removal is best-effort because a test that failed early may not
+    # have created its file.
     try:
-        os.remove("test_api.json")
-        os.remove("test_api.ndjson")
-        os.remove("test_api_gpu.ndjson")
-        os.remove("test_api_stream.ndjson")
+        remove("test_api.json")
+        remove("test_api.ndjson")
+        remove("test_api_gpu.ndjson")
+        remove("test_api_stream.ndjson")
     except:
         pass

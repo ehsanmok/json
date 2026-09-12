@@ -201,7 +201,7 @@ def test_zero_capacity() raises:
 
 
 def test_finish_trims_to_written_length() raises:
-    """finish() must return `pos` bytes, not the whole allocation."""
+    """The finish() result is `pos` bytes long, not the whole allocation."""
     var w = JsonWriter(capacity=4096)
     w.write_int(42)
     var bytes = w^.finish()

@@ -14,13 +14,13 @@ def generate_brackets(depth: Int, count: Int) -> List[UInt8]:
     var result = List[UInt8](capacity=count * 2)
 
     # Pattern: alternating depths
-    for i in range(count):
+    for _ in range(count):
         # Open brackets
         for _ in range(depth):
-            result.append(ord("{"))
+            result.append(UInt8(ord("{")))
         # Close brackets
         for _ in range(depth):
-            result.append(ord("}"))
+            result.append(UInt8(ord("}")))
 
     return result^
 
@@ -72,7 +72,11 @@ def benchmark_bracket_matching(n: Int, iterations: Int) raises:
     ctx.synchronize()
 
     # Warmup GPU
-    _ = match_brackets_gpu(ctx, d_char_types.unsafe_ptr(), actual_n)
+    _ = match_brackets_gpu(
+        ctx,
+        d_char_types.unsafe_ptr().unsafe_origin_cast[MutAnyOrigin](),
+        actual_n,
+    )
 
     # --- CPU Benchmark ---
     print("--- CPU (stack-based) ---")
@@ -102,7 +106,9 @@ def benchmark_bracket_matching(n: Int, iterations: Int) raises:
     for _ in range(iterations):
         var t0 = perf_counter_ns()
         var result = match_brackets_gpu(
-            ctx, d_char_types.unsafe_ptr(), actual_n
+            ctx,
+            d_char_types.unsafe_ptr().unsafe_origin_cast[MutAnyOrigin](),
+            actual_n,
         )
         var t1 = perf_counter_ns()
         gpu_times.append(Float64(t1 - t0) / 1e6)
@@ -132,7 +138,9 @@ def benchmark_bracket_matching(n: Int, iterations: Int) raises:
     print("--- Verification ---")
     var cpu_result = cpu_bracket_match(char_types)
     var gpu_result = match_brackets_gpu(
-        ctx, d_char_types.unsafe_ptr(), actual_n
+        ctx,
+        d_char_types.unsafe_ptr().unsafe_origin_cast[MutAnyOrigin](),
+        actual_n,
     )
     var gpu_pair_pos = gpu_result[1].copy()
 

@@ -84,7 +84,7 @@ def test_document_with_input() raises:
 
 
 def test_append_null() raises:
-    """append_null produces a NULL entry."""
+    """`append_null` produces a NULL entry."""
     var d = Document(String("null"))
     var idx = d.append_null()
     assert_equal(idx, 0)

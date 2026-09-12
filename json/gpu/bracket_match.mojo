@@ -57,7 +57,7 @@ def brackets_match(open_char: UInt8, close_char: UInt8) -> Bool:
 def compute_depth_delta_kernel(
     char_types: Pointer[UInt8, MutAnyOrigin],
     depth_deltas: Pointer[Int32, MutAnyOrigin],
-    n: UInt,
+    n: UInt32,
 ):
     """Compute depth delta for each position: +1 for {[, -1 for }], 0 otherwise.
     """
@@ -85,7 +85,7 @@ def depth_prefix_sum_kernel(
     depth_deltas: Pointer[Int32, MutAnyOrigin],
     depth_prefix: Pointer[Int32, MutAnyOrigin],
     block_totals: Pointer[Int32, MutAnyOrigin],
-    n: UInt,
+    n: UInt32,
 ):
     """Parallel block-local exclusive prefix sum of depth deltas.
 
@@ -131,7 +131,7 @@ def add_depth_offsets_kernel(
     block_offsets: Pointer[Int32, MutAnyOrigin],
     depth_deltas: Pointer[Int32, MutAnyOrigin],
     depths_out: Pointer[Int32, MutAnyOrigin],
-    n: UInt,
+    n: UInt32,
 ):
     """Convert block-local exclusive prefix into a global inclusive scan.
 
@@ -164,7 +164,7 @@ def add_depth_offsets_kernel(
 def adjust_open_depths_kernel(
     char_types: Pointer[UInt8, MutAnyOrigin],
     depths: Pointer[Int32, MutAnyOrigin],
-    n: UInt,
+    n: UInt32,
 ):
     """For opening brackets, subtract 1 from depth so it matches closing bracket.
     """
@@ -186,7 +186,7 @@ def adjust_open_depths_kernel(
 def _shift_in_place_kernel(
     values: Pointer[Int32, MutAnyOrigin],
     offsets: Pointer[Int32, MutAnyOrigin],
-    n: UInt,
+    n: UInt32,
 ):
     """values[gid] += offsets[block_idx]."""
     var bid = Int(block_idx.x)
@@ -221,7 +221,7 @@ def _exclusive_scan_block_totals(
             d_block_totals,
             d_block_offsets,
             d_dummy.unsafe_ptr(),
-            UInt(num_blocks),
+            UInt32(num_blocks),
             grid_dim=1,
             block_dim=BLOCK_SIZE_OPT,
         )
@@ -238,7 +238,7 @@ def _exclusive_scan_block_totals(
         d_block_totals,
         d_block_offsets,
         d_block_totals_l1.unsafe_ptr(),
-        UInt(num_blocks),
+        UInt32(num_blocks),
         grid_dim=num_blocks_l1,
         block_dim=BLOCK_SIZE_OPT,
     )
@@ -258,7 +258,7 @@ def _exclusive_scan_block_totals(
     ctx.enqueue_function[_shift_in_place_kernel](
         d_block_offsets,
         d_block_offsets_l1.unsafe_ptr(),
-        UInt(num_blocks),
+        UInt32(num_blocks),
         grid_dim=num_blocks_l1,
         block_dim=BLOCK_SIZE_OPT,
     )
@@ -288,7 +288,7 @@ def match_brackets_gpu(
     ctx.enqueue_function[compute_depth_delta_kernel](
         d_char_types,
         d_depth_deltas.unsafe_ptr(),
-        UInt(n),
+        UInt32(n),
         grid_dim=num_blocks,
         block_dim=BLOCK_SIZE_OPT,
     )
@@ -304,7 +304,7 @@ def match_brackets_gpu(
         d_depth_deltas.unsafe_ptr(),
         d_depth_excl.unsafe_ptr(),
         d_block_totals.unsafe_ptr(),
-        UInt(n),
+        UInt32(n),
         grid_dim=num_blocks,
         block_dim=BLOCK_SIZE_OPT,
     )
@@ -323,7 +323,7 @@ def match_brackets_gpu(
             d_block_totals.unsafe_ptr(),  # unused but need a valid pointer
             d_depth_deltas.unsafe_ptr(),
             d_depths.unsafe_ptr(),
-            UInt(n),
+            UInt32(n),
             grid_dim=num_blocks,
             block_dim=BLOCK_SIZE_OPT,
         )
@@ -343,7 +343,7 @@ def match_brackets_gpu(
             d_block_offsets.unsafe_ptr(),
             d_depth_deltas.unsafe_ptr(),
             d_depths.unsafe_ptr(),
-            UInt(n),
+            UInt32(n),
             grid_dim=num_blocks,
             block_dim=BLOCK_SIZE_OPT,
         )
@@ -352,7 +352,7 @@ def match_brackets_gpu(
     ctx.enqueue_function[adjust_open_depths_kernel](
         d_char_types,
         d_depths.unsafe_ptr(),
-        UInt(n),
+        UInt32(n),
         grid_dim=num_blocks,
         block_dim=BLOCK_SIZE_OPT,
     )
