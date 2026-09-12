@@ -21,10 +21,9 @@
 #
 # Conversion
 # ----------
-# Integers up to 19 digits accumulate in the scanning loop, SWAR-style
-# in 8-digit blocks where the run is long enough. A 20-digit run is
-# re-accumulated with a checked multiply, because 20 digits may or may
-# not fit `UInt64`. Anything longer is a float.
+# Digits are accumulated as they are validated, in one pass. A 20-digit
+# run is re-accumulated afterwards with a checked multiply, because 20
+# digits may or may not fit `UInt64`. Anything longer is a float.
 #
 # Floats take Clinger's fast path when the significand and the
 # exponent are both small enough that `Float64` arithmetic is exact --
@@ -107,35 +106,6 @@ struct NumberToken(Copyable, Movable):
 @always_inline
 def _is_digit(c: UInt8) -> Bool:
     return c >= UInt8(ord("0")) and c <= UInt8(ord("9"))
-
-
-# ---------------------------------------------------------------------------
-# SWAR 8-digit block helpers
-# ---------------------------------------------------------------------------
-
-
-@always_inline
-def _is_8_digit_block(chunk: SIMD[DType.uint8, 8]) -> Bool:
-    """All 8 bytes in [b'0', b'9']?"""
-    var lo = chunk.ge(UInt8(ord("0")))
-    var hi = chunk.le(UInt8(ord("9")))
-    return (lo & hi).reduce_and()
-
-
-@always_inline
-def _parse_8_digits_swar(chunk: SIMD[DType.uint8, 8]) -> UInt64:
-    """Convert 8 ASCII digit bytes to an unsigned integer in 0..99_999_999.
-
-    Single-vector mul + reduce_add: each lane is multiplied by its
-    positional power of 10 then summed. This compiles down to a tight
-    SIMD sequence on both NEON (umlal + addv) and AVX2 (vpmulld +
-    horizontal sum). The reduce is the only data-dependent op.
-    """
-    var digits = (chunk - UInt8(ord("0"))).cast[DType.uint64]()
-    var pow10 = SIMD[DType.uint64, 8](
-        10000000, 1000000, 100000, 10000, 1000, 100, 10, 1
-    )
-    return (digits * pow10).reduce_add()
 
 
 # ---------------------------------------------------------------------------
@@ -237,6 +207,18 @@ def scan_number(
     if pos >= limit:
         return NumberToken.invalid(NUM_ERR_GRAMMAR, pos)
 
+    # Digits are accumulated as they are validated. Walking them twice
+    # -- once for the grammar, once for the value -- was most of what
+    # scanning a short number cost, and the second walk re-read bytes
+    # the first had just touched.
+    #
+    # Leading zeros do not count toward significance, which is why the
+    # counter only advances once the accumulator is non-zero.
+    var significand: UInt64 = 0
+    var digits = 0
+    var truncated = False
+    var exponent: Int64 = 0
+
     # --- int ---------------------------------------------------------------
     var int_start = pos
     var c = bytes[pos]
@@ -245,13 +227,17 @@ def scan_number(
         if pos < limit and _is_digit(bytes[pos]):
             return NumberToken.invalid(NUM_ERR_LEADING_ZERO, pos)
     elif _is_digit(c):
-        var ptr = bytes.unsafe_ptr()
-        while limit - pos >= 8:
-            var chunk = ptr.unsafe_load[width=8](pos)
-            if not _is_8_digit_block(chunk):
+        while pos < limit:
+            var d = bytes[pos]
+            if not _is_digit(d):
                 break
-            pos += 8
-        while pos < limit and _is_digit(bytes[pos]):
+            if digits < 19:
+                significand = significand * 10 + UInt64(d) - UInt64(ord("0"))
+                if significand != 0:
+                    digits += 1
+            else:
+                truncated = True
+                exponent += 1
             pos += 1
     else:
         return NumberToken.invalid(NUM_ERR_GRAMMAR, pos)
@@ -259,26 +245,25 @@ def scan_number(
 
     # --- frac --------------------------------------------------------------
     var is_float = False
-    var frac_start = pos
-    var frac_end = pos
     if pos < limit and bytes[pos] == UInt8(ord(".")):
         is_float = True
         pos += 1
         if pos >= limit or not _is_digit(bytes[pos]):
             return NumberToken.invalid(NUM_ERR_GRAMMAR, pos)
-        frac_start = pos
-        var ptr = bytes.unsafe_ptr()
-        while limit - pos >= 8:
-            var chunk = ptr.unsafe_load[width=8](pos)
-            if not _is_8_digit_block(chunk):
+        while pos < limit:
+            var d = bytes[pos]
+            if not _is_digit(d):
                 break
-            pos += 8
-        while pos < limit and _is_digit(bytes[pos]):
+            if digits < 19:
+                significand = significand * 10 + UInt64(d) - UInt64(ord("0"))
+                if significand != 0:
+                    digits += 1
+                exponent -= 1
+            else:
+                truncated = True
             pos += 1
-        frac_end = pos
 
     # --- exp ---------------------------------------------------------------
-    var explicit_exp: Int64 = 0
     if pos < limit and (
         bytes[pos] == UInt8(ord("e")) or bytes[pos] == UInt8(ord("E"))
     ):
@@ -297,38 +282,7 @@ def scan_number(
             if acc < _MAX_EXP:
                 acc = acc * 10 + Int64(Int(bytes[pos]) - ord("0"))
             pos += 1
-        explicit_exp = -acc if exp_negative else acc
-
-    # --- accumulate the significand ----------------------------------------
-    #
-    # Leading zeros do not count toward significance, which is why the
-    # counter only advances once the accumulator is non-zero.
-    var significand: UInt64 = 0
-    var digits = 0
-    var truncated = False
-    var exponent = explicit_exp
-
-    var i = int_start
-    while i < int_end:
-        if digits < 19:
-            significand = significand * 10 + UInt64(bytes[i]) - UInt64(ord("0"))
-            if significand != 0:
-                digits += 1
-        else:
-            truncated = True
-            exponent += 1
-        i += 1
-
-    i = frac_start
-    while i < frac_end:
-        if digits < 19:
-            significand = significand * 10 + UInt64(bytes[i]) - UInt64(ord("0"))
-            if significand != 0:
-                digits += 1
-            exponent -= 1
-        else:
-            truncated = True
-        i += 1
+        exponent += -acc if exp_negative else acc
 
     if is_float:
         var f = _to_float(
@@ -451,47 +405,3 @@ def parse_int_checked[
         if u > UInt64(Scalar[dtype].MAX_FINITE):
             raise Error("integer out of range for " + String(dtype))
         return (Scalar[dtype](u), token.end)
-
-
-# ---------------------------------------------------------------------------
-# Legacy helper, still used by stage 2 until it moves to `scan_number`.
-# ---------------------------------------------------------------------------
-
-
-@always_inline
-def parse_int_swar(bytes: Span[UInt8, _], start: Int, end: Int) -> Int64:
-    """Parse a pre-validated JSON integer in [start, end) into `Int64`.
-
-    Layout assumed: optional leading `-`, then 1+ ASCII digits with no
-    other punctuation. Overflow wraps; callers that care must scan with
-    `scan_number` instead.
-    """
-    var i = start
-    var negative = False
-    if i < end and bytes[i] == UInt8(ord("-")):
-        negative = True
-        i += 1
-    var digit_count = end - i
-    var result: UInt64 = 0
-
-    if digit_count >= 8:
-        var ptr = bytes.unsafe_ptr()
-        var chunk = ptr.unsafe_load[width=8](i)
-        if _is_8_digit_block(chunk):
-            result = _parse_8_digits_swar(chunk)
-            i += 8
-            digit_count -= 8
-            if digit_count >= 8:
-                var chunk2 = ptr.unsafe_load[width=8](i)
-                if _is_8_digit_block(chunk2):
-                    result = result * 100_000_000 + _parse_8_digits_swar(chunk2)
-                    i += 8
-                    digit_count -= 8
-
-    while i < end:
-        result = result * 10 + UInt64(bytes[i]) - UInt64(ord("0"))
-        i += 1
-
-    if negative:
-        return -Int64(result)
-    return Int64(result)
