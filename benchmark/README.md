@@ -65,6 +65,29 @@ and the best run. Calibration keeps a slow lane from running for minutes
 while still giving a fast lane enough iterations to be stable. Fidelity
 is checked once per lane, outside the timed region.
 
+## Same-host comparison
+
+`bench-serde` measures this library against its own previous versions.
+To find out how it compares with the other pure-Mojo JSON libraries you
+need all of them on one machine under one timing protocol, which is what
+`benchmark/compare/` does -- an ignored directory you create locally:
+
+```bash
+cd benchmark/compare && pixi run fetch && pixi run run
+```
+
+It is not shipped. Vendoring another project's sources into this
+repository would make us a distributor of them and would pin their
+versions into our build, so the harness stays local and the numbers are
+something you reproduce rather than something you take on trust. It
+generates its own environment, fetches the other libraries at pinned
+versions, and runs the same fixtures and the same calibrated protocol
+used here, plus a third lane that re-parses each document with its
+whitespace and member order changed -- the difference between a general
+JSON reader and a decoder specialized to one byte layout. The
+directory's own README records the version pins and the ways in which
+the three are not doing identical work.
+
 ## Setup
 
 ### 1. Clone the Repo
