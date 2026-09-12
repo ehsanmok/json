@@ -36,7 +36,7 @@ from json.document import (
     TAPE_TAG_KEY,
     TAPE_TAG_KEY_INLINE,
 )
-from json import loads
+from json import dumps, loads
 from json.value import Value
 
 
@@ -341,6 +341,96 @@ def _both_paths_must_reject(s: String, label: String) raises:
 
 def test_reject_trailing_comma_array() raises:
     _both_paths_must_reject(String("[1, 2,]"), "trailing comma array")
+
+
+def test_reject_malformed_numbers() raises:
+    """The near-misses a consume-everything scan used to accept.
+
+    Each of these parsed successfully before, to a value with no
+    relationship to the text: `[-]` to zero, `[1+2]` to fifty-two,
+    `[0.1.2]` to 0.12.
+    """
+    _both_paths_must_reject(String("[-]"), "bare minus")
+    _both_paths_must_reject(String("[-2.]"), "trailing point")
+    _both_paths_must_reject(String("[2.e3]"), "point before exponent")
+    _both_paths_must_reject(String("[0.e1]"), "no fraction digits")
+    _both_paths_must_reject(String("[0.1.2]"), "two points")
+    _both_paths_must_reject(String("[1eE2]"), "two exponent markers")
+    _both_paths_must_reject(String("[1+2]"), "expression")
+    _both_paths_must_reject(String("[0e+-1]"), "two exponent signs")
+    _both_paths_must_reject(String("[-.123]"), "no integer part")
+    _both_paths_must_reject(String("[1.]"), "no fraction digits")
+    _both_paths_must_reject(String("[01]"), "leading zero")
+
+
+def test_reject_control_characters_in_strings() raises:
+    """Section 7 forbids an unescaped character below U+0020."""
+    _both_paths_must_reject(String('["a\tb"]'), "raw tab")
+    _both_paths_must_reject(String('["a\nb"]'), "raw newline")
+    _both_paths_must_reject(String('["a\x00b"]'), "raw NUL")
+
+
+def test_reject_malformed_escapes() raises:
+    """The four digits after a unicode escape are checked now."""
+    _both_paths_must_reject(String('["\\uqqqq"]'), "non-hex digits")
+    _both_paths_must_reject(String('["\\u00A"]'), "three digits")
+    _both_paths_must_reject(String('["\\uD834\\uDd"]'), "truncated pair")
+    _both_paths_must_reject(String('["\\q"]'), "unknown escape")
+
+
+def _raw(values: List[Int]) -> String:
+    """A document from raw bytes, valid UTF-8 or not."""
+    var out = List[UInt8](capacity=len(values))
+    for i in range(len(values)):
+        out.append(UInt8(values[i]))
+    return String(unsafe_from_utf8=out^)
+
+
+def test_reject_invalid_utf8_in_strings() raises:
+    """RFC 3629: string bytes must be well-formed UTF-8.
+
+    Nothing validated them on this path, while the simdjson backend
+    did, so the two backends disagreed about which documents exist.
+    """
+    _both_paths_must_reject(
+        _raw([0x5B, 0x22, 0xC0, 0x80, 0x22, 0x5D]), "overlong NUL"
+    )
+    _both_paths_must_reject(
+        _raw([0x5B, 0x22, 0xED, 0xA0, 0x80, 0x22, 0x5D]), "encoded surrogate"
+    )
+    _both_paths_must_reject(
+        _raw([0x5B, 0x22, 0xE2, 0x82, 0x22, 0x5D]), "truncated sequence"
+    )
+
+
+def test_wide_integers_survive_the_tape() raises:
+    """Integers past the inline payload are pooled, not truncated.
+
+    The payload is 60 bits, so anything at or above 2**59 used to be
+    sign-flipped on the way in and read back as a different number.
+    """
+    assert_equal(loads("576460752303423488").int_value(), 576460752303423488)
+    assert_equal(loads("-576460752303423489").int_value(), -576460752303423489)
+    assert_equal(loads("9223372036854775807").int_value(), Int64.MAX)
+    assert_equal(loads("-9223372036854775808").int_value(), Int64.MIN)
+    assert_equal(dumps(loads("576460752303423488")), "576460752303423488")
+
+
+def test_integers_above_int64_stay_exact() raises:
+    """A magnitude past `Int64.MAX` used to wrap to a negative number."""
+    var wide = loads("18446744073709551615")
+    assert_true(wide.is_uint())
+    assert_false(wide.is_int())
+    assert_true(wide.is_number())
+    assert_equal(wide.uint_value(), UInt64.MAX)
+    assert_equal(dumps(wide), "18446744073709551615")
+
+
+def test_integers_beyond_uint64_become_floats() raises:
+    """Past `UInt64` the nearest float is the widely compatible answer."""
+    var huge = loads("18446744073709551616")
+    assert_true(huge.is_float())
+    assert_equal(huge.float_value(), 1.8446744073709552e19)
 
 
 def test_reject_trailing_comma_object() raises:

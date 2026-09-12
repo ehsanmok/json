@@ -27,7 +27,7 @@
 # `ArcPointer` for every `Value(1)`.
 
 from std.collections import List
-from std.memory import ArcPointer
+from std.memory import ArcPointer, bitcast
 
 from .raw_ops import _parse_json_pointer, escape_json_string
 from .node import (
@@ -35,6 +35,7 @@ from .node import (
     OWNED_NULL,
     OWNED_BOOL,
     OWNED_INT,
+    OWNED_UINT,
     OWNED_FLOAT,
     OWNED_STRING,
     OWNED_ARRAY,
@@ -53,6 +54,8 @@ from ..document import (
     TAPE_TAG_NULL,
     TAPE_TAG_BOOL,
     TAPE_TAG_INT,
+    TAPE_TAG_INT_POOL,
+    TAPE_TAG_UINT,
     TAPE_TAG_FLOAT,
     TAPE_TAG_STRING,
     TAPE_TAG_STRING_OWNED,
@@ -247,8 +250,10 @@ struct Value(Copyable, Movable, Writable):
             return OWNED_NULL
         if t == TAPE_TAG_BOOL:
             return OWNED_BOOL
-        if t == TAPE_TAG_INT:
+        if t == TAPE_TAG_INT or t == TAPE_TAG_INT_POOL:
             return OWNED_INT
+        if t == TAPE_TAG_UINT:
+            return OWNED_UINT
         if t == TAPE_TAG_FLOAT:
             return OWNED_FLOAT
         if t == TAPE_TAG_STRING or t == TAPE_TAG_STRING_OWNED:
@@ -265,7 +270,17 @@ struct Value(Copyable, Movable, Writable):
         return self._kind() == OWNED_BOOL
 
     def is_int(self) -> Bool:
+        """A signed integer that fits `Int64`.
+
+        A magnitude above `Int64.MAX` answers `is_uint` instead, so
+        that a caller reaching for `int_value` cannot be handed a
+        wrapped negative number by accident.
+        """
         return self._kind() == OWNED_INT
+
+    def is_uint(self) -> Bool:
+        """An integer above `Int64.MAX`, readable through `uint_value`."""
+        return self._kind() == OWNED_UINT
 
     def is_float(self) -> Bool:
         return self._kind() == OWNED_FLOAT
@@ -281,7 +296,7 @@ struct Value(Copyable, Movable, Writable):
 
     def is_number(self) -> Bool:
         var k = self._kind()
-        return k == OWNED_INT or k == OWNED_FLOAT
+        return k == OWNED_INT or k == OWNED_UINT or k == OWNED_FLOAT
 
     # Value extraction
     def bool_value(self) -> Bool:
@@ -293,6 +308,17 @@ struct Value(Copyable, Movable, Writable):
         if self._is_view():
             return self._doc.value()[].get_int(self._tape_idx)
         return self._owned.int_val
+
+    def uint_value(self) -> UInt64:
+        """The value as an unsigned magnitude.
+
+        Accepts any integer entry, so a caller that has checked
+        `is_number` and wants the widest reading does not have to test
+        the tag first.
+        """
+        if self._is_view():
+            return self._doc.value()[].get_uint(self._tape_idx)
+        return bitcast[DType.uint64](self._owned.int_val)
 
     def float_value(self) -> Float64:
         if self._is_view():
@@ -832,8 +858,11 @@ def _write_view(mut w: JsonWriter, doc: ArcPointer[Document], tape_idx: Int):
     if tag == TAPE_TAG_BOOL:
         w.write_bool(d.get_bool(tape_idx))
         return
-    if tag == TAPE_TAG_INT:
+    if tag == TAPE_TAG_INT or tag == TAPE_TAG_INT_POOL:
         w.write_int(d.get_int(tape_idx))
+        return
+    if tag == TAPE_TAG_UINT:
+        w.write_uint(d.get_uint(tape_idx))
         return
     if tag == TAPE_TAG_FLOAT:
         w.write_float(d.get_float(tape_idx))

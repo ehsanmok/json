@@ -32,6 +32,7 @@
 # run of entries, one per element.
 
 from std.collections import List
+from std.memory import bitcast
 
 
 # ---------------------------------------------------------------------------
@@ -62,6 +63,15 @@ comptime TAPE_TAG_STRING_OWNED: UInt8 = 8
 # TAPE_TAG_KEY removes the per-key heap allocation + key_pool append from
 # stage 2's hot path.
 comptime TAPE_TAG_KEY_INLINE: UInt8 = 9
+# Tag 10: an integer that does not fit the 60-bit inline payload, held
+# in `int_pool`. Inlining every integer in 60 bits silently sign-flipped
+# anything at or above 2**59 -- `576460752303423488` read back negative
+# -- which is well inside the range JSON documents actually carry.
+comptime TAPE_TAG_INT_POOL: UInt8 = 10
+# Tag 11: a magnitude above `Int64.MAX` that still fits `UInt64`, held in
+# `int_pool` as a bit pattern. JSON puts no upper bound on an integer,
+# and the alternative for this range was wrapping to a negative number.
+comptime TAPE_TAG_UINT: UInt8 = 11
 
 
 # ---------------------------------------------------------------------------
@@ -69,6 +79,8 @@ comptime TAPE_TAG_KEY_INLINE: UInt8 = 9
 # ---------------------------------------------------------------------------
 
 comptime _PAYLOAD_MASK: UInt64 = (UInt64(1) << 60) - 1
+comptime _INLINE_INT_LIMIT: Int64 = Int64(1) << 59
+"""Half the inline payload range; outside it an integer spills to the pool."""
 comptime _OFFSET_MASK: UInt64 = (UInt64(1) << 30) - 1
 
 
@@ -130,8 +142,9 @@ struct Document(Copyable, Movable):
         as STRING (offset, length) entries into `input`.
       - `float_pool` stores `Float64` values, since 64-bit IEEE 754 doesn't
         fit in 60 bits.
-      - `int_pool` is reserved for spilled large integers; for now all
-        integers are inlined as 60-bit signed payloads.
+      - `int_pool` holds integers too wide for the 60-bit inline
+        payload, both signed (`TAPE_TAG_INT_POOL`) and unsigned
+        (`TAPE_TAG_UINT`, stored as a bit pattern).
     """
 
     var input: String
@@ -183,10 +196,33 @@ struct Document(Copyable, Movable):
         return idx
 
     def append_int(mut self, value: Int64) -> Int:
+        """Append an integer, inline when it fits and pooled when not.
+
+        The inline payload is 60 bits, so anything outside
+        [-2**59, 2**59) has to spill. It used to be truncated instead,
+        which turned `576460752303423488` into its negative -- no
+        error, no warning, a different number.
+        """
         var idx = len(self.tape)
-        # Two's-complement encoding into the low 60 bits.
-        var payload = UInt64(value) & _PAYLOAD_MASK
-        self.tape.append(pack_tape_entry(TAPE_TAG_INT, payload))
+        if value >= -_INLINE_INT_LIMIT and value < _INLINE_INT_LIMIT:
+            var payload = UInt64(value) & _PAYLOAD_MASK
+            self.tape.append(pack_tape_entry(TAPE_TAG_INT, payload))
+            return idx
+        var pool_idx = len(self.int_pool)
+        self.int_pool.append(value)
+        self.tape.append(pack_tape_entry(TAPE_TAG_INT_POOL, UInt64(pool_idx)))
+        return idx
+
+    def append_uint(mut self, value: UInt64) -> Int:
+        """Append a magnitude above `Int64.MAX`.
+
+        Stored as a bit pattern in the same pool; the tag is what says
+        to read it back unsigned.
+        """
+        var idx = len(self.tape)
+        var pool_idx = len(self.int_pool)
+        self.int_pool.append(Int64(bitcast[DType.int64](value)))
+        self.tape.append(pack_tape_entry(TAPE_TAG_UINT, UInt64(pool_idx)))
         return idx
 
     def append_float(mut self, value: Float64) -> Int:
@@ -283,12 +319,30 @@ struct Document(Copyable, Movable):
         return self.get_payload(tape_idx) == 1
 
     def get_int(self, tape_idx: Int) -> Int64:
+        """Read an integer entry, inline or pooled."""
+        if self.get_tag(tape_idx) == TAPE_TAG_INT_POOL:
+            return self.int_pool[Int(self.get_payload(tape_idx))]
+        if self.get_tag(tape_idx) == TAPE_TAG_UINT:
+            return self.int_pool[Int(self.get_payload(tape_idx))]
         var payload = self.get_payload(tape_idx)
         # Sign-extend from 60 bits.
         var sign_bit = (payload >> 59) & 1
         if sign_bit == 1:
             return Int64(payload | (UInt64(0xF) << 60))
         return Int64(payload)
+
+    def get_uint(self, tape_idx: Int) -> UInt64:
+        """Read an entry as an unsigned magnitude.
+
+        A `TAPE_TAG_UINT` entry is one that only fits here; the signed
+        tags are accepted too so a caller can ask this question of any
+        non-negative integer without checking the tag first.
+        """
+        if self.get_tag(tape_idx) == TAPE_TAG_UINT:
+            return bitcast[DType.uint64](
+                self.int_pool[Int(self.get_payload(tape_idx))]
+            )
+        return bitcast[DType.uint64](self.get_int(tape_idx))
 
     def get_float(self, tape_idx: Int) -> Float64:
         var pool_idx = Int(self.get_payload(tape_idx))

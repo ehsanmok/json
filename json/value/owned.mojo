@@ -14,13 +14,14 @@
 # doing it per mutation is what previously made building a tree O(N^2).
 
 from std.collections import List
-from std.memory import ArcPointer
+from std.memory import ArcPointer, bitcast
 
 from .node import (
     OwnedValue,
     OWNED_NULL,
     OWNED_BOOL,
     OWNED_INT,
+    OWNED_UINT,
     OWNED_FLOAT,
     OWNED_STRING,
     OWNED_ARRAY,
@@ -36,6 +37,9 @@ from ..document import (
     TAPE_TAG_NULL,
     TAPE_TAG_BOOL,
     TAPE_TAG_INT,
+    TAPE_TAG_INT_POOL,
+    TAPE_TAG_UINT,
+    _INLINE_INT_LIMIT,
     TAPE_TAG_FLOAT,
     TAPE_TAG_STRING,
     TAPE_TAG_STRING_OWNED,
@@ -95,8 +99,10 @@ def _view_to_owned(
         return OwnedValue.make_null()
     if tag == TAPE_TAG_BOOL:
         return OwnedValue.make_bool(d.get_bool(tape_idx))
-    if tag == TAPE_TAG_INT:
+    if tag == TAPE_TAG_INT or tag == TAPE_TAG_INT_POOL:
         return OwnedValue.make_int(d.get_int(tape_idx))
+    if tag == TAPE_TAG_UINT:
+        return OwnedValue.make_uint(d.get_uint(tape_idx))
     if tag == TAPE_TAG_FLOAT:
         return OwnedValue.make_float(d.get_float(tape_idx))
     if tag == TAPE_TAG_STRING or tag == TAPE_TAG_STRING_OWNED:
@@ -417,7 +423,7 @@ def _estimate_owned_bytes(o: OwnedValue) -> Int:
         return 4
     if o.kind == OWNED_BOOL:
         return 5
-    if o.kind == OWNED_INT:
+    if o.kind == OWNED_INT or o.kind == OWNED_UINT:
         return 20
     if o.kind == OWNED_FLOAT:
         return 24
@@ -447,6 +453,9 @@ def _write_owned(mut w: JsonWriter, o: OwnedValue):
         return
     if o.kind == OWNED_INT:
         w.write_int(o.int_val)
+        return
+    if o.kind == OWNED_UINT:
+        w.write_uint(bitcast[DType.uint64](o.int_val))
         return
     if o.kind == OWNED_FLOAT:
         w.write_float(o.float_val)
@@ -543,7 +552,19 @@ def _emit_owned_to_doc(mut doc: Document, o: OwnedValue) -> UInt64:
         var b: UInt64 = 1 if o.bool_val else 0
         return pack_tape_entry(TAPE_TAG_BOOL, b)
     if o.kind == OWNED_INT:
-        return pack_tape_entry(TAPE_TAG_INT, UInt64(o.int_val) & payload_mask)
+        # Wide values spill to the pool rather than being truncated
+        # into the 60-bit inline payload.
+        if o.int_val >= -_INLINE_INT_LIMIT and o.int_val < _INLINE_INT_LIMIT:
+            return pack_tape_entry(
+                TAPE_TAG_INT, UInt64(o.int_val) & payload_mask
+            )
+        var int_idx = len(doc.int_pool)
+        doc.int_pool.append(o.int_val)
+        return pack_tape_entry(TAPE_TAG_INT_POOL, UInt64(int_idx))
+    if o.kind == OWNED_UINT:
+        var pool_idx = len(doc.int_pool)
+        doc.int_pool.append(o.int_val)
+        return pack_tape_entry(TAPE_TAG_UINT, UInt64(pool_idx))
     if o.kind == OWNED_FLOAT:
         var pool_idx = len(doc.float_pool)
         doc.float_pool.append(o.float_val)

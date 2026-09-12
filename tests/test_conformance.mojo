@@ -30,41 +30,6 @@ from json import ParserConfig, Value, loads
 # ---------------------------------------------------------------------------
 
 comptime _KNOWN_GAPS = [
-    # RFC 8259 section 6 -- the number grammar is not enforced. The
-    # tokenizer consumes any run of [0-9.eE+-] and evaluates whatever
-    # that run happens to be, so a bare "-" parses as 0 and "1+2" as 52.
-    "jts-8259-n_array_just_minus",
-    "jts-8259-n_number_-1.0.",
-    "jts-8259-n_number_-2.",
-    "jts-8259-n_number_0.1.2",
-    "jts-8259-n_number_0.e1",
-    "jts-8259-n_number_1eE2",
-    "jts-8259-n_number_2.e+3",
-    "jts-8259-n_number_2.e-3",
-    "jts-8259-n_number_2.e3",
-    "jts-8259-n_number_expression",
-    "jts-8259-n_number_invalid+-",
-    "jts-8259-n_number_neg_real_without_int_part",
-    "jts-8259-n_number_real_without_fractional_part",
-    # RFC 8259 section 6 -- a mantissa longer than the stdlib float
-    # parser accepts is rejected outright instead of being rounded.
-    "jts-8259-y_number_double_close_to_zero",
-    # RFC 8259 section 7 -- \u escapes are not validated. The four hex
-    # digits are never checked and a malformed escape is kept as
-    # literal text instead of being rejected.
-    "jts-8259-n_string_1_surrogate_then_escape_u",
-    "jts-8259-n_string_1_surrogate_then_escape_u1",
-    "jts-8259-n_string_1_surrogate_then_escape_u1x",
-    "jts-8259-n_string_incomplete_escaped_character",
-    "jts-8259-n_string_incomplete_surrogate",
-    "jts-8259-n_string_invalid-utf-8-in-escape",
-    "jts-8259-n_string_invalid_unicode_escape",
-    # RFC 8259 section 7 -- characters below U+0020 must be escaped;
-    # raw ones inside a string are passed straight through.
-    "jts-8259-n_string_unescaped_ctrl_char",
-    "jts-8259-n_string_unescaped_newline",
-    "jts-8259-n_string_unescaped_tab",
-    "json-8259-unescaped-newline",
     # RFC 7493 sections 2.1 and 2.3 -- there is no I-JSON mode yet, so
     # duplicate names and unpaired surrogate escapes are both accepted.
     "ijson-no-duplicate-keys",

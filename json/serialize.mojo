@@ -23,6 +23,8 @@ def to_string(v: Value) -> String:
         return "true" if v.bool_value() else "false"
     elif v.is_int():
         return String(v.int_value())
+    elif v.is_uint():
+        return String(v.uint_value())
     elif v.is_float():
         return String(v.float_value())
     elif v.is_string():

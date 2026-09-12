@@ -36,7 +36,7 @@
 
 from std.bit import count_trailing_zeros
 from std.collections import List
-from std.memory import unsafe_memcpy
+from std.memory import bitcast, unsafe_memcpy
 from std.memory.unsafe import pack_bits
 from std.sys import simd_byte_width
 
@@ -54,8 +54,22 @@ from std.sys import simd_byte_width
 # 32 was a 2x penalty on NEON. simd_byte_width() defers to the
 # Mojo compiler's per-target answer.
 comptime _BLOCK: Int = simd_byte_width()
+comptime _INLINE_PAYLOAD_MASK: UInt64 = (UInt64(1) << 60) - 1
 
 from ..errors import parse_error
+from .validate import (
+    ESC_BAD_CHAR,
+    ESC_OK,
+    ESC_TRAILING_BACKSLASH,
+    STR_CONTROL,
+    STR_ESCAPE,
+    STR_NON_ASCII,
+    find_control_char,
+    first_invalid_utf8,
+    is_valid_utf8,
+    scan_string_body,
+    validate_escapes,
+)
 from ..unicode import unescape_json_string_span
 from ..document import (
     Document,
@@ -64,6 +78,9 @@ from ..document import (
     TAPE_TAG_NULL,
     TAPE_TAG_BOOL,
     TAPE_TAG_INT,
+    TAPE_TAG_INT_POOL,
+    TAPE_TAG_UINT,
+    _INLINE_INT_LIMIT,
     TAPE_TAG_FLOAT,
     TAPE_TAG_STRING,
     TAPE_TAG_STRING_OWNED,
@@ -73,7 +90,13 @@ from ..document import (
     TAPE_TAG_KEY_INLINE,
 )
 from .stage1_scalar import StructuralIndex
-from .number_parse import parse_int_swar
+from .number_parse import (
+    NUM_ERR_LEADING_ZERO,
+    NUM_FLOAT,
+    NUM_INVALID,
+    NUM_UINT,
+    scan_number,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -763,13 +786,12 @@ def _parse_object_key(
 
     var key_start = cursor + 1
     var key_len = key_close - key_start
-    var has_escape = _string_has_escape(bytes, key_start, key_close)
+    var flags = _check_string_body(doc, key_start, key_close)
 
     var key_header: UInt64
-    if has_escape:
+    if flags & STR_ESCAPE != 0:
         # Slow path: keys with escapes still need allocation +
         # interning. They are rare on real JSON corpora.
-        _validate_escapes(bytes, key_start, key_close)
         var unesc = unescape_json_string_span(bytes, key_start, key_close)
         var key = String(unsafe_from_utf8=unesc^)
         var key_pool_idx = len(doc.key_pool)
@@ -807,6 +829,59 @@ def _parse_object_key(
     return value_start
 
 
+def _check_string_body(doc: Document, start: Int, end: Int) raises -> UInt8:
+    """Validate one string body and report what it contains.
+
+    Three rules that stage 2 did not enforce, all of which let a
+    malformed document through as a well-formed one:
+
+      * RFC 8259 section 7 forbids an unescaped character below
+        U+0020; raw tabs and newlines passed straight into the value.
+      * The four hexadecimal digits after a `\\u` escape were never
+        checked, and a malformed escape survived as literal text, so
+        a string containing one parsed into its own source spelling.
+      * RFC 3629 requires the bytes to be UTF-8; nothing validated
+        them, so overlong forms, encoded surrogates and truncated
+        sequences all reached `String`. The simdjson backend rejected
+        exactly these, so the two backends disagreed on which
+        documents exist.
+
+    Returns the scan flags, so the caller can take the zero-copy path
+    when there is nothing to expand.
+    """
+    var bytes = doc.input.as_bytes()
+    var flags = scan_string_body(bytes, start, end)
+
+    if flags & STR_CONTROL != 0:
+        var at = find_control_char(bytes, start, end)
+        raise parse_error(
+            "control character " + _byte_label(bytes[at]) + " in string",
+            bytes,
+            at,
+        )
+
+    if flags & STR_NON_ASCII != 0:
+        if not is_valid_utf8(bytes[start:end]):
+            var at = first_invalid_utf8(bytes, start, end)
+            raise parse_error("invalid UTF-8 in string", bytes, at)
+
+    if flags & STR_ESCAPE != 0:
+        var err_pos = start
+        var code = validate_escapes(bytes, start, end, False, err_pos)
+        if code == ESC_TRAILING_BACKSLASH:
+            raise parse_error("trailing backslash in string", bytes, err_pos)
+        if code == ESC_BAD_CHAR:
+            raise parse_error(
+                "invalid escape " + _escape_label(bytes[err_pos + 1]),
+                bytes,
+                err_pos,
+            )
+        if code != ESC_OK:
+            raise parse_error("invalid \\u escape", bytes, err_pos)
+
+    return flags
+
+
 def _emit_string(
     mut doc: Document,
     positions: List[UInt32],
@@ -837,15 +912,13 @@ def _emit_string(
     var end_idx = close_quote
 
     var bytes = doc.input.as_bytes()
-    var has_escape = _string_has_escape(bytes, start_idx, end_idx)
+    var flags = _check_string_body(doc, start_idx, end_idx)
 
-    if not has_escape:
+    if flags & STR_ESCAPE == 0:
         return pack_tape_entry(
             TAPE_TAG_STRING,
             pack_pair(UInt64(start_idx), UInt64(end_idx - start_idx)),
         )
-
-    _validate_escapes(bytes, start_idx, end_idx)
 
     var unescaped = unescape_json_string_span(bytes, start_idx, end_idx)
     var s = String(unsafe_from_utf8=unescaped^)
@@ -860,47 +933,44 @@ def _emit_number(
     start: Int,
     n: Int,
 ) raises -> UInt64:
-    """Parse a JSON number starting at `start`. Inlines small ints in
-    the 60-bit tape payload; large ints and floats spill to side
-    pools."""
+    """Parse one JSON number, enforcing the grammar of section 6.
+
+    The scan used to consume any run of `[0-9.eE+-]` and evaluate
+    whatever that run happened to be, so `-` parsed as 0, `1+2` as 52,
+    and `2.e3`, `0.e1`, `0.1.2` and `1eE2` were all accepted. It also
+    truncated integers into the 60-bit inline payload and wrapped
+    anything past 2**63, both silently.
+
+    `scan_number` decides all of that in one place, shared with the
+    typed reader, and reports which rule an invalid token broke so the
+    message can say.
+    """
     var bytes = doc.input.as_bytes()
-    var i = start
-    var is_float = False
-    if bytes[i] == UInt8(ord("-")):
-        i += 1
+    var token = scan_number(bytes, start, n)
+
+    if token.kind == NUM_INVALID:
+        if token.err == NUM_ERR_LEADING_ZERO:
+            raise parse_error("leading zeros in number", bytes, token.end)
+        raise parse_error("invalid number", bytes, token.end)
+
+    value_end = token.end
+
+    if token.kind == NUM_FLOAT:
+        var pool_idx = len(doc.float_pool)
+        doc.float_pool.append(token.float_value)
+        return pack_tape_entry(TAPE_TAG_FLOAT, UInt64(pool_idx))
+
+    if token.kind == NUM_UINT:
+        var pool_idx = len(doc.int_pool)
+        doc.int_pool.append(bitcast[DType.int64](token.uint_value))
+        return pack_tape_entry(TAPE_TAG_UINT, UInt64(pool_idx))
 
     if (
-        i < n
-        and bytes[i] == UInt8(ord("0"))
-        and i + 1 < n
-        and bytes[i + 1] >= UInt8(ord("0"))
-        and bytes[i + 1] <= UInt8(ord("9"))
+        token.int_value >= -_INLINE_INT_LIMIT
+        and token.int_value < _INLINE_INT_LIMIT
     ):
-        raise parse_error(
-            "leading zeros in number", doc.input.as_bytes(), start
-        )
-
-    while i < n:
-        var c = bytes[i]
-        if c >= UInt8(ord("0")) and c <= UInt8(ord("9")):
-            i += 1
-            continue
-        if c == UInt8(ord(".")) or c == UInt8(ord("e")) or c == UInt8(ord("E")):
-            is_float = True
-            i += 1
-            continue
-        if c == UInt8(ord("+")) or c == UInt8(ord("-")):
-            i += 1
-            continue
-        break
-
-    value_end = i
-
-    if is_float:
-        var num_str = String(unsafe_from_utf8=bytes[start:i])
-        var pool_idx = len(doc.float_pool)
-        doc.float_pool.append(atof(num_str))
-        return pack_tape_entry(TAPE_TAG_FLOAT, UInt64(pool_idx))
-    var v = parse_int_swar(bytes, start, i)
-    var payload = UInt64(v) & ((UInt64(1) << 60) - 1)
-    return pack_tape_entry(TAPE_TAG_INT, payload)
+        var payload = UInt64(token.int_value) & _INLINE_PAYLOAD_MASK
+        return pack_tape_entry(TAPE_TAG_INT, payload)
+    var int_idx = len(doc.int_pool)
+    doc.int_pool.append(token.int_value)
+    return pack_tape_entry(TAPE_TAG_INT_POOL, UInt64(int_idx))

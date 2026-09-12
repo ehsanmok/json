@@ -17,6 +17,7 @@
 # empty-container `Value`s allocation-free.
 
 from std.collections import List
+from std.memory import bitcast
 
 
 # Node kind tags. These mirror the tape tags in `document.mojo` but are
@@ -29,6 +30,10 @@ comptime OWNED_FLOAT = 3
 comptime OWNED_STRING = 4
 comptime OWNED_ARRAY = 5
 comptime OWNED_OBJECT = 6
+# A magnitude above `Int64.MAX`, kept in `int_val` as a bit pattern.
+# JSON puts no upper bound on an integer, and folding this range into
+# OWNED_INT wrapped it to a negative number.
+comptime OWNED_UINT = 7
 
 
 struct OwnedValue(Copyable, Deinitable, Movable):
@@ -94,6 +99,13 @@ struct OwnedValue(Copyable, Deinitable, Movable):
         var v = Self()
         v.kind = OWNED_INT
         v.int_val = i
+        return v^
+
+    @staticmethod
+    def make_uint(u: UInt64) -> Self:
+        var v = Self()
+        v.kind = OWNED_UINT
+        v.int_val = bitcast[DType.int64](u)
         return v^
 
     @staticmethod
