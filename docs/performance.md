@@ -168,13 +168,13 @@ Five record shapes, 100 records each, median of seven calibrated
 batches, Apple M3 Pro, `-D ASSERT=none`. Reproduce with
 `pixi run -e dev bench-serde`.
 
-| Shape | Bytes | `deserialize_json` | `loads` + `Value` walk |
-|---|---:|---:|---:|
-| message | 16 KB | 15.5 us | 53.5 us |
-| document | 47 KB | 60.0 us | 192.9 us |
-| telemetry | 43 KB | 81.3 us | 148.9 us |
-| strings | 43 KB | 61.1 us | 114.2 us |
-| event | 27 KB | 39.1 us | 89.4 us |
+| Shape | Bytes | `deserialize_json` | `loads` + `Value` walk | `serialize_json` |
+|---|---:|---:|---:|---:|
+| message | 16 KB | 15.6 us | 53.2 us | 12.4 us |
+| document | 47 KB | 60.8 us | 186.0 us | 31.5 us |
+| telemetry | 43 KB | 82.0 us | 141.6 us | 165.8 us |
+| strings | 43 KB | 61.2 us | 109.6 us | 33.7 us |
+| event | 27 KB | 38.8 us | 93.5 us | 14.7 us |
 
 ### What the read path costs, and what it stopped costing
 
@@ -217,9 +217,17 @@ about 15 ns per token on the document shape. In order of effect:
 Writing floats is the slowest thing this library does:
 `JsonWriter.write_float` measures 47 ns, of which 39 ns is Grisu2
 digit generation in `json/dtoa.mojo`. That is what makes the telemetry
-shape -- 32 floats per record -- serialize in 166 us when a shape of
-comparable size takes 34 us. The digit generation is correct (it
-round-trips where the stdlib formatter does not) but not yet fast.
+shape -- 32 floats per record -- serialize in 166 us when the strings
+shape, of the same size in bytes, takes 34 us. The digit generation is
+correct (it round-trips where the stdlib formatter does not) but not
+yet fast.
+
+The cached-power tables were the obvious suspect, since indexing a
+`comptime` array copies the whole array into the caller's frame first.
+They are not the cost: moving them out of that copy and into constant
+data made digit generation slower, not faster. The integer writer did
+gain from the same change, which is what took the document shape from
+37 us to 31 us. What remains in Grisu2 is the digit loop itself.
 
 ## CPU Performance
 
