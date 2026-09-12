@@ -258,32 +258,53 @@ def test_error_trailing_comma_object() raises:
 
 
 def test_error_message_has_context() raises:
-    """Test that error messages include context info."""
-    var caught = False
+    """An error names the place, not the pass that noticed."""
     var msg = String()
     try:
         _ = loads('{\n  "key": \n}')
     except e:
-        caught = True
         msg = String(e)
-    assert_true(caught, "Should raise error")
-    # Error should have some useful info
-    assert_true(msg.byte_length() > 10, "Error should have descriptive message")
+    assert_true("line 3, column 1" in msg, msg)
+    assert_true("(offset 12)" in msg, msg)
+    assert_true("unexpected character" in msg, msg)
+    assert_true("Near:" in msg, msg)
+    assert_false("Stage 2" in msg, "internal pass names do not belong here")
 
 
 def test_error_message_multiline() raises:
-    """Test error on multiline JSON."""
-    var caught = False
+    """Line and column count from the start of the document."""
     var msg = String()
     var json = '{\n  "name": "test",\n  "value": \n}'
     try:
         _ = loads(json)
     except e:
-        caught = True
         msg = String(e)
-    assert_true(caught, "Should raise error")
-    # Just verify it returns something useful
-    assert_true(msg.byte_length() > 0, "Should have error message")
+    assert_true("line 4, column 1" in msg, msg)
+
+
+def test_error_context_keeps_non_ascii_intact() raises:
+    """The context window copies bytes rather than re-encoding them.
+
+    Building it with `chr` per byte turned every character above ASCII
+    into two, so an error in a document with any non-English text
+    described a document nobody had written.
+    """
+    var msg = String()
+    try:
+        _ = loads('{"café": }')
+    except e:
+        msg = String(e)
+    assert_true("café" in msg, msg)
+
+
+def test_error_names_the_offending_byte() raises:
+    """A byte that is not printable is named in hex, not mangled."""
+    var msg = String()
+    try:
+        _ = loads("[\x01]")
+    except e:
+        msg = String(e)
+    assert_true("unexpected character byte 0x01" in msg, msg)
 
 
 # =============================================================================

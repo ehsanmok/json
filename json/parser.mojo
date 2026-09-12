@@ -207,7 +207,7 @@ def _parse_gpu(s: String) raises -> Value:
         start += 1
 
     if start >= len(data):
-        raise Error(json_parse_error("Empty or whitespace-only input", s, 0))
+        raise Error(json_parse_error("empty input", s, 0))
 
     var first_char = data[start]
 
