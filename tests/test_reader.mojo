@@ -143,6 +143,93 @@ def test_long_strings_keep_their_flags() raises:
 
 
 # ===================================================================
+# Numbers
+# ===================================================================
+
+
+def _read_i64(text: String) raises -> Int64:
+    var r = JsonReader(text.as_bytes())
+    return r.read_int[DType.int64]()
+
+
+def _read_i32(text: String) raises -> Int32:
+    var r = JsonReader(text.as_bytes())
+    return r.read_int[DType.int32]()
+
+
+def test_integer_fast_path_values() raises:
+    """The short-integer path and the scanner must agree on values."""
+    assert_equal(_read_i64("0"), 0)
+    assert_equal(_read_i64("-0"), 0)
+    assert_equal(_read_i64("7"), 7)
+    assert_equal(_read_i64("-7"), -7)
+    assert_equal(_read_i64("12345"), 12345)
+    assert_equal(_read_i64("999999999999999999"), 999999999999999999)
+    assert_equal(_read_i64("-999999999999999999"), -999999999999999999)
+    # Nineteen digits and up leave the fast path to the scanner.
+    assert_equal(_read_i64("9223372036854775807"), Int64.MAX)
+    assert_equal(_read_i64("-9223372036854775808"), Int64.MIN)
+    print("  test_integer_fast_path_values passed")
+
+
+def test_integer_fast_path_stops_at_the_right_byte() raises:
+    """A number ends where the grammar says, not where digits stop."""
+    var r = JsonReader(String("[12,34]").as_bytes())
+    r.expect_array_begin()
+    var first = True
+    _ = r.next_element(first)
+    assert_equal(r.read_int[DType.int64](), 12)
+    _ = r.next_element(False)
+    assert_equal(r.read_int[DType.int64](), 34)
+    assert_false(r.next_element(False))
+    print("  test_integer_fast_path_stops_at_the_right_byte passed")
+
+
+def test_integer_fast_path_defers_on_everything_it_cannot_prove() raises:
+    """Malformed numbers still raise, with the scanner's messages.
+
+    The fast path exists only to skip work, never to decide. Anything
+    it cannot fully establish -- a leading zero, a fraction, an
+    exponent, a bare minus -- has to reach the scanner, or the two
+    readers would disagree about what a number is.
+    """
+    for text in ["01", "-01", "1.", "-", "1e", "1e+", ".5", "+1", "1.2.3"]:
+        with assert_raises():
+            _ = _read_i64(text)
+    # A fraction or exponent is a type error, not a truncation.
+    with assert_raises(contains="expected an integer"):
+        _ = _read_i64("1.5")
+    with assert_raises(contains="expected an integer"):
+        _ = _read_i64("1e3")
+    print(
+        "  test_integer_fast_path_defers_on_everything_it_cannot_prove passed"
+    )
+
+
+def test_integer_range_errors_match_the_scanner() raises:
+    """Both paths report an out-of-range integer the same way."""
+    assert_equal(_read_i32("2147483647"), Int32.MAX)
+    assert_equal(_read_i32("-2147483648"), Int32.MIN)
+    with assert_raises(contains="out of range"):
+        _ = _read_i32("2147483648")
+    with assert_raises(contains="out of range"):
+        _ = _read_i32("-2147483649")
+    # Past Int64 entirely: the scanner's territory.
+    with assert_raises(contains="out of range"):
+        _ = _read_i64("9223372036854775808")
+    print("  test_integer_range_errors_match_the_scanner passed")
+
+
+def test_unsigned_fields_reject_negatives() raises:
+    var r = JsonReader(String("-1").as_bytes())
+    with assert_raises(contains="unsigned"):
+        _ = r.read_int[DType.uint32]()
+    var r2 = JsonReader(String("4294967295").as_bytes())
+    assert_equal(r2.read_int[DType.uint32](), UInt32.MAX)
+    print("  test_unsigned_fields_reject_negatives passed")
+
+
+# ===================================================================
 # Agreement with the tape parser
 # ===================================================================
 
@@ -225,6 +312,14 @@ def main() raises:
     test_unicode_escapes_and_surrogates()
     test_rejects_bad_strings()
     test_long_strings_keep_their_flags()
+    print()
+
+    print("Numbers:")
+    test_integer_fast_path_values()
+    test_integer_fast_path_stops_at_the_right_byte()
+    test_integer_fast_path_defers_on_everything_it_cannot_prove()
+    test_integer_range_errors_match_the_scanner()
+    test_unsigned_fields_reject_negatives()
     print()
 
     print("Agreement:")

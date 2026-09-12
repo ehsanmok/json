@@ -75,6 +75,34 @@ comptime DEFAULT_MAX_DEPTH = 1024
 """Nesting past this is refused. Deep input is otherwise a stack hazard."""
 
 
+@always_inline
+def _narrow[
+    dtype: DType
+](magnitude: UInt64, negative: Bool) raises -> Scalar[dtype]:
+    """Fit an already-validated magnitude into `dtype`, or raise.
+
+    The wording matches `parse_int_checked`, because which of the two
+    paths read the number is not something a caller should be able to
+    tell from the error.
+    """
+    comptime if dtype.is_signed():
+        if negative:
+            if magnitude > UInt64(Scalar[dtype].MAX_FINITE) + 1:
+                raise Error("integer out of range for " + String(dtype))
+            if magnitude == UInt64(Scalar[dtype].MAX_FINITE) + 1:
+                return Scalar[dtype].MIN_FINITE
+            return -Scalar[dtype](magnitude)
+        if magnitude > UInt64(Scalar[dtype].MAX_FINITE):
+            raise Error("integer out of range for " + String(dtype))
+        return Scalar[dtype](magnitude)
+    else:
+        if negative:
+            raise Error("negative integer in an unsigned field")
+        if magnitude > UInt64(Scalar[dtype].MAX_FINITE):
+            raise Error("integer out of range for " + String(dtype))
+        return Scalar[dtype](magnitude)
+
+
 @fieldwise_init
 struct KeySpan(Copyable, ImplicitlyCopyable, Movable):
     """Where an object key's bytes are, and whether they need expanding."""
@@ -170,12 +198,14 @@ struct JsonReader[origin: ImmOrigin](Movable):
         if self.depth > self.max_depth:
             raise self.error("nesting depth exceeds " + String(self.max_depth))
 
+    @always_inline
     def expect_object_begin(mut self) raises:
         if self.peek() != UInt8(ord("{")):
             raise self.error("expected '{'")
         self.pos += 1
         self._enter()
 
+    @always_inline
     def expect_array_begin(mut self) raises:
         if self.peek() != UInt8(ord("[")):
             raise self.error("expected '['")
@@ -352,6 +382,7 @@ struct JsonReader[origin: ImmOrigin](Movable):
         )
         return String(unsafe_from_utf8=expanded^)
 
+    @always_inline
     def read_key(mut self) raises -> KeySpan:
         """Consume an object key and its colon, without materializing it.
 
@@ -399,6 +430,7 @@ struct JsonReader[origin: ImmOrigin](Movable):
 
     # --- scalars -----------------------------------------------------
 
+    @always_inline
     def read_bool(mut self) raises -> Bool:
         var c = self.peek()
         if c == UInt8(ord("t")):
@@ -412,6 +444,7 @@ struct JsonReader[origin: ImmOrigin](Movable):
     def read_null(mut self) raises:
         self._expect_literal("null")
 
+    @always_inline
     def try_null(mut self) raises -> Bool:
         """Consume `null` if that is what comes next."""
         if self.peek() != UInt8(ord("n")):
@@ -429,14 +462,57 @@ struct JsonReader[origin: ImmOrigin](Movable):
                 raise self.error("expected '" + String(literal) + "' literal")
         self.pos += len(bytes)
 
+    @always_inline
     def read_int[dtype: DType](mut self) raises -> Scalar[dtype]:
+        """Read an integer field.
+
+        Most integers in a document are a handful of digits, and
+        reaching them through the full number scanner costs four
+        outlined calls: the scanner walks the digits once to check the
+        grammar and again to accumulate, peeks for an eight-digit SWAR
+        block that a short integer never has, and hands back a
+        forty-eight byte token that the range check then unpacks.
+
+        The path below commits only when it has itself established the
+        whole token: an optional minus, a leading digit in 1-9 so that
+        anything starting `0` defers, at most eighteen digits so the
+        accumulator cannot overflow, and a terminator that cannot
+        continue a number. Everything else -- `0`, `-0`, a fraction, an
+        exponent, a leading zero, nineteen digits or more -- falls
+        through to the scanner, which stays the only authority on the
+        grammar, the messages and the offsets they carry.
+        """
         self.skip_ws()
-        var parsed = parse_int_checked[dtype](
-            self.data, self.pos, len(self.data)
-        )
+        var n = len(self.data)
+        var ptr = self.data.unsafe_ptr()
+        var p = self.pos
+        var negative = p < n and ptr[unsafe_offset=p] == UInt8(ord("-"))
+        var start = p + Int(negative)
+        if start < n:
+            var lead = ptr[unsafe_offset=start]
+            if lead > UInt8(ord("0")) and lead <= UInt8(ord("9")):
+                var acc = UInt64(lead) - UInt64(ord("0"))
+                var i = start + 1
+                while i < n and i - start < 18:
+                    var c = ptr[unsafe_offset=i]
+                    if c < UInt8(ord("0")) or c > UInt8(ord("9")):
+                        break
+                    acc = acc * 10 + UInt64(c) - UInt64(ord("0"))
+                    i += 1
+                var after = ptr[unsafe_offset=i] if i < n else UInt8(0)
+                if not (
+                    (after >= UInt8(ord("0")) and after <= UInt8(ord("9")))
+                    or after == UInt8(ord("."))
+                    or after == UInt8(ord("e"))
+                    or after == UInt8(ord("E"))
+                ):
+                    self.pos = i
+                    return _narrow[dtype](acc, negative)
+        var parsed = parse_int_checked[dtype](self.data, self.pos, n)
         self.pos = parsed[1]
         return parsed[0]
 
+    @always_inline
     def read_float[dtype: DType](mut self) raises -> Scalar[dtype]:
         self.skip_ws()
         var parsed = parse_float_span(self.data, self.pos, len(self.data))
