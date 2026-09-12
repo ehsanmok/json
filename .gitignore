@@ -28,6 +28,13 @@ benchmark/datasets/wiki_large_record.json
 # cuJSON (download on-demand for NVIDIA GPU benchmarks)
 benchmark/cuJSON/
 
+# Same-host comparison harness. Pulls other Mojo JSON libraries in to
+# measure them side by side with this one; not shipped, because that
+# would make this repository a distributor of their sources and pin
+# their versions in our build. Create it locally when you need a
+# comparison number -- see benchmark/README.md.
+benchmark/compare/
+
 # build directories
 build/
 
