@@ -9,7 +9,13 @@
 
 from std.testing import assert_equal, assert_true, assert_false, TestSuite
 
-from json.writer import JsonWriter, needs_escape
+from json.writer import (
+    _DIGIT_PAIRS,
+    _DIGIT_PAIRS_ARRAY,
+    _digit_pair,
+    JsonWriter,
+    needs_escape,
+)
 
 
 def test_scalars() raises:
@@ -228,6 +234,23 @@ def test_float_round_trips() raises:
     var z = JsonWriter(capacity=32)
     z.write_float(0.0)
     assert_true(z^.finish_string().startswith("0"))
+
+
+def test_digit_tables_agree() raises:
+    """The text and array forms of the digit table hold the same digits.
+
+    The integer writer reads the text and the exponent writer reads
+    the array, each because it measured faster there. Nothing in the
+    build checks that the two were written the same way, so this does.
+    """
+    assert_equal(_DIGIT_PAIRS.byte_length(), 200)
+    var array = materialize[_DIGIT_PAIRS_ARRAY]()
+    for value in range(100):
+        var text = _digit_pair(value)
+        assert_equal(Int(text[0]), 0x30 + value // 10)
+        assert_equal(Int(text[1]), 0x30 + value % 10)
+        assert_equal(Int(array[value][0]), Int(text[0]))
+        assert_equal(Int(array[value][1]), Int(text[1]))
 
 
 def main() raises:

@@ -39,13 +39,46 @@ from .dtoa import shortest_digits
 
 comptime _SCAN_W = simd_width_of[DType.uint8]()
 
-# Two ASCII digits per entry, so one 2-byte vector load yields both.
-comptime _DIGIT_PAIRS = _make_digit_pairs()
+# The hundred two-digit decimal strings, in two forms.
+#
+# `_DIGIT_PAIRS` is text, so reading an entry is a load from the
+# binary's constant data. `_DIGIT_PAIRS_ARRAY` is a `comptime` array,
+# and `materialize` copies all two hundred bytes into the caller's
+# frame before indexing it.
+#
+# The integer writer wants the text: dropping the copy took
+# `document@100 serialize` from 37.3 to 31.1 us. The exponent writer
+# measured 4 ns per float *slower* on the text, and slower again on
+# plain division, so it keeps the array. Both were measured with
+# `pixi run -e dev bench-serde`; the pairing is deliberate, and
+# `test_writer` checks the two forms hold the same digits.
+comptime _DIGIT_PAIRS: StaticString = (
+    "00010203040506070809"  # 00 - 09
+    "10111213141516171819"  # 10 - 19
+    "20212223242526272829"  # 20 - 29
+    "30313233343536373839"  # 30 - 39
+    "40414243444546474849"  # 40 - 49
+    "50515253545556575859"  # 50 - 59
+    "60616263646566676869"  # 60 - 69
+    "70717273747576777879"  # 70 - 79
+    "80818283848586878889"  # 80 - 89
+    "90919293949596979899"  # 90 - 99
+)
+
+comptime _DIGIT_PAIRS_ARRAY = _make_digit_pairs()
 comptime _HEX = "0123456789abcdef".as_bytes()
 
 comptime _QUOTE = UInt8(0x22)
 comptime _BACKSLASH = UInt8(0x5C)
 comptime _SPACE = UInt8(0x20)
+
+
+@always_inline
+def _digit_pair(value: Int) -> SIMD[DType.uint8, 2]:
+    """The two ASCII digits of `value`, for `value` in `[0, 100)`."""
+    return _DIGIT_PAIRS.unsafe_ptr().unsafe_load[width=2, alignment=1](
+        value * 2
+    )
 
 
 def _make_digit_pairs(out s: InlineArray[SIMD[DType.uint8, 2], 100]):
@@ -269,17 +302,16 @@ struct JsonWriter(Movable):
         var write = start + digits
         var x = mag
         var base = self.buf.unsafe_ptr()
-        var pairs = materialize[_DIGIT_PAIRS]()
         while x >= 100:
             var r = Int(x % 100)
             x //= 100
             write -= 2
-            var pair = pairs[r]
+            var pair = _digit_pair(r)
             base.unsafe_offset(write)[] = pair[0]
             base.unsafe_offset(write + 1)[] = pair[1]
         if x >= 10:
             write -= 2
-            var pair = pairs[Int(x)]
+            var pair = _digit_pair(Int(x))
             base.unsafe_offset(write)[] = pair[0]
             base.unsafe_offset(write + 1)[] = pair[1]
         else:
@@ -376,14 +408,14 @@ struct JsonWriter(Movable):
             self._put(UInt8(0x30))
             self._put(UInt8(0x30 + exponent))
         elif exponent < 100:
-            var pairs = materialize[_DIGIT_PAIRS]()
+            var pairs = materialize[_DIGIT_PAIRS_ARRAY]()
             var pair = pairs[exponent]
             self._put(pair[0])
             self._put(pair[1])
         else:
             var hundreds = exponent // 100
             self._put(UInt8(0x30 + hundreds))
-            var pairs = materialize[_DIGIT_PAIRS]()
+            var pairs = materialize[_DIGIT_PAIRS_ARRAY]()
             var pair = pairs[exponent % 100]
             self._put(pair[0])
             self._put(pair[1])
