@@ -87,31 +87,58 @@ NVIDIA / AMD / Apple all run the same lean pipeline -- a single fused kernel + p
 
 Reproduce with `pixi run -e dev bench-cpu <file>` (3 warmup + 100 measured iterations, min-time-derived throughput). `parse_traverse` only adds a small constant on top of `parse_only` because every `Value` is a stable tape index, so traversal is a tape walk and not a re-parse. The gap to native simdjson on `parse_only` is algorithmic (no Eisel-Lemire float fast path, no AVX-512 64-byte chunks). Full breakdown in [`docs/performance.md`](./docs/performance.md).
 
-### Serialization (write path)
+### Typed serde (read and write path)
 
-Same fixture and same run as a like-for-like comparison against two other
-Mojo JSON libraries -- the `document` shape from
-[GLD.SerializerBenchmark](https://github.com/leo-gan/GLD.SerializerBenchmark),
-100 records, ~47 KB, best of 15 on an Apple M-series host:
+`serialize_json` and `deserialize_json` go straight between a struct
+and JSON bytes: no intermediate `Value`, no tape. Five record shapes,
+100 records each, median of seven calibrated batches on an Apple
+M-series host (`pixi run -e dev bench-serde`):
 
-| Path | Serialize |
-|---|---:|
-| `serialize_json(struct)` -- typed, no intermediate tree | 37-40 us |
-| EmberJson `serialize(struct)` -- typed reflection | 32-35 us |
-| mojo-json -- schema-hardcoded writer | 25-26 us |
-| `dumps(value)` after building a `Value` tree | ~1500 us |
+| Shape | Bytes | `deserialize_json` | `loads` + `Value` walk | `serialize_json` |
+|---|---:|---:|---:|---:|
+| message | 16 KB | 15.5 us | 53.5 us | 13.3 us |
+| document | 47 KB | 60.0 us | 192.9 us | 37.6 us |
+| telemetry | 43 KB | 81.3 us | 148.9 us | 166.3 us |
+| strings | 43 KB | 61.1 us | 114.2 us | 34.3 us |
+| event | 27 KB | 39.1 us | 89.4 us | 15.4 us |
 
-Two things worth reading off that table. The typed path is roughly 22x
-faster than routing the same data through a `Value` tree, so when the
-shape is known ahead of time, use `serialize_json` (or write into a
-`JsonWriter` directly) rather than assembling a document. And the
-remaining gap to `mojo-json` is paid for: its decoder asserts fixed byte
-offsets and rejects whitespace, reordered object members and unknown
-members -- all of which RFC 8259 permits and this library accepts -- and
-its float writer is not round-trip exact.
+The middle column is what reading the same document costs if you route
+it through `loads` and pick fields off `Value` by hand -- which is the
+right tool when you are exploring a document, and the wrong one when
+you already know its shape.
 
-Building a `Value` tree is linear, but each `set` / `append` deep-copies
-the subtree it is given unless you hand over ownership. For large trees,
+Telemetry serializes slowly: it is 32 floats per record, and shortest
+round-trip float formatting is currently the most expensive thing this
+library writes. That is a known gap rather than a property of the
+design.
+
+#### Against the other Mojo JSON libraries
+
+On one machine, under one timing protocol, against the other two
+pure-Mojo JSON libraries that build on Mojo 1.0.0:
+
+- **Deserializing ordinary JSON -- any whitespace, any member order --
+  this is the fastest of the three, on every shape, by 31% to 84%.**
+  Its timings barely move when a document is reformatted (document:
+  60.0 us canonical, 64.0 us with spaces and reversed members); the
+  other two slow by 34% and 147%, and one of them cannot parse two of
+  the shapes at all, because its list readers do not skip whitespace.
+- Deserializing a compact document with members in a fixed order, the
+  wire-format library is 20-126% faster. Its decoders match whole keys
+  as machine words at known offsets, which is a good trade when you
+  control both ends and own the byte layout.
+- Serializing, this library leads on one shape of five.
+
+Numbers are reproducible but not shipped: `benchmark/compare/` builds
+its own environment and fetches the other libraries at pinned
+versions. See [`benchmark/README.md`](./benchmark/README.md) for why it
+is not in the tree, and that directory's own README for the version
+pins and the ways in which the three are not doing identical work.
+
+#### Building a `Value` tree
+
+Tree construction is linear, but each `set` / `append` deep-copies the
+subtree it is given unless you hand over ownership. For large trees,
 transfer with `^`:
 
 ```mojo

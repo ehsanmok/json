@@ -1,9 +1,8 @@
 # Value construction (write-path) benchmark.
 #
-# Mirrors the `document` fixture shape used by the GLD.SerializerBenchmark
-# Mojo suite (`schemas/data_catalog_v2.yaml`: children=8, fields_per_child=3,
-# max_depth=2) and its adapter's build-then-dumps sequence, because that is
-# the path that suite times as "serialize".
+# Mirrors the `document` fixture shape used by `bench_serde.mojo`
+# (children=8, fields_per_child=3, max_depth=2), because that is the
+# shape a Value tree is most often built into by hand.
 #
 # The harness had no way to construct an empty container, so it called
 # `loads("{}")` / `loads("[]")` per node and then grew the tree with

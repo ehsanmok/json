@@ -111,4 +111,5 @@ from .lazy import LazyValue
 from .streaming import StreamingParser, ArrayStreamingParser
 
 # Byte-level serialization sink.
+from .reader import JsonReader
 from .writer import JsonWriter

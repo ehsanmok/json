@@ -147,6 +147,80 @@ in-string mask and does not produce a `char_types` companion stream
 apply the escape state machine and feeds stage 2 of the CPU pipeline
 to construct the tape -- the same stage 2 the CPU-only path uses.
 
+## Typed serde
+
+`serialize_json` and `deserialize_json` go straight between a struct
+and JSON bytes. Reading in particular used to go the long way round --
+parse into a tape-backed `Document`, wrap it in `Value`, walk that --
+so decoding built a whole document representation that was discarded
+one field later, took an atomic refcount touch per field access, and
+allocated a `String` for every object key merely to compare it against
+a field name.
+
+`json/reader.mojo` is a forward byte cursor that writes each value into
+its final address. `loads` is unchanged and still produces a
+`Document`, because navigating a document and decoding one into known
+types are different jobs.
+
+### Numbers
+
+Five record shapes, 100 records each, median of seven calibrated
+batches, Apple M3 Pro, `-D ASSERT=none`. Reproduce with
+`pixi run -e dev bench-serde`.
+
+| Shape | Bytes | `deserialize_json` | `loads` + `Value` walk |
+|---|---:|---:|---:|
+| message | 16 KB | 15.5 us | 53.5 us |
+| document | 47 KB | 60.0 us | 192.9 us |
+| telemetry | 43 KB | 81.3 us | 148.9 us |
+| strings | 43 KB | 61.1 us | 114.2 us |
+| event | 27 KB | 39.1 us | 89.4 us |
+
+### What the read path costs, and what it stopped costing
+
+Before this work the cost was about 34 ns per token on every shape,
+regardless of what the tokens were. That flatness was the tell: it was
+fixed per-token overhead, not work proportional to the data. It is now
+about 15 ns per token on the document shape. In order of effect:
+
+1. **A list is sized once, not grown from nothing.** `List` doubles
+   from capacity zero, so an eight-element array cost four allocations
+   and three copies; filling one that way measured 195 ns against 51 ns
+   with the capacity right to begin with. JSON does not announce an
+   array's length, so eight is reserved on the first element and
+   `append` doubles from there.
+2. **Short integers skip the full number scanner.** Reaching a value
+   through the scanner cost four outlined calls, a vector peek for an
+   eight-digit block a short integer never has, and a forty-eight byte
+   token to unpack. `read_int` now commits when it has itself
+   established the whole token -- optional minus, leading digit in
+   1-9, at most eighteen digits, a terminator that cannot continue a
+   number -- and defers everything else to the scanner, which stays
+   the only authority on the grammar and its messages.
+3. **A string is scanned once.** Finding the closing quote and
+   classifying the body were separate passes, and the second only
+   vectorizes at sixteen bytes, which real keys and values are not.
+   They are fused; the flags are masked to the bytes before the quote,
+   without which a control character in the *next* token would be
+   attributed to this string.
+4. **Each byte between members is looked at once.** `next_member` ran
+   the whitespace scan three times per member from positions where
+   nothing had been consumed.
+5. **A number's digits are accumulated while being validated**, rather
+   than walked once for the grammar and again for the value.
+6. **Field names are matched at compile time**, with the reader passed
+   immutably so the unrolled match loop does not reload its state after
+   every candidate.
+
+### The remaining gap
+
+Writing floats is the slowest thing this library does:
+`JsonWriter.write_float` measures 47 ns, of which 39 ns is Grisu2
+digit generation in `json/dtoa.mojo`. That is what makes the telemetry
+shape -- 32 floats per record -- serialize in 166 us when a shape of
+comparable size takes 34 us. The digit generation is correct (it
+round-trips where the stdlib formatter does not) but not yet fast.
+
 ## CPU Performance
 
 json has one CPU code path served by `loads(target='cpu')`: a pure
