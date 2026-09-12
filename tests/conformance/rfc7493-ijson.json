@@ -1,0 +1,87 @@
+{
+  "format": "json",
+  "standard": "RFC 7493 I-JSON",
+  "version": "7493",
+  "standard_url": "https://www.rfc-editor.org/rfc/rfc7493",
+  "provenance": "original-work",
+  "notes": "I-JSON is a restricted profile of JSON for Internet protocols. It is not a fourth JSON grammar; it constrains how JSON is used.",
+  "cases": [
+    {
+      "id": "ijson-top-object",
+      "title": "I-JSON messages should be objects (or arrays)",
+      "section": "4.1",
+      "section_title": "Top-Level Constructs",
+      "section_url": "https://www.rfc-editor.org/rfc/rfc7493#section-4.1",
+      "paragraph": "An I-JSON message can be any JSON value. However, older RFC 4627 implementations only accept objects or arrays at the top level; protocols are advised to use an object or array.",
+      "requirement": "SHOULD",
+      "expect": "accept",
+      "input": "{\"harbor\":\"kelp\"}",
+      "input_encoding": "utf-8",
+      "decoded": {
+        "harbor": "kelp"
+      }
+    },
+    {
+      "id": "ijson-utf8-only",
+      "title": "I-JSON text is UTF-8",
+      "section": "2.1",
+      "section_title": "Encoding and Characters",
+      "section_url": "https://www.rfc-editor.org/rfc/rfc7493#section-2.1",
+      "paragraph": "I-JSON messages MUST be encoded using UTF-8.",
+      "requirement": "MUST",
+      "expect": "reject",
+      "input": "fffe7b007d00",
+      "input_encoding": "hex"
+    },
+    {
+      "id": "ijson-no-lone-surrogate",
+      "title": "I-JSON forbids unpaired surrogates",
+      "section": "2.1",
+      "section_title": "Encoding and Characters",
+      "section_url": "https://www.rfc-editor.org/rfc/rfc7493#section-2.1",
+      "paragraph": "I-JSON messages MUST NOT include characters or escape sequences that represent unpaired UTF-16 surrogates or noncharacter code points.",
+      "requirement": "MUST NOT",
+      "expect": "reject",
+      "input": "\"\\uD800\"",
+      "input_encoding": "utf-8"
+    },
+    {
+      "id": "ijson-no-duplicate-keys",
+      "title": "I-JSON objects MUST have unique member names",
+      "section": "2.3",
+      "section_title": "Object Constraints",
+      "section_url": "https://www.rfc-editor.org/rfc/rfc7493#section-2.3",
+      "paragraph": "Objects in I-JSON messages MUST have unique member names.",
+      "requirement": "MUST",
+      "expect": "reject",
+      "input": "{\"harbor\":1,\"harbor\":2}",
+      "input_encoding": "utf-8",
+      "notes": "Most JSON parsers accept this and keep one value. That is an I-JSON profile miss, not an RFC 8259 grammar miss."
+    },
+    {
+      "id": "ijson-binary64-number",
+      "title": "Numbers should be IEEE 754 binary64",
+      "section": "2.2",
+      "section_title": "Numbers",
+      "section_url": "https://www.rfc-editor.org/rfc/rfc7493#section-2.2",
+      "paragraph": "I-JSON messages SHOULD NOT include numbers that look like integers but cannot be represented as an IEEE 754-2008 binary64 value without loss.",
+      "requirement": "SHOULD NOT",
+      "expect": "accept",
+      "input": "9007199254740993",
+      "input_encoding": "utf-8",
+      "notes": "2^53+1 is not exactly representable in binary64. Parsers that silently coerce to 9007199254740992 lose an I-JSON guarantee."
+    },
+    {
+      "id": "ijson-no-nan",
+      "title": "NaN is outside I-JSON (and JSON)",
+      "section": "2.2",
+      "section_title": "Numbers",
+      "section_url": "https://www.rfc-editor.org/rfc/rfc7493#section-2.2",
+      "paragraph": "I-JSON is a profile of JSON; NaN is not a JSON number.",
+      "requirement": "MUST NOT",
+      "expect": "reject",
+      "input": "NaN",
+      "input_encoding": "utf-8"
+    }
+  ]
+}
