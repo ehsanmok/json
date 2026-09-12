@@ -29,9 +29,12 @@
 
 from std.bit import count_trailing_zeros
 from std.collections import List
-from std.memory import unsafe_memcpy
+from std.memory import bitcast, unsafe_memcpy
 from std.memory.unsafe import pack_bits
 from std.sys.info import simd_width_of
+from std.utils.numerics import isfinite
+
+from .dtoa import shortest_digits
 
 
 comptime _SCAN_W = simd_width_of[DType.uint8]()
@@ -205,6 +208,14 @@ struct JsonWriter(Movable):
     def write_literal(mut self, s: StaticString):
         self.write_bytes(s.as_bytes())
 
+    def reset(mut self):
+        """Rewind to empty, keeping the buffer.
+
+        For a caller serializing many values in a row: the allocation
+        is the expensive part and it is already the right size.
+        """
+        self.pos = 0
+
     # --- scalars -----------------------------------------------------
 
     def write_null(mut self):
@@ -217,19 +228,36 @@ struct JsonWriter(Movable):
             self.write_literal("false")
 
     def write_int(mut self, v: Int64):
-        """Decimal integer, written backwards two digits at a time."""
+        """Decimal integer, written backwards two digits at a time.
+
+        The magnitude is taken in unsigned arithmetic, so
+        `Int64.MIN` -- which has no positive counterpart -- needs no
+        special case: negating it as `UInt64` gives exactly 2**63.
+        """
         if v == 0:
             self.write_byte(UInt8(0x30))
             return
-        # Int64.MIN has no positive counterpart; format via String.
-        if v == Int64.MIN:
-            self.write_literal("-9223372036854775808")
-            return
         var neg = v < 0
-        var mag = UInt64(-v) if neg else UInt64(v)
+        var mag = (UInt64(0) - UInt64(v)) if neg else UInt64(v)
+        self._write_digits(mag, neg)
+
+    def write_uint(mut self, v: UInt64):
+        """Decimal integer above the signed range.
+
+        JSON puts no upper bound on an integer, so a document may hold
+        a value that only fits unsigned. Writing it through the signed
+        path would wrap it into a negative number, silently.
+        """
+        if v == 0:
+            self.write_byte(UInt8(0x30))
+            return
+        self._write_digits(v, False)
+
+    @always_inline
+    def _write_digits(mut self, mag: UInt64, negative: Bool):
         var digits = _int_digits(mag)
         self.ensure(digits + 1)
-        if neg:
+        if negative:
             self._put(UInt8(0x2D))
         var start = self.pos
         var write = start + digits
@@ -254,36 +282,135 @@ struct JsonWriter(Movable):
         self.pos = start + digits
 
     def write_float(mut self, v: Float64):
-        """Float, via the stdlib formatter.
+        """A float as the shortest decimal that reads back as itself.
 
-        Deliberately not a hand-rolled dtoa. The reference fast path in
-        gld-json is a 9-decimal fixed-point approximation that is not
-        round-trip exact and never emits exponents; correctness matters
-        more here than the last few nanoseconds. A real shortest-form
-        dtoa (Teju Jagua / Ryu) is a worthwhile follow-up.
+        Digits come from `json.dtoa`, not from `String(Float64)`: the
+        stdlib formatter does not always produce a representation that
+        round-trips, and a serializer that writes a number nothing can
+        read back as the value given to it has lost the one property
+        it exists to keep.
+
+        Layout follows the convention this library already emitted --
+        fixed notation while the leading digit sits between 1e-5 and
+        1e15, scientific outside that, exponent always signed and at
+        least two digits. Integer-valued floats keep a trailing `.0`
+        so that a value written as a float reads back as one.
+
+        A non-finite value writes `null`. JSON has no spelling for
+        infinity or NaN, so the alternatives are an invalid document
+        or a refusal; refusing needs a policy the caller sets, which
+        `SerializerConfig` grows separately.
         """
-        self.write_bytes(String(v).as_bytes())
+        if not isfinite(v):
+            self.write_null()
+            return
+
+        self.ensure(32)
+        var bits = bitcast[DType.uint64](v)
+        if (bits >> 63) != 0:
+            self._put(UInt8(0x2D))
+        var magnitude = bitcast[DType.float64](bits & (UInt64.MAX >> 1))
+
+        if magnitude == 0.0:
+            self._put(UInt8(0x30))
+            self._put(UInt8(0x2E))
+            self._put(UInt8(0x30))
+            return
+
+        var digits = InlineArray[UInt8, 24](uninitialized=True)
+        var generated = shortest_digits(magnitude, digits)
+        var count = generated[0]
+        var exponent = generated[1]
+        # Decimal exponent of the leading digit.
+        var leading = exponent + count - 1
+
+        if leading < -4 or leading > 15:
+            self._write_scientific(digits, count, leading)
+        elif exponent >= 0:
+            # An integer: digits, then the zeros the exponent implies.
+            for i in range(count):
+                self._put(digits[i])
+            for _ in range(exponent):
+                self._put(UInt8(0x30))
+            self._put(UInt8(0x2E))
+            self._put(UInt8(0x30))
+        else:
+            var integer_digits = count + exponent
+            if integer_digits <= 0:
+                self._put(UInt8(0x30))
+                self._put(UInt8(0x2E))
+                for _ in range(-integer_digits):
+                    self._put(UInt8(0x30))
+                for i in range(count):
+                    self._put(digits[i])
+            else:
+                for i in range(integer_digits):
+                    self._put(digits[i])
+                self._put(UInt8(0x2E))
+                for i in range(integer_digits, count):
+                    self._put(digits[i])
+
+    def _write_scientific(
+        mut self, digits: InlineArray[UInt8, 24], count: Int, leading: Int
+    ):
+        """`d.ddde±NN`, with at least two exponent digits."""
+        self._put(digits[0])
+        if count > 1:
+            self._put(UInt8(0x2E))
+            for i in range(1, count):
+                self._put(digits[i])
+        self._put(UInt8(0x65))
+        var exponent = leading
+        if exponent < 0:
+            self._put(UInt8(0x2D))
+            exponent = -exponent
+        else:
+            self._put(UInt8(0x2B))
+        if exponent < 10:
+            self._put(UInt8(0x30))
+            self._put(UInt8(0x30 + exponent))
+        elif exponent < 100:
+            var pairs = materialize[_DIGIT_PAIRS]()
+            var pair = pairs[exponent]
+            self._put(pair[0])
+            self._put(pair[1])
+        else:
+            var hundreds = exponent // 100
+            self._put(UInt8(0x30 + hundreds))
+            var pairs = materialize[_DIGIT_PAIRS]()
+            var pair = pairs[exponent % 100]
+            self._put(pair[0])
+            self._put(pair[1])
 
     def write_string(mut self, s: String):
         """A quoted, escaped JSON string literal."""
         self.write_string_span(s.as_bytes())
 
     def write_string_span(mut self, b: Span[UInt8, _]):
+        """A quoted, escaped JSON string literal.
+
+        One pass, not two. The scan that decides whether anything
+        needs escaping used to be separate from the copy, so every
+        string was read twice even though the scan already knows
+        where the clean run ends. Here the first chunk with something
+        to escape hands straight over to the escape path, which
+        restarts from the beginning; a string with no escapes -- the
+        usual case -- is a quote, one memcpy and a quote.
+        """
         var n = len(b)
-        if not needs_escape(b):
-            # Fast path: quote + one memcpy + quote.
-            self.ensure(n + 2)
-            self._put(_QUOTE)
-            if n > 0:
-                unsafe_memcpy(
-                    dest=self.buf.unsafe_ptr().unsafe_offset(self.pos),
-                    src=b.unsafe_ptr(),
-                    count=n,
-                )
-                self.pos += n
-            self._put(_QUOTE)
+        if needs_escape(b):
+            self._write_string_escaped(b)
             return
-        self._write_string_escaped(b)
+        self.ensure(n + 2)
+        self._put(_QUOTE)
+        if n > 0:
+            unsafe_memcpy(
+                dest=self.buf.unsafe_ptr().unsafe_offset(self.pos),
+                src=b.unsafe_ptr(),
+                count=n,
+            )
+            self.pos += n
+        self._put(_QUOTE)
 
     def _write_string_escaped(mut self, b: Span[UInt8, _]):
         """Escape path: bulk-copy the clean runs between escapes.
