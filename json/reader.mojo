@@ -165,8 +165,15 @@ struct JsonReader[origin: ImmOrigin](Movable):
         self.pos += 1
         self._enter()
 
+    @always_inline
     def next_member(mut self, first: Bool) raises -> Bool:
-        """Advance to the next object member. False at the closing brace."""
+        """Advance to the next object member. False at the closing brace.
+
+        Each byte is looked at once. The previous shape called `peek`
+        three times per member, and every call re-ran the whitespace
+        scan from a position where nothing had been consumed since the
+        last one; the byte it returned was already in a register.
+        """
         var c = self.peek()
         if c == UInt8(ord("}")):
             self.pos += 1
@@ -176,12 +183,14 @@ struct JsonReader[origin: ImmOrigin](Movable):
             if c != UInt8(ord(",")):
                 raise self.error("expected ',' or '}' in object")
             self.pos += 1
-            if self.peek() == UInt8(ord("}")):
+            c = self.peek()
+            if c == UInt8(ord("}")):
                 raise self.error("trailing comma in object")
-        if self.peek() != _QUOTE:
+        if c != _QUOTE:
             raise self.error("expected string key")
         return True
 
+    @always_inline
     def next_element(mut self, first: Bool) raises -> Bool:
         """Advance to the next array element. False at the closing bracket."""
         var c = self.peek()
@@ -193,9 +202,13 @@ struct JsonReader[origin: ImmOrigin](Movable):
             if c != UInt8(ord(",")):
                 raise self.error("expected ',' or ']' in array")
             self.pos += 1
-            if self.peek() == UInt8(ord("]")):
+            c = self.peek()
+            if c == UInt8(ord("]")):
                 raise self.error("trailing comma in array")
-        if self.peek() == 0 and self.pos >= len(self.data):
+        # `peek` reports 0 both for a NUL byte and for end of input; only
+        # the second is an unterminated array, and a NUL here would be
+        # rejected as an unexpected character by whatever reads next.
+        if c == 0 and self.pos >= len(self.data):
             raise self.error("unterminated array")
         return True
 
@@ -254,10 +267,22 @@ struct JsonReader[origin: ImmOrigin](Movable):
             i += 1
         return -1
 
+    @always_inline
     def _string_bounds(mut self) raises -> Tuple[Int, Int, UInt8]:
         """Consume a string literal; return its body and scan flags."""
         if self.peek() != _QUOTE:
             raise self.error("expected a string")
+        return self._string_bounds_at_quote()
+
+    @always_inline
+    def _string_bounds_at_quote(mut self) raises -> Tuple[Int, Int, UInt8]:
+        """The same, for a caller that has already seen the quote.
+
+        `next_member` has to look at the byte anyway to tell a key from
+        a closing brace, so re-running the whitespace scan and
+        re-reading the byte to confirm what it just proved is work
+        nobody asked for.
+        """
         var start = self.pos + 1
         var n = len(self.data)
         var end = self._find_close_quote(start, n)
@@ -303,7 +328,7 @@ struct JsonReader[origin: ImmOrigin](Movable):
         made the old read path allocate on the order of the square of
         the field count per record.
         """
-        var bounds = self._string_bounds()
+        var bounds = self._string_bounds_at_quote()
         if self.peek() != UInt8(ord(":")):
             raise self.error("expected ':' after object key")
         self.pos += 1
