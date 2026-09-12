@@ -18,7 +18,10 @@
 # document the tape parser rejects is rejected here, byte for byte,
 # with the same message.
 
+from std.bit import count_trailing_zeros
 from std.collections import List
+from std.memory.unsafe import pack_bits
+from std.sys import simd_byte_width
 
 from .cpu.number_parse import (
     NUM_ERR_LEADING_ZERO,
@@ -49,6 +52,8 @@ from .unicode import unescape_json_string_span
 
 comptime _QUOTE = UInt8(0x22)
 comptime _BACKSLASH = UInt8(0x5C)
+comptime _BLOCK: Int = simd_byte_width()
+"""One native SIMD register, so a chunk costs one instruction."""
 comptime DEFAULT_MAX_DEPTH = 1024
 """Nesting past this is refused. Deep input is otherwise a stack hazard."""
 
@@ -109,6 +114,14 @@ struct JsonReader[origin: ImmOrigin](Movable):
 
     @always_inline
     def skip_ws(mut self):
+        """Advance past whitespace.
+
+        A hand-written inline check for "the next byte is not
+        whitespace" before this call was measured and was slower on
+        every shape: the shared scan already opens with a scalar
+        prelude for exactly that case, and the extra branch only
+        added work.
+        """
         self.pos = skip_ws(self.data, self.pos, len(self.data))
 
     @always_inline
@@ -188,24 +201,68 @@ struct JsonReader[origin: ImmOrigin](Movable):
 
     # --- strings -----------------------------------------------------
 
+    def _find_close_quote(self, start: Int, n: Int) -> Int:
+        """Offset of the quote that ends this string, or -1.
+
+        A quote preceded by a backslash does not end it, so the scan
+        looks for either byte and resumes past an escape. Doing that a
+        byte at a time is what a string-heavy document spends its time
+        on, so the search is a vector compare against both bytes at
+        once, stepping to the first one that matches.
+        """
+        var ptr = self.data.unsafe_ptr()
+        var i = start
+        var stop = n - _BLOCK
+        while i <= stop:
+            var chunk = ptr.unsafe_load[width=_BLOCK](i)
+            var hits = chunk.eq(_QUOTE) | chunk.eq(_BACKSLASH)
+            comptime if _BLOCK == 16:
+                var bits = pack_bits[dtype=DType.uint16](hits)
+                if bits != 0:
+                    var at = i + Int(count_trailing_zeros(bits))
+                    if ptr[unsafe_offset=at] == _QUOTE:
+                        return at
+                    i = at + 2
+                    continue
+            elif _BLOCK == 32:
+                var bits = pack_bits[dtype=DType.uint32](hits)
+                if bits != 0:
+                    var at = i + Int(count_trailing_zeros(bits))
+                    if ptr[unsafe_offset=at] == _QUOTE:
+                        return at
+                    i = at + 2
+                    continue
+            elif _BLOCK == 64:
+                var bits = pack_bits[dtype=DType.uint64](hits)
+                if bits != 0:
+                    var at = i + Int(count_trailing_zeros(bits))
+                    if ptr[unsafe_offset=at] == _QUOTE:
+                        return at
+                    i = at + 2
+                    continue
+            else:
+                comptime assert False, "unsupported simd_byte_width()"
+            i += _BLOCK
+
+        while i < n:
+            var c = ptr[unsafe_offset=i]
+            if c == _QUOTE:
+                return i
+            if c == _BACKSLASH:
+                i += 2
+                continue
+            i += 1
+        return -1
+
     def _string_bounds(mut self) raises -> Tuple[Int, Int, UInt8]:
         """Consume a string literal; return its body and scan flags."""
         if self.peek() != _QUOTE:
             raise self.error("expected a string")
         var start = self.pos + 1
         var n = len(self.data)
-        var i = start
-        while True:
-            if i >= n:
-                raise self.error_at("unterminated string", self.pos)
-            var c = self.data[i]
-            if c == _QUOTE:
-                break
-            if c == _BACKSLASH:
-                i += 2
-                continue
-            i += 1
-        var end = i
+        var end = self._find_close_quote(start, n)
+        if end < 0:
+            raise self.error_at("unterminated string", self.pos)
         self.pos = end + 1
 
         var flags = scan_string_body(self.data, start, end)
