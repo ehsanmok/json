@@ -827,6 +827,54 @@ def test_serialize_int32_negative() raises:
 # ---------------------------------------------------------------------------
 
 
+@fieldwise_init
+struct FloatLists(Defaultable, Movable):
+    """Float containers, which a type-name substring test used to break."""
+
+    var samples: List[Float64]
+    var ratio: Float32
+    var reading: Float64
+
+    def __init__(out self):
+        self.samples = List[Float64]()
+        self.ratio = 0.0
+        self.reading = 0.0
+
+
+def test_serialize_list_of_float64() raises:
+    """A `List[Float64]` field is an array, not a float.
+
+    Float dispatch matched the reflected type *name* against the
+    substring "SIMD[DType.float64". `List[Float64]` reflects to a name
+    containing its element type, so the list matched the float arm and
+    `rebind[Float64]` on a list's (pointer, length, capacity) layout
+    failed to compile -- any struct with such a field was unusable, and
+    the error pointed at the rebind rather than at the field. Dispatch
+    now compares types (`T == Float64`), which no container can alias.
+    """
+    var v = FloatLists(List[Float64](), Float32(0.5), 1.25)
+    v.samples.append(1.5)
+    v.samples.append(2.0)
+    v.samples.append(-0.25)
+    var json = serialize_json(v)
+    assert_equal(json, '{"samples":[1.5,2.0,-0.25],"ratio":0.5,"reading":1.25}')
+    print("  test_serialize_list_of_float64 passed")
+
+
+def test_round_trip_list_of_float64() raises:
+    """The same shape survives a round trip through the reader."""
+    var v = FloatLists(List[Float64](), Float32(0.25), 3.5)
+    v.samples.append(0.125)
+    v.samples.append(64.0)
+    var back = deserialize_json[FloatLists](serialize_json(v))
+    assert_equal(len(back.samples), 2)
+    assert_equal(back.samples[0], 0.125)
+    assert_equal(back.samples[1], 64.0)
+    assert_equal(back.ratio, Float32(0.25))
+    assert_equal(back.reading, 3.5)
+    print("  test_round_trip_list_of_float64 passed")
+
+
 def test_serialize_list_of_structs() raises:
     """`List[<struct>]` serializes as an array of objects.
 
@@ -961,6 +1009,8 @@ def main() raises:
     test_serialize_empty_list_of_structs()
     test_serialize_list_of_structs_nested_deeper()
     test_deserialize_list_of_structs_raises()
+    test_serialize_list_of_float64()
+    test_round_trip_list_of_float64()
     print()
 
     print("All reflection serde tests passed!")

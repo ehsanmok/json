@@ -58,8 +58,6 @@ comptime _UINT16_NAME = reflect[UInt16].name()
 comptime _UINT8_NAME = reflect[UInt8].name()
 comptime _BOOL_NAME = reflect[Bool].name()
 comptime _STRING_NAME = reflect[String].name()
-comptime _FLOAT64_NAME = reflect[Float64].name()
-comptime _FLOAT32_NAME = reflect[Float32].name()
 comptime _VALUE_NAME = reflect[Value].name()
 
 comptime _OPT_INT_NAME = reflect[Optional[Int]].name()
@@ -358,9 +356,9 @@ def _ser_into[T: AnyType](mut w: JsonWriter, value: T) raises:
         w.write_int(Int64(rebind[UInt8](value)))
     elif tname == _BOOL_NAME:
         w.write_bool(rebind[Bool](value))
-    elif tname == _FLOAT64_NAME or "SIMD[DType.float64" in tname:
+    elif T == Float64:
         w.write_float(rebind[Float64](value))
-    elif tname == _FLOAT32_NAME or "SIMD[DType.float32" in tname:
+    elif T == Float32:
         w.write_float(Float64(rebind[Float32](value)))
     elif tname == _VALUE_NAME:
         w.write_bytes(_ser_value(rebind[Value](value)).as_bytes())
@@ -456,9 +454,9 @@ def _ser[T: AnyType](value: T) raises -> String:
         return String(rebind[UInt8](value))
     elif tname == _BOOL_NAME:
         return "true" if rebind[Bool](value) else "false"
-    elif tname == _FLOAT64_NAME or "SIMD[DType.float64" in tname:
+    elif T == Float64:
         return String(rebind[Float64](value))
-    elif tname == _FLOAT32_NAME or "SIMD[DType.float32" in tname:
+    elif T == Float32:
         return String(rebind[Float32](value))
     elif tname == _VALUE_NAME:
         return _ser_value(rebind[Value](value))
@@ -847,10 +845,10 @@ def _deser_fill[T: AnyType](mut result: T, json: Value) raises:
         elif field_type_name == _BOOL_NAME:
             ptr.unsafe_deinit_pointee()
             ptr.unsafe_bitcast[Bool]().unsafe_write(get_bool(json, key))
-        elif field_type_name == _FLOAT64_NAME or "SIMD[DType.float64" in field_type_name:
+        elif field_type == Float64:
             ptr.unsafe_deinit_pointee()
             ptr.unsafe_bitcast[Float64]().unsafe_write(get_float(json, key))
-        elif field_type_name == _FLOAT32_NAME or "SIMD[DType.float32" in field_type_name:
+        elif field_type == Float32:
             ptr.unsafe_deinit_pointee()
             ptr.unsafe_bitcast[Float32]().unsafe_write(
                 Float32(get_float(json, key))
