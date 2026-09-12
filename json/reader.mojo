@@ -43,7 +43,6 @@ from .cpu.validate import (
     first_invalid_utf8,
     is_valid_utf8,
     is_ws,
-    scan_string_body,
     skip_ws,
     validate_escapes,
 )
@@ -52,8 +51,26 @@ from .unicode import unescape_json_string_span
 
 comptime _QUOTE = UInt8(0x22)
 comptime _BACKSLASH = UInt8(0x5C)
+comptime _SPACE = UInt8(0x20)
 comptime _BLOCK: Int = simd_byte_width()
 """One native SIMD register, so a chunk costs one instruction."""
+comptime _MASK = _mask_dtype()
+"""An unsigned integer wide enough to hold one bit per byte of a block."""
+
+
+def _mask_dtype() -> DType:
+    """One bit per byte of a SIMD block, as an integer type."""
+    comptime assert (
+        _BLOCK == 16 or _BLOCK == 32 or _BLOCK == 64
+    ), "unsupported simd_byte_width()"
+    comptime if _BLOCK == 16:
+        return DType.uint16
+    elif _BLOCK == 32:
+        return DType.uint32
+    else:
+        return DType.uint64
+
+
 comptime DEFAULT_MAX_DEPTH = 1024
 """Nesting past this is refused. Deep input is otherwise a stack hazard."""
 
@@ -214,58 +231,73 @@ struct JsonReader[origin: ImmOrigin](Movable):
 
     # --- strings -----------------------------------------------------
 
-    def _find_close_quote(self, start: Int, n: Int) -> Int:
-        """Offset of the quote that ends this string, or -1.
+    def _scan_string(self, start: Int) -> Tuple[Int, UInt8]:
+        """Find the closing quote and classify the body in one pass.
 
-        A quote preceded by a backslash does not end it, so the scan
-        looks for either byte and resumes past an escape. Doing that a
-        byte at a time is what a string-heavy document spends its time
-        on, so the search is a vector compare against both bytes at
-        once, stepping to the first one that matches.
+        Returns the offset of the quote that ends the string, or -1 if
+        there is none, together with the `STR_*` flags describing what
+        the body holds.
+
+        This used to be two passes: a vector scan for the quote, then
+        `scan_string_body` over the same bytes for the flags. The
+        second pass only vectorizes at sixteen bytes or more, and keys
+        and values in real documents are shorter than that, so it
+        degenerated to three compares per byte over bytes that had
+        just been in a vector register.
+
+        The masking is what makes one pass correct. Within the block
+        that contains the closing quote, only the bytes *before* it
+        belong to this string; without the mask a control character or
+        a non-ASCII byte sitting after the quote -- the next key, the
+        rest of the document -- would set a flag for a string that does
+        not contain it, and the caller would reject a valid document.
         """
         var ptr = self.data.unsafe_ptr()
+        var n = len(self.data)
         var i = start
+        var flags: UInt8 = 0
         var stop = n - _BLOCK
+
         while i <= stop:
             var chunk = ptr.unsafe_load[width=_BLOCK](i)
-            var hits = chunk.eq(_QUOTE) | chunk.eq(_BACKSLASH)
-            comptime if _BLOCK == 16:
-                var bits = pack_bits[dtype=DType.uint16](hits)
-                if bits != 0:
-                    var at = i + Int(count_trailing_zeros(bits))
-                    if ptr[unsafe_offset=at] == _QUOTE:
-                        return at
-                    i = at + 2
-                    continue
-            elif _BLOCK == 32:
-                var bits = pack_bits[dtype=DType.uint32](hits)
-                if bits != 0:
-                    var at = i + Int(count_trailing_zeros(bits))
-                    if ptr[unsafe_offset=at] == _QUOTE:
-                        return at
-                    i = at + 2
-                    continue
-            elif _BLOCK == 64:
-                var bits = pack_bits[dtype=DType.uint64](hits)
-                if bits != 0:
-                    var at = i + Int(count_trailing_zeros(bits))
-                    if ptr[unsafe_offset=at] == _QUOTE:
-                        return at
-                    i = at + 2
-                    continue
-            else:
-                comptime assert False, "unsupported simd_byte_width()"
-            i += _BLOCK
+            var hit = pack_bits[dtype=_MASK](
+                chunk.eq(_QUOTE) | chunk.eq(_BACKSLASH)
+            )
+            var ctl = pack_bits[dtype=_MASK](chunk.lt(_SPACE))
+            var non = pack_bits[dtype=_MASK](chunk.ge(UInt8(0x80)))
+            if hit == 0:
+                if ctl != 0:
+                    flags |= STR_CONTROL
+                if non != 0:
+                    flags |= STR_NON_ASCII
+                i += _BLOCK
+                continue
+            var off = Int(count_trailing_zeros(hit))
+            var before = (Scalar[_MASK](1) << Scalar[_MASK](off)) - 1
+            if (ctl & before) != 0:
+                flags |= STR_CONTROL
+            if (non & before) != 0:
+                flags |= STR_NON_ASCII
+            var at = i + off
+            if ptr[unsafe_offset=at] == _QUOTE:
+                return (at, flags)
+            flags |= STR_ESCAPE
+            i = at + 2
 
         while i < n:
             var c = ptr[unsafe_offset=i]
             if c == _QUOTE:
-                return i
+                return (i, flags)
             if c == _BACKSLASH:
+                flags |= STR_ESCAPE
                 i += 2
                 continue
+            if c < _SPACE:
+                flags |= STR_CONTROL
+            elif c >= UInt8(0x80):
+                flags |= STR_NON_ASCII
             i += 1
-        return -1
+        return (-1, flags)
 
     @always_inline
     def _string_bounds(mut self) raises -> Tuple[Int, Int, UInt8]:
@@ -284,13 +316,13 @@ struct JsonReader[origin: ImmOrigin](Movable):
         nobody asked for.
         """
         var start = self.pos + 1
-        var n = len(self.data)
-        var end = self._find_close_quote(start, n)
+        var scanned = self._scan_string(start)
+        var end = scanned[0]
+        var flags = scanned[1]
         if end < 0:
             raise self.error_at("unterminated string", self.pos)
         self.pos = end + 1
 
-        var flags = scan_string_body(self.data, start, end)
         if flags & STR_CONTROL != 0:
             var at = find_control_char(self.data, start, end)
             raise self.error_at("control character in string", at)

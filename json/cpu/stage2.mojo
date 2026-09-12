@@ -402,7 +402,19 @@ def parse_into_document(
     stack.reserve(32)
 
     var pos_idx = 0
-    var doc_start = _skip_ws(doc.input.as_bytes(), 0, n)
+    # RFC 8259 section 8.1 lets a reader ignore a byte order mark, and
+    # enough producers emit one that refusing is not useful behaviour.
+    # The typed reader skips it too; the two paths have to agree about
+    # which documents exist.
+    var bom = 0
+    if (
+        n >= 3
+        and doc.input.as_bytes()[0] == UInt8(0xEF)
+        and doc.input.as_bytes()[1] == UInt8(0xBB)
+        and doc.input.as_bytes()[2] == UInt8(0xBF)
+    ):
+        bom = 3
+    var doc_start = _skip_ws(doc.input.as_bytes(), bom, n)
     var cursor = doc_start
 
     var root_header: UInt64 = 0
