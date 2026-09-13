@@ -90,10 +90,28 @@ def _string_member(operation: Value, name: String) raises -> String:
     return member.string_value()
 
 
+def _reject_duplicate_members(operation: Value) raises:
+    """RFC 6902 appendix A.13: an operation names each member once.
+
+    JSON itself tolerates a repeated name and this library keeps both,
+    so an operation carrying two `op` members would otherwise be read
+    as whichever one the lookup reached first and applied as if it
+    were well formed.
+    """
+    var members = operation.object_items()
+    for i in range(len(members)):
+        for j in range(i + 1, len(members)):
+            if members[i][0] == members[j][0]:
+                raise Error(
+                    "operation names '" + members[i][0] + "' more than once"
+                )
+
+
 def _apply_operation(document: Value, operation: Value) raises -> Value:
     """Apply a single patch operation."""
     if not operation.is_object():
         raise Error("patch operation must be an object")
+    _reject_duplicate_members(operation)
 
     var op_type = _string_member(operation, "op")
     var path = _string_member(operation, "path")
