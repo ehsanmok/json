@@ -263,6 +263,7 @@ def _normalize(value: _DiyFp) -> _DiyFp:
     return _DiyFp(value.f << UInt64(shift), value.e - shift)
 
 
+@always_inline
 def _boundaries(value: Float64) -> Tuple[_DiyFp, _DiyFp, _DiyFp]:
     """The value and the midpoints to its two neighbours.
 
@@ -324,36 +325,27 @@ def _cached_power_for(exponent: Int) -> Tuple[_DiyFp, Int]:
 # Digit generation
 # ---------------------------------------------------------------------------
 
-comptime _POW10: InlineArray[UInt32, 10] = [
-    1,
-    10,
-    100,
-    1000,
-    10000,
-    100000,
-    1000000,
-    10000000,
-    100000000,
-    1000000000,
-]
-
 
 @always_inline
 def _decimal_length(value: UInt32) -> Int:
-    """How many decimal digits `value` needs."""
-    if value >= 1000000000:
-        return 10
-    if value >= 100000000:
-        return 9
-    if value >= 10000000:
-        return 8
-    if value >= 1000000:
-        return 7
+    """How many decimal digits `value` needs.
+
+    Halving the range each time rather than walking down from ten, so
+    the answer costs four comparisons instead of up to ten.
+    """
     if value >= 100000:
+        if value >= 10000000:
+            if value >= 1000000000:
+                return 10
+            if value >= 100000000:
+                return 9
+            return 8
+        if value >= 1000000:
+            return 7
         return 6
-    if value >= 10000:
-        return 5
     if value >= 1000:
+        if value >= 10000:
+            return 5
         return 4
     if value >= 100:
         return 3
@@ -412,32 +404,45 @@ def _generate_digits(
     var delta = plus.f - minus.f
 
     var length = 0
-    var kappa = _decimal_length(integral)
-    var pow10 = materialize[_POW10]()
+    var width = _decimal_length(integral)
 
-    while kappa > 0:
-        var divisor = pow10[kappa - 1]
-        var digit = integral // divisor
-        integral %= divisor
-        kappa -= 1
-        if digit != 0 or length != 0:
-            digits[length] = UInt8(0x30 + Int(digit))
-            length += 1
-        var remainder = (UInt64(integral) << UInt64(-one.e)) + fractional
-        if remainder <= delta:
-            _round_weed(
-                digits,
-                length,
-                delta,
-                remainder,
-                UInt64(divisor) << UInt64(-one.e),
-                plus.f - w.f,
-            )
-            return (length, kappa)
+    # The divisor is a power of ten chosen by the digit count, so the
+    # loop is unrolled over the ten possible widths and every division
+    # is by a constant. Left as `pow10[kappa - 1]` the compiler has to
+    # emit a real 32-bit division per digit, which is an order of
+    # magnitude slower than the multiply-and-shift it generates for a
+    # literal. `width` cannot exceed ten, so at most ten of these arms
+    # are live and the first digit is never zero.
+    comptime for step in range(10, 0, -1):
+        if width >= step:
+            comptime divisor = UInt32(10) ** UInt32(step - 1)
+            var digit = integral // divisor
+            integral %= divisor
+            if digit != 0 or length != 0:
+                digits[length] = UInt8(0x30 + Int(digit))
+                length += 1
+            var remainder = (UInt64(integral) << UInt64(-one.e)) + fractional
+            if remainder <= delta:
+                _round_weed(
+                    digits,
+                    length,
+                    delta,
+                    remainder,
+                    UInt64(divisor) << UInt64(-one.e),
+                    plus.f - w.f,
+                )
+                return (length, step - 1)
+
+    var kappa = 0
+    # Ten to the number of steps taken, carried along rather than
+    # looked up on the way out: the exit needs it once, and reading it
+    # from a `comptime` array costs a copy of the whole array.
+    var power: UInt64 = 1
 
     while True:
         fractional *= 10
         delta *= 10
+        power *= 10
         var digit = fractional >> UInt64(-one.e)
         if digit != 0 or length != 0:
             digits[length] = UInt8(0x30 + Int(digit))
@@ -445,14 +450,13 @@ def _generate_digits(
         fractional &= one.f - 1
         kappa -= 1
         if fractional < delta:
-            # Past nine steps the scale no longer fits the table, and
-            # the weight it would carry is smaller than the remaining
-            # uncertainty anyway, so the nudge is skipped rather than
-            # guessed.
-            var index = -kappa
+            # Past nine steps the scale no longer fits sixty-four bits,
+            # and the weight it would carry is smaller than the
+            # remaining uncertainty anyway, so the nudge is skipped
+            # rather than guessed.
             var weight: UInt64 = 0
-            if index < 9:
-                weight = (plus.f - w.f) * UInt64(materialize[_POW10]()[index])
+            if -kappa < 9:
+                weight = (plus.f - w.f) * power
             _round_weed(digits, length, delta, fractional, one.f, weight)
             return (length, kappa)
 
