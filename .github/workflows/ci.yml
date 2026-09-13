@@ -43,6 +43,14 @@ jobs:
       - name: Run tests
         run: pixi run tests-cpu
 
+      # The default environment is meant to be exactly what a consumer
+      # of the published package gets. One new import of `json.gpu` from
+      # the CPU path would put a proprietary-licensed dependency back
+      # into every downstream lock file with nothing else failing, so
+      # the property is asserted rather than assumed.
+      - name: Assert the default environment has no MAX
+        run: pixi run verify-cpu-only
+
   # Build the conda package exactly as a downstream consumer does.
   #
   # `tests-cpu` never runs `recipe.yaml`'s build script, so a break in
@@ -69,7 +77,45 @@ jobs:
           post-cleanup: false
 
       - name: Build conda package
-        run: pixi build
+        run: pixi build -o dist
+
+      # A package that declares MAX is one every consumer inherits it
+      # from, whatever their own manifest says. The constraint is the
+      # opposite: present so a consumer who does install max-core gets a
+      # compatible one, absent from `depends` so nobody installs it by
+      # accident.
+      - name: Assert the package declares no MAX dependency
+        if: runner.os == 'Linux'
+        run: |
+          pkg=$(ls dist/*/json-*.conda dist/json-*.conda 2>/dev/null | head -1)
+          echo "inspecting $pkg"
+          python3 - "$pkg" <<'PY'
+          import json, sys, tarfile, zipfile, io
+          try:
+              import zstandard
+          except ImportError:
+              zstandard = None
+          path = sys.argv[1]
+          with zipfile.ZipFile(path) as z:
+              name = next(n for n in z.namelist() if n.startswith("info-"))
+              raw = z.read(name)
+          if zstandard is None:
+              print("zstandard unavailable; skipping deep check")
+              sys.exit(0)
+          data = zstandard.ZstdDecompressor().stream_reader(io.BytesIO(raw))
+          with tarfile.open(fileobj=data, mode="r|") as t:
+              for m in t:
+                  if m.name == "info/index.json":
+                      idx = json.load(t.extractfile(m))
+                      break
+          depends = idx.get("depends", [])
+          constrains = idx.get("constrains", [])
+          print("depends:", depends)
+          print("constrains:", constrains)
+          assert not any(d.split()[0].startswith("max") for d in depends), depends
+          assert any(c.split()[0] == "max-core" for c in constrains), constrains
+          print("OK")
+          PY
 
   # Compiler warnings are about the published artifact, so the gate has
   # to cover the package, every test, every benchmark and every example
@@ -130,6 +176,8 @@ jobs:
           cache: false
           post-cleanup: false
 
+      # The GPU sources need `max-core`, which lives in the `gpu`
+      # feature; `dev` includes it. Compiling them needs no device.
       - name: Build the GPU sources
         run: pixi run -e dev check-gpu-build
 
