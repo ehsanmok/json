@@ -172,7 +172,7 @@ batches, Apple M3 Pro, `-D ASSERT=none`. Reproduce with
 |---|---:|---:|---:|---:|
 | message | 16 KB | 15.6 us | 53.2 us | 12.4 us |
 | document | 47 KB | 60.8 us | 186.0 us | 31.5 us |
-| telemetry | 43 KB | 82.0 us | 141.6 us | 165.8 us |
+| telemetry | 43 KB | 82.0 us | 141.6 us | 117.4 us |
 | strings | 43 KB | 61.2 us | 109.6 us | 33.7 us |
 | event | 27 KB | 38.8 us | 93.5 us | 14.7 us |
 
@@ -212,22 +212,30 @@ about 15 ns per token on the document shape. In order of effect:
    immutably so the unrolled match loop does not reload its state after
    every candidate.
 
-### The remaining gap
+### What the float writer cost, and what it costs now
 
-Writing floats is the slowest thing this library does:
-`JsonWriter.write_float` measures 47 ns, of which 39 ns is Grisu2
-digit generation in `json/dtoa.mojo`. That is what makes the telemetry
-shape -- 32 floats per record -- serialize in 166 us when the strings
-shape, of the same size in bytes, takes 34 us. The digit generation is
-correct (it round-trips where the stdlib formatter does not) but not
-yet fast.
+Writing floats is still the slowest thing this library does, but by a
+smaller margin than it was. The telemetry shape, 32 floats per record,
+serialized in 166 us where the strings shape of the same size in bytes
+took 34. It now takes 117.
 
-The cached-power tables were the obvious suspect, since indexing a
-`comptime` array copies the whole array into the caller's frame first.
-They are not the cost: moving them out of that copy and into constant
-data made digit generation slower, not faster. The integer writer did
-gain from the same change, which is what took the document shape from
-37 us to 31 us. What remains in Grisu2 is the digit loop itself.
+Two things were wrong, and the obvious one was not the cost.
+
+Indexing a `comptime` array copies the whole array into the caller's
+frame before the first read, which for the Grisu2 cached powers is
+about a kilobyte per float. Moving both tables into constant data made
+digit generation *slower*, not faster, and was reverted. The integer
+writer did gain from the same change, which is what took the document
+shape from 37 us to 31 us.
+
+The real cost was dividing by a value the compiler could not see.
+Grisu2's integral loop divided by `pow10[kappa - 1]`, so every digit
+was a real 32-bit division. Unrolling the loop over the ten possible
+digit counts makes each divisor a literal and each division the
+multiply-and-shift a compiler emits for one. With a cheaper digit
+count and one fewer table, `shortest_digits` went from 51.2 to 42.1 ns
+per float on random mantissas, and rather more than that on the short
+decimals real payloads are made of.
 
 ## CPU Performance
 
