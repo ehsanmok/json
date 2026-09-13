@@ -5,6 +5,10 @@
 # 2. Inclusive prefix sum to get depth at each position
 # 3. For opening brackets: depth -= 1 (to match closing bracket's depth)
 # 4. Within each depth, pair opening with next closing
+#
+# Licensing: MIT like the rest of this project, but building this file
+# requires `max-core`, which is governed by the Modular Community
+# License. See `json/gpu/LICENSE-GPU.md`.
 
 from max.gpu.host import DeviceContext, DeviceBuffer, HostBuffer
 from max.gpu import barrier

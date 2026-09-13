@@ -65,12 +65,16 @@ about:
   license_file:
     - LICENSE
     - NOTICE
-  summary: High-performance JSON library for Mojo with CPU and GPU support
+    - json/gpu/LICENSE-GPU.md
+  summary: High-performance JSON library for Mojo; GPU parsing is opt-in
   description: |
     json is a high-performance JSON parsing library for Mojo.
     Features include:
     - Fast CPU parsing via simdjson FFI
-    - GPU-accelerated parsing for large files
+    - Optional GPU-accelerated parsing for large files: import
+      json.gpu and add max-core to your own dependencies. That package
+      is governed by the Modular Community License, so it is opt-in and
+      is not a dependency of this one.
     - Full JSON compliance (RFC 8259)
     - JSONPath queries
     - JSON Schema validation

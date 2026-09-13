@@ -11,6 +11,10 @@
 # The lean pipeline only needs positions (the CPU tape adapter does
 # not consume a per-position `char_types` companion stream), so the
 # `_lean` variant below is the only public scatter path.
+#
+# Licensing: MIT like the rest of this project, but building this file
+# requires `max-core`, which is governed by the Modular Community
+# License. See `json/gpu/LICENSE-GPU.md`.
 
 from max.gpu.host import DeviceContext, DeviceBuffer
 from max.gpu import barrier

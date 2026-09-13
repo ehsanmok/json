@@ -30,6 +30,10 @@
 # This keeps the GPU work on the critical path: the bracket/comma scan
 # stays on GPU; the quote scan is a small CPU pass; stage 2 then walks
 # the merged index in O(structural_count).
+#
+# Licensing: MIT like the rest of this project, but building this file
+# requires `max-core`, which is governed by the Modular Community
+# License. See `json/gpu/LICENSE-GPU.md`.
 
 from std.collections import List
 from std.memory import ArcPointer

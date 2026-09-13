@@ -17,6 +17,10 @@
 # `popcount_fast` is also exported because `stream_compact.mojo`
 # (and downstream `extract_positions_gpu_lean`) reuses it for the
 # 32-bit-per-word popcount step of the GPU stream compaction.
+#
+# Licensing: MIT like the rest of this project, but building this file
+# requires `max-core`, which is governed by the Modular Community
+# License. See `json/gpu/LICENSE-GPU.md`.
 
 from max.gpu import barrier
 from max.gpu.host import DeviceContext
