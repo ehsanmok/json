@@ -12,6 +12,7 @@ staying available.
 | `rfc6901-pointer.json` | RFC 6901 (JSON Pointer) | 18 | `test_pointer_patch_conformance.mojo` |
 | `rfc6902-patch.json` | RFC 6902 (JSON Patch) | 26 | `test_pointer_patch_conformance.mojo` |
 | `rfc7396-merge-patch.json` | RFC 7396 (JSON Merge Patch) | 21 | `test_pointer_patch_conformance.mojo` |
+| `jsonschema-2020-12.json` | JSON Schema draft 2020-12 | 197 | `test_schema_conformance.mojo` |
 
 Run the grammar catalogs with:
 

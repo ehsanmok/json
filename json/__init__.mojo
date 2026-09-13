@@ -115,7 +115,14 @@ from .pointer import (
     parse_pointer,
 )
 from .jsonpath import JSONPath, jsonpath_query, jsonpath_one
-from .schema import validate, is_valid, ValidationResult, ValidationError
+from .schema import (
+    FormatAnnotation,
+    Schema,
+    ValidationError,
+    ValidationResult,
+    is_valid,
+    validate,
+)
 
 # Streaming/lazy parsing (CPU only).
 from .lazy import LazyValue

@@ -1,0 +1,3542 @@
+{
+  "format": "json-schema",
+  "standard": "JSON Schema draft 2020-12",
+  "version": "2020-12",
+  "standard_url": "https://json-schema.org/draft/2020-12/schema",
+  "provenance": "transcribed-from-specification",
+  "notes": "Transcribed from the draft 2020-12 specification text itself, core and validation, not taken from the JSON-Schema-Test-Suite. Each case quotes the sentence of the section it was read from, so a disputed case can be checked against the source in one click. The cases carrying a notes field are the ones an implementation can get wrong while passing every other case in this file: they are the behaviours where a wrong answer is a silent 'valid'.",
+  "field_guide": {
+    "schema": "The schema under test. A boolean is a schema too.",
+    "instance": "The document validated against it. Always present; null is an instance, not an absence.",
+    "expect": "valid when the instance must validate, invalid when it must not, schema-error when a conforming implementation must refuse the schema or the evaluation rather than return a verdict, and any when the specification leaves the answer open.",
+    "assert_format": "Present and true on the cases that only mean anything with format in assertion mode. Absent means the default annotation mode.",
+    "notes": "Why the case is here, when the case is one a plausible implementation gets wrong."
+  },
+  "cases": [
+    {
+      "id": "schema-2020-12-type-null-valid",
+      "title": "type \"null\" accepts a null",
+      "section": "6.1.1",
+      "section_title": "type",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-type",
+      "paragraph": "The value of this keyword MUST be either a string or an array. If it is an array, elements of the array MUST be strings and MUST be unique. String values MUST be one of the six primitive types (\"null\", \"boolean\", \"object\", \"array\", \"number\", or \"string\"), or \"integer\" which matches any number with a zero fractional part.",
+      "requirement": "MUST",
+      "schema": {
+        "type": "null"
+      },
+      "instance": null,
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-type-null-invalid",
+      "title": "type \"null\" rejects another type",
+      "section": "6.1.1",
+      "section_title": "type",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-type",
+      "paragraph": "The value of this keyword MUST be either a string or an array. If it is an array, elements of the array MUST be strings and MUST be unique. String values MUST be one of the six primitive types (\"null\", \"boolean\", \"object\", \"array\", \"number\", or \"string\"), or \"integer\" which matches any number with a zero fractional part.",
+      "requirement": "MUST",
+      "schema": {
+        "type": "null"
+      },
+      "instance": 0,
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-type-boolean-valid",
+      "title": "type \"boolean\" accepts a boolean",
+      "section": "6.1.1",
+      "section_title": "type",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-type",
+      "paragraph": "The value of this keyword MUST be either a string or an array. If it is an array, elements of the array MUST be strings and MUST be unique. String values MUST be one of the six primitive types (\"null\", \"boolean\", \"object\", \"array\", \"number\", or \"string\"), or \"integer\" which matches any number with a zero fractional part.",
+      "requirement": "MUST",
+      "schema": {
+        "type": "boolean"
+      },
+      "instance": true,
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-type-boolean-invalid",
+      "title": "type \"boolean\" rejects another type",
+      "section": "6.1.1",
+      "section_title": "type",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-type",
+      "paragraph": "The value of this keyword MUST be either a string or an array. If it is an array, elements of the array MUST be strings and MUST be unique. String values MUST be one of the six primitive types (\"null\", \"boolean\", \"object\", \"array\", \"number\", or \"string\"), or \"integer\" which matches any number with a zero fractional part.",
+      "requirement": "MUST",
+      "schema": {
+        "type": "boolean"
+      },
+      "instance": 1,
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-type-object-valid",
+      "title": "type \"object\" accepts a object",
+      "section": "6.1.1",
+      "section_title": "type",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-type",
+      "paragraph": "The value of this keyword MUST be either a string or an array. If it is an array, elements of the array MUST be strings and MUST be unique. String values MUST be one of the six primitive types (\"null\", \"boolean\", \"object\", \"array\", \"number\", or \"string\"), or \"integer\" which matches any number with a zero fractional part.",
+      "requirement": "MUST",
+      "schema": {
+        "type": "object"
+      },
+      "instance": {
+        "a": 1
+      },
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-type-object-invalid",
+      "title": "type \"object\" rejects another type",
+      "section": "6.1.1",
+      "section_title": "type",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-type",
+      "paragraph": "The value of this keyword MUST be either a string or an array. If it is an array, elements of the array MUST be strings and MUST be unique. String values MUST be one of the six primitive types (\"null\", \"boolean\", \"object\", \"array\", \"number\", or \"string\"), or \"integer\" which matches any number with a zero fractional part.",
+      "requirement": "MUST",
+      "schema": {
+        "type": "object"
+      },
+      "instance": [],
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-type-array-valid",
+      "title": "type \"array\" accepts a array",
+      "section": "6.1.1",
+      "section_title": "type",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-type",
+      "paragraph": "The value of this keyword MUST be either a string or an array. If it is an array, elements of the array MUST be strings and MUST be unique. String values MUST be one of the six primitive types (\"null\", \"boolean\", \"object\", \"array\", \"number\", or \"string\"), or \"integer\" which matches any number with a zero fractional part.",
+      "requirement": "MUST",
+      "schema": {
+        "type": "array"
+      },
+      "instance": [
+        1,
+        2
+      ],
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-type-array-invalid",
+      "title": "type \"array\" rejects another type",
+      "section": "6.1.1",
+      "section_title": "type",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-type",
+      "paragraph": "The value of this keyword MUST be either a string or an array. If it is an array, elements of the array MUST be strings and MUST be unique. String values MUST be one of the six primitive types (\"null\", \"boolean\", \"object\", \"array\", \"number\", or \"string\"), or \"integer\" which matches any number with a zero fractional part.",
+      "requirement": "MUST",
+      "schema": {
+        "type": "array"
+      },
+      "instance": {},
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-type-number-valid",
+      "title": "type \"number\" accepts a number",
+      "section": "6.1.1",
+      "section_title": "type",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-type",
+      "paragraph": "The value of this keyword MUST be either a string or an array. If it is an array, elements of the array MUST be strings and MUST be unique. String values MUST be one of the six primitive types (\"null\", \"boolean\", \"object\", \"array\", \"number\", or \"string\"), or \"integer\" which matches any number with a zero fractional part.",
+      "requirement": "MUST",
+      "schema": {
+        "type": "number"
+      },
+      "instance": 3.5,
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-type-number-invalid",
+      "title": "type \"number\" rejects another type",
+      "section": "6.1.1",
+      "section_title": "type",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-type",
+      "paragraph": "The value of this keyword MUST be either a string or an array. If it is an array, elements of the array MUST be strings and MUST be unique. String values MUST be one of the six primitive types (\"null\", \"boolean\", \"object\", \"array\", \"number\", or \"string\"), or \"integer\" which matches any number with a zero fractional part.",
+      "requirement": "MUST",
+      "schema": {
+        "type": "number"
+      },
+      "instance": "3.5",
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-type-string-valid",
+      "title": "type \"string\" accepts a string",
+      "section": "6.1.1",
+      "section_title": "type",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-type",
+      "paragraph": "The value of this keyword MUST be either a string or an array. If it is an array, elements of the array MUST be strings and MUST be unique. String values MUST be one of the six primitive types (\"null\", \"boolean\", \"object\", \"array\", \"number\", or \"string\"), or \"integer\" which matches any number with a zero fractional part.",
+      "requirement": "MUST",
+      "schema": {
+        "type": "string"
+      },
+      "instance": "s",
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-type-string-invalid",
+      "title": "type \"string\" rejects another type",
+      "section": "6.1.1",
+      "section_title": "type",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-type",
+      "paragraph": "The value of this keyword MUST be either a string or an array. If it is an array, elements of the array MUST be strings and MUST be unique. String values MUST be one of the six primitive types (\"null\", \"boolean\", \"object\", \"array\", \"number\", or \"string\"), or \"integer\" which matches any number with a zero fractional part.",
+      "requirement": "MUST",
+      "schema": {
+        "type": "string"
+      },
+      "instance": 3,
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-type-integer-int",
+      "title": "type \"integer\" accepts an integer",
+      "section": "6.1.1",
+      "section_title": "type",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-type",
+      "paragraph": "The value of this keyword MUST be either a string or an array. If it is an array, elements of the array MUST be strings and MUST be unique. String values MUST be one of the six primitive types (\"null\", \"boolean\", \"object\", \"array\", \"number\", or \"string\"), or \"integer\" which matches any number with a zero fractional part.",
+      "requirement": "MUST",
+      "schema": {
+        "type": "integer"
+      },
+      "instance": 42,
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-type-integer-zero-fraction",
+      "title": "type \"integer\" accepts a number with a zero fractional part",
+      "section": "6.1.1",
+      "section_title": "type",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-type",
+      "paragraph": "The value of this keyword MUST be either a string or an array. If it is an array, elements of the array MUST be strings and MUST be unique. String values MUST be one of the six primitive types (\"null\", \"boolean\", \"object\", \"array\", \"number\", or \"string\"), or \"integer\" which matches any number with a zero fractional part.",
+      "requirement": "MUST",
+      "schema": {
+        "type": "integer"
+      },
+      "instance": 1.0,
+      "expect": "valid",
+      "notes": "The spelling 1.0 is a number with a zero fractional part, which the section names as an integer. A validator that tests the parser's tag instead answers no."
+    },
+    {
+      "id": "schema-2020-12-type-integer-fraction",
+      "title": "type \"integer\" rejects a non-zero fractional part",
+      "section": "6.1.1",
+      "section_title": "type",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-type",
+      "paragraph": "The value of this keyword MUST be either a string or an array. If it is an array, elements of the array MUST be strings and MUST be unique. String values MUST be one of the six primitive types (\"null\", \"boolean\", \"object\", \"array\", \"number\", or \"string\"), or \"integer\" which matches any number with a zero fractional part.",
+      "requirement": "MUST",
+      "schema": {
+        "type": "integer"
+      },
+      "instance": 1.5,
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-type-union-valid",
+      "title": "An array of type names accepts any of them",
+      "section": "6.1.1",
+      "section_title": "type",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-type",
+      "paragraph": "The value of this keyword MUST be either a string or an array. If it is an array, elements of the array MUST be strings and MUST be unique. String values MUST be one of the six primitive types (\"null\", \"boolean\", \"object\", \"array\", \"number\", or \"string\"), or \"integer\" which matches any number with a zero fractional part.",
+      "requirement": "MUST",
+      "schema": {
+        "type": [
+          "string",
+          "integer"
+        ]
+      },
+      "instance": 7,
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-type-union-invalid",
+      "title": "An array of type names rejects the rest",
+      "section": "6.1.1",
+      "section_title": "type",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-type",
+      "paragraph": "The value of this keyword MUST be either a string or an array. If it is an array, elements of the array MUST be strings and MUST be unique. String values MUST be one of the six primitive types (\"null\", \"boolean\", \"object\", \"array\", \"number\", or \"string\"), or \"integer\" which matches any number with a zero fractional part.",
+      "requirement": "MUST",
+      "schema": {
+        "type": [
+          "string",
+          "integer"
+        ]
+      },
+      "instance": true,
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-type-unknown-name",
+      "title": "An unknown type name is not a type",
+      "section": "6.1.1",
+      "section_title": "type",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-type",
+      "paragraph": "The value of this keyword MUST be either a string or an array. If it is an array, elements of the array MUST be strings and MUST be unique. String values MUST be one of the six primitive types (\"null\", \"boolean\", \"object\", \"array\", \"number\", or \"string\"), or \"integer\" which matches any number with a zero fractional part.",
+      "requirement": "MUST",
+      "schema": {
+        "type": "strung"
+      },
+      "instance": 1,
+      "expect": "schema-error"
+    },
+    {
+      "id": "schema-2020-12-enum-member",
+      "title": "enum accepts a listed value",
+      "section": "6.1.2",
+      "section_title": "enum",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-enum",
+      "paragraph": "The value of this keyword MUST be an array. An instance validates successfully against this keyword if its value is equal to one of the elements in this keyword's array value. Elements in the array might be of any type, including null.",
+      "requirement": "MUST",
+      "schema": {
+        "enum": [
+          "red",
+          "green",
+          "blue"
+        ]
+      },
+      "instance": "red",
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-enum-non-member",
+      "title": "enum rejects an unlisted value",
+      "section": "6.1.2",
+      "section_title": "enum",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-enum",
+      "paragraph": "The value of this keyword MUST be an array. An instance validates successfully against this keyword if its value is equal to one of the elements in this keyword's array value. Elements in the array might be of any type, including null.",
+      "requirement": "MUST",
+      "schema": {
+        "enum": [
+          "red",
+          "green",
+          "blue"
+        ]
+      },
+      "instance": "yellow",
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-enum-null",
+      "title": "enum may list null",
+      "section": "6.1.2",
+      "section_title": "enum",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-enum",
+      "paragraph": "The value of this keyword MUST be an array. An instance validates successfully against this keyword if its value is equal to one of the elements in this keyword's array value. Elements in the array might be of any type, including null.",
+      "requirement": "MUST",
+      "schema": {
+        "enum": [
+          null,
+          0
+        ]
+      },
+      "instance": null,
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-enum-object-member-order",
+      "title": "enum compares objects without regard to member order",
+      "section": "6.1.2",
+      "section_title": "enum",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-enum",
+      "paragraph": "The value of this keyword MUST be an array. An instance validates successfully against this keyword if its value is equal to one of the elements in this keyword's array value. Elements in the array might be of any type, including null.",
+      "requirement": "MUST",
+      "schema": {
+        "enum": [
+          {
+            "b": 2,
+            "a": 1
+          }
+        ]
+      },
+      "instance": {
+        "a": 1,
+        "b": 2
+      },
+      "expect": "valid",
+      "notes": "Section 4.2.2 gives an object's members no order, so two objects with the same members are the same value. A validator comparing serialized text answers no."
+    },
+    {
+      "id": "schema-2020-12-enum-number-by-value",
+      "title": "enum compares numbers by mathematical value",
+      "section": "6.1.2",
+      "section_title": "enum",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-enum",
+      "paragraph": "The value of this keyword MUST be an array. An instance validates successfully against this keyword if its value is equal to one of the elements in this keyword's array value. Elements in the array might be of any type, including null.",
+      "requirement": "MUST",
+      "schema": {
+        "enum": [
+          1.0
+        ]
+      },
+      "instance": 1,
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-enum-boolean-is-not-one",
+      "title": "enum does not treat true as 1",
+      "section": "6.1.2",
+      "section_title": "enum",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-enum",
+      "paragraph": "The value of this keyword MUST be an array. An instance validates successfully against this keyword if its value is equal to one of the elements in this keyword's array value. Elements in the array might be of any type, including null.",
+      "requirement": "MUST",
+      "schema": {
+        "enum": [
+          1
+        ]
+      },
+      "instance": true,
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-const-equal",
+      "title": "const accepts the same value",
+      "section": "6.1.3",
+      "section_title": "const",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-const",
+      "paragraph": "The value of this keyword MAY be of any type, including null. Use of this keyword is functionally equivalent to an \"enum\" with a single value. An instance validates successfully against this keyword if its value is equal to the value of the keyword.",
+      "requirement": "MUST",
+      "schema": {
+        "const": 42
+      },
+      "instance": 42,
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-const-different",
+      "title": "const rejects a different value",
+      "section": "6.1.3",
+      "section_title": "const",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-const",
+      "paragraph": "The value of this keyword MAY be of any type, including null. Use of this keyword is functionally equivalent to an \"enum\" with a single value. An instance validates successfully against this keyword if its value is equal to the value of the keyword.",
+      "requirement": "MUST",
+      "schema": {
+        "const": 42
+      },
+      "instance": 43,
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-const-array-deep",
+      "title": "const compares arrays element by element",
+      "section": "6.1.3",
+      "section_title": "const",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-const",
+      "paragraph": "The value of this keyword MAY be of any type, including null. Use of this keyword is functionally equivalent to an \"enum\" with a single value. An instance validates successfully against this keyword if its value is equal to the value of the keyword.",
+      "requirement": "MUST",
+      "schema": {
+        "const": [
+          1,
+          {
+            "a": 1,
+            "b": 2
+          }
+        ]
+      },
+      "instance": [
+        1,
+        {
+          "b": 2,
+          "a": 1
+        }
+      ],
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-const-array-order-matters",
+      "title": "const keeps an array's element order significant",
+      "section": "6.1.3",
+      "section_title": "const",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-const",
+      "paragraph": "The value of this keyword MAY be of any type, including null. Use of this keyword is functionally equivalent to an \"enum\" with a single value. An instance validates successfully against this keyword if its value is equal to the value of the keyword.",
+      "requirement": "MUST",
+      "schema": {
+        "const": [
+          1,
+          2
+        ]
+      },
+      "instance": [
+        2,
+        1
+      ],
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-const-null",
+      "title": "const may be null",
+      "section": "6.1.3",
+      "section_title": "const",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-const",
+      "paragraph": "The value of this keyword MAY be of any type, including null. Use of this keyword is functionally equivalent to an \"enum\" with a single value. An instance validates successfully against this keyword if its value is equal to the value of the keyword.",
+      "requirement": "MUST",
+      "schema": {
+        "const": null
+      },
+      "instance": null,
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-multipleof-integer",
+      "title": "multipleOf accepts an exact multiple",
+      "section": "6.2.1",
+      "section_title": "multipleOf",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-multipleof",
+      "paragraph": "The value of \"multipleOf\" MUST be a number, strictly greater than 0. A numeric instance is valid only if division by this keyword's value results in an integer.",
+      "requirement": "MUST",
+      "schema": {
+        "multipleOf": 5
+      },
+      "instance": 10,
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-multipleof-remainder",
+      "title": "multipleOf rejects a remainder",
+      "section": "6.2.1",
+      "section_title": "multipleOf",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-multipleof",
+      "paragraph": "The value of \"multipleOf\" MUST be a number, strictly greater than 0. A numeric instance is valid only if division by this keyword's value results in an integer.",
+      "requirement": "MUST",
+      "schema": {
+        "multipleOf": 5
+      },
+      "instance": 11,
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-multipleof-fractional",
+      "title": "multipleOf divides by a fraction",
+      "section": "6.2.1",
+      "section_title": "multipleOf",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-multipleof",
+      "paragraph": "The value of \"multipleOf\" MUST be a number, strictly greater than 0. A numeric instance is valid only if division by this keyword's value results in an integer.",
+      "requirement": "MUST",
+      "schema": {
+        "multipleOf": 1.5
+      },
+      "instance": 4.5,
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-multipleof-fractional-remainder",
+      "title": "multipleOf rejects a fractional remainder",
+      "section": "6.2.1",
+      "section_title": "multipleOf",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-multipleof",
+      "paragraph": "The value of \"multipleOf\" MUST be a number, strictly greater than 0. A numeric instance is valid only if division by this keyword's value results in an integer.",
+      "requirement": "MUST",
+      "schema": {
+        "multipleOf": 1.5
+      },
+      "instance": 4.6,
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-multipleof-large-integer",
+      "title": "multipleOf keeps its precision past 2**53",
+      "section": "6.2.1",
+      "section_title": "multipleOf",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-multipleof",
+      "paragraph": "The value of \"multipleOf\" MUST be a number, strictly greater than 0. A numeric instance is valid only if division by this keyword's value results in an integer.",
+      "requirement": "MUST",
+      "schema": {
+        "multipleOf": 1
+      },
+      "instance": 9007199254740993,
+      "expect": "valid",
+      "notes": "A quotient truncated through a machine integer overflows here, and one taken in binary64 has already lost the low bit."
+    },
+    {
+      "id": "schema-2020-12-multipleof-large-integer-odd",
+      "title": "multipleOf still sees the low bit of a large integer",
+      "section": "6.2.1",
+      "section_title": "multipleOf",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-multipleof",
+      "paragraph": "The value of \"multipleOf\" MUST be a number, strictly greater than 0. A numeric instance is valid only if division by this keyword's value results in an integer.",
+      "requirement": "MUST",
+      "schema": {
+        "multipleOf": 2
+      },
+      "instance": 9007199254740993,
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-multipleof-not-positive",
+      "title": "multipleOf must be strictly greater than zero",
+      "section": "6.2.1",
+      "section_title": "multipleOf",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-multipleof",
+      "paragraph": "The value of \"multipleOf\" MUST be a number, strictly greater than 0. A numeric instance is valid only if division by this keyword's value results in an integer.",
+      "requirement": "MUST",
+      "schema": {
+        "multipleOf": 0
+      },
+      "instance": 1,
+      "expect": "schema-error"
+    },
+    {
+      "id": "schema-2020-12-maximum-inclusive",
+      "title": "maximum is inclusive",
+      "section": "6.2.2",
+      "section_title": "maximum",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-maximum",
+      "paragraph": "The value of \"maximum\" MUST be a number, representing an inclusive upper limit for a numeric instance. If the instance is a number, then this keyword validates only if the instance is less than or exactly equal to \"maximum\".",
+      "requirement": "MUST",
+      "schema": {
+        "maximum": 10
+      },
+      "instance": 10,
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-maximum-above",
+      "title": "maximum rejects a larger number",
+      "section": "6.2.2",
+      "section_title": "maximum",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-maximum",
+      "paragraph": "The value of \"maximum\" MUST be a number, representing an inclusive upper limit for a numeric instance. If the instance is a number, then this keyword validates only if the instance is less than or exactly equal to \"maximum\".",
+      "requirement": "MUST",
+      "schema": {
+        "maximum": 10
+      },
+      "instance": 11,
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-maximum-ignores-strings",
+      "title": "maximum says nothing about a non-number",
+      "section": "6.2.2",
+      "section_title": "maximum",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-maximum",
+      "paragraph": "The value of \"maximum\" MUST be a number, representing an inclusive upper limit for a numeric instance. If the instance is a number, then this keyword validates only if the instance is less than or exactly equal to \"maximum\".",
+      "requirement": "MUST",
+      "schema": {
+        "maximum": 10
+      },
+      "instance": "x",
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-exclusivemaximum-equal",
+      "title": "exclusiveMaximum rejects the limit itself",
+      "section": "6.2.3",
+      "section_title": "exclusiveMaximum",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-exclusivemaximum",
+      "paragraph": "The value of \"exclusiveMaximum\" MUST be a number, representing an exclusive upper limit for a numeric instance. If the instance is a number, then the instance is valid only if it has a value strictly less than (not equal to) \"exclusiveMaximum\".",
+      "requirement": "MUST",
+      "schema": {
+        "exclusiveMaximum": 10
+      },
+      "instance": 10,
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-exclusivemaximum-below",
+      "title": "exclusiveMaximum accepts anything strictly below",
+      "section": "6.2.3",
+      "section_title": "exclusiveMaximum",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-exclusivemaximum",
+      "paragraph": "The value of \"exclusiveMaximum\" MUST be a number, representing an exclusive upper limit for a numeric instance. If the instance is a number, then the instance is valid only if it has a value strictly less than (not equal to) \"exclusiveMaximum\".",
+      "requirement": "MUST",
+      "schema": {
+        "exclusiveMaximum": 10
+      },
+      "instance": 9.9,
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-minimum-inclusive",
+      "title": "minimum is inclusive",
+      "section": "6.2.4",
+      "section_title": "minimum",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-minimum",
+      "paragraph": "The value of \"minimum\" MUST be a number, representing an inclusive lower limit for a numeric instance. If the instance is a number, then this keyword validates only if the instance is greater than or exactly equal to \"minimum\".",
+      "requirement": "MUST",
+      "schema": {
+        "minimum": 5
+      },
+      "instance": 5,
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-minimum-below",
+      "title": "minimum rejects a smaller number",
+      "section": "6.2.4",
+      "section_title": "minimum",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-minimum",
+      "paragraph": "The value of \"minimum\" MUST be a number, representing an inclusive lower limit for a numeric instance. If the instance is a number, then this keyword validates only if the instance is greater than or exactly equal to \"minimum\".",
+      "requirement": "MUST",
+      "schema": {
+        "minimum": 5
+      },
+      "instance": 4,
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-minimum-exact-above-2-53",
+      "title": "minimum compares large integers exactly",
+      "section": "6.2.4",
+      "section_title": "minimum",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-minimum",
+      "paragraph": "The value of \"minimum\" MUST be a number, representing an inclusive lower limit for a numeric instance. If the instance is a number, then this keyword validates only if the instance is greater than or exactly equal to \"minimum\".",
+      "requirement": "MUST",
+      "schema": {
+        "minimum": 9007199254740993
+      },
+      "instance": 9007199254740992,
+      "expect": "invalid",
+      "notes": "Both operands round to the same binary64 value, so a validator that widens before comparing accepts this."
+    },
+    {
+      "id": "schema-2020-12-exclusiveminimum-equal",
+      "title": "exclusiveMinimum rejects the limit itself",
+      "section": "6.2.5",
+      "section_title": "exclusiveMinimum",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-exclusiveminimum",
+      "paragraph": "The value of \"exclusiveMinimum\" MUST be a number, representing an exclusive lower limit for a numeric instance. If the instance is a number, then the instance is valid only if it has a value strictly greater than (not equal to) \"exclusiveMinimum\".",
+      "requirement": "MUST",
+      "schema": {
+        "exclusiveMinimum": 5
+      },
+      "instance": 5,
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-exclusiveminimum-above",
+      "title": "exclusiveMinimum accepts anything strictly above",
+      "section": "6.2.5",
+      "section_title": "exclusiveMinimum",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-exclusiveminimum",
+      "paragraph": "The value of \"exclusiveMinimum\" MUST be a number, representing an exclusive lower limit for a numeric instance. If the instance is a number, then the instance is valid only if it has a value strictly greater than (not equal to) \"exclusiveMinimum\".",
+      "requirement": "MUST",
+      "schema": {
+        "exclusiveMinimum": 5
+      },
+      "instance": 5.1,
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-maxlength-equal",
+      "title": "maxLength is inclusive",
+      "section": "6.3.1",
+      "section_title": "maxLength",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-maxlength",
+      "paragraph": "The value of this keyword MUST be a non-negative integer. A string instance is valid against this keyword if its length is less than, or equal to, the value of this keyword. The length of a string instance is defined as the number of its characters as defined by RFC 8259.",
+      "requirement": "MUST",
+      "schema": {
+        "maxLength": 5
+      },
+      "instance": "hello",
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-maxlength-above",
+      "title": "maxLength rejects a longer string",
+      "section": "6.3.1",
+      "section_title": "maxLength",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-maxlength",
+      "paragraph": "The value of this keyword MUST be a non-negative integer. A string instance is valid against this keyword if its length is less than, or equal to, the value of this keyword. The length of a string instance is defined as the number of its characters as defined by RFC 8259.",
+      "requirement": "MUST",
+      "schema": {
+        "maxLength": 5
+      },
+      "instance": "hello there",
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-maxlength-counts-characters",
+      "title": "maxLength counts characters, not bytes",
+      "section": "6.3.1",
+      "section_title": "maxLength",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-maxlength",
+      "paragraph": "The value of this keyword MUST be a non-negative integer. A string instance is valid against this keyword if its length is less than, or equal to, the value of this keyword. The length of a string instance is defined as the number of its characters as defined by RFC 8259.",
+      "requirement": "MUST",
+      "schema": {
+        "maxLength": 5
+      },
+      "instance": "héllö",
+      "expect": "valid",
+      "notes": "Five characters and seven UTF-8 bytes. A byte count rejects this."
+    },
+    {
+      "id": "schema-2020-12-maxlength-astral-character",
+      "title": "A character outside the basic plane counts once",
+      "section": "6.3.1",
+      "section_title": "maxLength",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-maxlength",
+      "paragraph": "The value of this keyword MUST be a non-negative integer. A string instance is valid against this keyword if its length is less than, or equal to, the value of this keyword. The length of a string instance is defined as the number of its characters as defined by RFC 8259.",
+      "requirement": "MUST",
+      "schema": {
+        "maxLength": 1
+      },
+      "instance": "🌊",
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-minlength-equal",
+      "title": "minLength is inclusive",
+      "section": "6.3.2",
+      "section_title": "minLength",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-minlength",
+      "paragraph": "The value of this keyword MUST be a non-negative integer. A string instance is valid against this keyword if its length is greater than, or equal to, the value of this keyword. The length of a string instance is defined as the number of its characters as defined by RFC 8259.",
+      "requirement": "MUST",
+      "schema": {
+        "minLength": 3
+      },
+      "instance": "abc",
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-minlength-below",
+      "title": "minLength rejects a shorter string",
+      "section": "6.3.2",
+      "section_title": "minLength",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-minlength",
+      "paragraph": "The value of this keyword MUST be a non-negative integer. A string instance is valid against this keyword if its length is greater than, or equal to, the value of this keyword. The length of a string instance is defined as the number of its characters as defined by RFC 8259.",
+      "requirement": "MUST",
+      "schema": {
+        "minLength": 3
+      },
+      "instance": "ab",
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-minlength-counts-characters",
+      "title": "minLength counts characters, not bytes",
+      "section": "6.3.2",
+      "section_title": "minLength",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-minlength",
+      "paragraph": "The value of this keyword MUST be a non-negative integer. A string instance is valid against this keyword if its length is greater than, or equal to, the value of this keyword. The length of a string instance is defined as the number of its characters as defined by RFC 8259.",
+      "requirement": "MUST",
+      "schema": {
+        "minLength": 6
+      },
+      "instance": "héllö",
+      "expect": "invalid",
+      "notes": "Five characters and seven UTF-8 bytes. A byte count accepts this."
+    },
+    {
+      "id": "schema-2020-12-minlength-negative",
+      "title": "minLength must not be negative",
+      "section": "6.3.2",
+      "section_title": "minLength",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-minlength",
+      "paragraph": "The value of this keyword MUST be a non-negative integer. A string instance is valid against this keyword if its length is greater than, or equal to, the value of this keyword. The length of a string instance is defined as the number of its characters as defined by RFC 8259.",
+      "requirement": "MUST",
+      "schema": {
+        "minLength": -1
+      },
+      "instance": "a",
+      "expect": "schema-error"
+    },
+    {
+      "id": "schema-2020-12-pattern-anchored",
+      "title": "An anchored pattern matches the whole string",
+      "section": "6.3.3",
+      "section_title": "pattern",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-pattern",
+      "paragraph": "The value of this keyword MUST be a string. This string SHOULD be a valid regular expression, according to the ECMA-262 regular expression dialect. A string instance is considered valid if the regular expression matches the instance successfully. Recall: regular expressions are not implicitly anchored.",
+      "requirement": "MUST",
+      "schema": {
+        "pattern": "^[0-9]+$"
+      },
+      "instance": "12345",
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-pattern-anchored-reject",
+      "title": "An anchored pattern rejects a string it does not cover",
+      "section": "6.3.3",
+      "section_title": "pattern",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-pattern",
+      "paragraph": "The value of this keyword MUST be a string. This string SHOULD be a valid regular expression, according to the ECMA-262 regular expression dialect. A string instance is considered valid if the regular expression matches the instance successfully. Recall: regular expressions are not implicitly anchored.",
+      "requirement": "MUST",
+      "schema": {
+        "pattern": "^[0-9]+$"
+      },
+      "instance": "12a45",
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-pattern-is-not-a-literal",
+      "title": "A pattern is a regular expression, not the text of one",
+      "section": "6.3.3",
+      "section_title": "pattern",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-pattern",
+      "paragraph": "The value of this keyword MUST be a string. This string SHOULD be a valid regular expression, according to the ECMA-262 regular expression dialect. A string instance is considered valid if the regular expression matches the instance successfully. Recall: regular expressions are not implicitly anchored.",
+      "requirement": "MUST",
+      "schema": {
+        "pattern": "^[0-9]+$"
+      },
+      "instance": "[0-9]+",
+      "expect": "invalid",
+      "notes": "A validator that strips the anchors and compares the remainder as a literal accepts exactly this string and nothing else."
+    },
+    {
+      "id": "schema-2020-12-pattern-unanchored",
+      "title": "An unanchored pattern matches anywhere in the string",
+      "section": "6.3.3",
+      "section_title": "pattern",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-pattern",
+      "paragraph": "The value of this keyword MUST be a string. This string SHOULD be a valid regular expression, according to the ECMA-262 regular expression dialect. A string instance is considered valid if the regular expression matches the instance successfully. Recall: regular expressions are not implicitly anchored.",
+      "requirement": "MUST",
+      "schema": {
+        "pattern": "[0-9]+"
+      },
+      "instance": "xx42yy",
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-pattern-unanchored-reject",
+      "title": "An unanchored pattern still has to match something",
+      "section": "6.3.3",
+      "section_title": "pattern",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-pattern",
+      "paragraph": "The value of this keyword MUST be a string. This string SHOULD be a valid regular expression, according to the ECMA-262 regular expression dialect. A string instance is considered valid if the regular expression matches the instance successfully. Recall: regular expressions are not implicitly anchored.",
+      "requirement": "MUST",
+      "schema": {
+        "pattern": "[0-9]+"
+      },
+      "instance": "xxyy",
+      "expect": "invalid",
+      "notes": "A validator that only handles anchored patterns and lets everything else through accepts this."
+    },
+    {
+      "id": "schema-2020-12-pattern-start-anchor",
+      "title": "A leading caret anchors the match to the start",
+      "section": "6.3.3",
+      "section_title": "pattern",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-pattern",
+      "paragraph": "The value of this keyword MUST be a string. This string SHOULD be a valid regular expression, according to the ECMA-262 regular expression dialect. A string instance is considered valid if the regular expression matches the instance successfully. Recall: regular expressions are not implicitly anchored.",
+      "requirement": "MUST",
+      "schema": {
+        "pattern": "^abc"
+      },
+      "instance": "zabcdef",
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-pattern-end-anchor",
+      "title": "A trailing dollar anchors the match to the end",
+      "section": "6.3.3",
+      "section_title": "pattern",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-pattern",
+      "paragraph": "The value of this keyword MUST be a string. This string SHOULD be a valid regular expression, according to the ECMA-262 regular expression dialect. A string instance is considered valid if the regular expression matches the instance successfully. Recall: regular expressions are not implicitly anchored.",
+      "requirement": "MUST",
+      "schema": {
+        "pattern": "def$"
+      },
+      "instance": "defzzz",
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-pattern-quantifier",
+      "title": "A counted quantifier means what it says",
+      "section": "6.3.3",
+      "section_title": "pattern",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-pattern",
+      "paragraph": "The value of this keyword MUST be a string. This string SHOULD be a valid regular expression, according to the ECMA-262 regular expression dialect. A string instance is considered valid if the regular expression matches the instance successfully. Recall: regular expressions are not implicitly anchored.",
+      "requirement": "MUST",
+      "schema": {
+        "pattern": "^[A-Z]{2}-[0-9]{4}$"
+      },
+      "instance": "AB-1234",
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-pattern-quantifier-reject",
+      "title": "A counted quantifier rejects the wrong count",
+      "section": "6.3.3",
+      "section_title": "pattern",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-pattern",
+      "paragraph": "The value of this keyword MUST be a string. This string SHOULD be a valid regular expression, according to the ECMA-262 regular expression dialect. A string instance is considered valid if the regular expression matches the instance successfully. Recall: regular expressions are not implicitly anchored.",
+      "requirement": "MUST",
+      "schema": {
+        "pattern": "^[A-Z]{2}-[0-9]{4}$"
+      },
+      "instance": "AB-123",
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-pattern-ignores-non-strings",
+      "title": "pattern says nothing about a non-string",
+      "section": "6.3.3",
+      "section_title": "pattern",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-pattern",
+      "paragraph": "The value of this keyword MUST be a string. This string SHOULD be a valid regular expression, according to the ECMA-262 regular expression dialect. A string instance is considered valid if the regular expression matches the instance successfully. Recall: regular expressions are not implicitly anchored.",
+      "requirement": "MUST",
+      "schema": {
+        "pattern": "^[a-z]+$"
+      },
+      "instance": 42,
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-pattern-alternation",
+      "title": "Alternation picks either branch",
+      "section": "6.3.3",
+      "section_title": "pattern",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-pattern",
+      "paragraph": "The value of this keyword MUST be a string. This string SHOULD be a valid regular expression, according to the ECMA-262 regular expression dialect. A string instance is considered valid if the regular expression matches the instance successfully. Recall: regular expressions are not implicitly anchored.",
+      "requirement": "MUST",
+      "schema": {
+        "pattern": "^(cat|dog)$"
+      },
+      "instance": "dog",
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-pattern-character-class-negated",
+      "title": "A negated class excludes what it lists",
+      "section": "6.3.3",
+      "section_title": "pattern",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-pattern",
+      "paragraph": "The value of this keyword MUST be a string. This string SHOULD be a valid regular expression, according to the ECMA-262 regular expression dialect. A string instance is considered valid if the regular expression matches the instance successfully. Recall: regular expressions are not implicitly anchored.",
+      "requirement": "MUST",
+      "schema": {
+        "pattern": "^[^0-9]+$"
+      },
+      "instance": "ab3",
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-maxitems-equal",
+      "title": "maxItems is inclusive",
+      "section": "6.4.1",
+      "section_title": "maxItems",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-maxitems",
+      "paragraph": "The value of this keyword MUST be a non-negative integer. An array instance is valid against \"maxItems\" if its size is less than, or equal to, the value of this keyword.",
+      "requirement": "MUST",
+      "schema": {
+        "maxItems": 3
+      },
+      "instance": [
+        1,
+        2,
+        3
+      ],
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-maxitems-above",
+      "title": "maxItems rejects a longer array",
+      "section": "6.4.1",
+      "section_title": "maxItems",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-maxitems",
+      "paragraph": "The value of this keyword MUST be a non-negative integer. An array instance is valid against \"maxItems\" if its size is less than, or equal to, the value of this keyword.",
+      "requirement": "MUST",
+      "schema": {
+        "maxItems": 3
+      },
+      "instance": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-minitems-equal",
+      "title": "minItems is inclusive",
+      "section": "6.4.2",
+      "section_title": "minItems",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-minitems",
+      "paragraph": "The value of this keyword MUST be a non-negative integer. An array instance is valid against \"minItems\" if its size is greater than, or equal to, the value of this keyword. Omitting this keyword has the same behavior as a value of 0.",
+      "requirement": "MUST",
+      "schema": {
+        "minItems": 2
+      },
+      "instance": [
+        1,
+        2
+      ],
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-minitems-below",
+      "title": "minItems rejects a shorter array",
+      "section": "6.4.2",
+      "section_title": "minItems",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-minitems",
+      "paragraph": "The value of this keyword MUST be a non-negative integer. An array instance is valid against \"minItems\" if its size is greater than, or equal to, the value of this keyword. Omitting this keyword has the same behavior as a value of 0.",
+      "requirement": "MUST",
+      "schema": {
+        "minItems": 2
+      },
+      "instance": [
+        1
+      ],
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-uniqueitems-distinct",
+      "title": "uniqueItems accepts distinct elements",
+      "section": "6.4.3",
+      "section_title": "uniqueItems",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-uniqueitems",
+      "paragraph": "The value of this keyword MUST be a boolean. If this keyword has boolean value false, the instance validates successfully. If it has boolean value true, the instance validates successfully if all of its elements are unique.",
+      "requirement": "MUST",
+      "schema": {
+        "uniqueItems": true
+      },
+      "instance": [
+        1,
+        2,
+        3
+      ],
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-uniqueitems-duplicate",
+      "title": "uniqueItems rejects a repeat",
+      "section": "6.4.3",
+      "section_title": "uniqueItems",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-uniqueitems",
+      "paragraph": "The value of this keyword MUST be a boolean. If this keyword has boolean value false, the instance validates successfully. If it has boolean value true, the instance validates successfully if all of its elements are unique.",
+      "requirement": "MUST",
+      "schema": {
+        "uniqueItems": true
+      },
+      "instance": [
+        1,
+        2,
+        1
+      ],
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-uniqueitems-objects-reordered",
+      "title": "Two objects with the same members are the same element",
+      "section": "6.4.3",
+      "section_title": "uniqueItems",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-uniqueitems",
+      "paragraph": "The value of this keyword MUST be a boolean. If this keyword has boolean value false, the instance validates successfully. If it has boolean value true, the instance validates successfully if all of its elements are unique.",
+      "requirement": "MUST",
+      "schema": {
+        "uniqueItems": true
+      },
+      "instance": [
+        {
+          "a": 1,
+          "b": 2
+        },
+        {
+          "b": 2,
+          "a": 1
+        }
+      ],
+      "expect": "invalid",
+      "notes": "A text comparison sees two different elements here and accepts the array."
+    },
+    {
+      "id": "schema-2020-12-uniqueitems-numbers-by-value",
+      "title": "1 and 1.0 are the same element",
+      "section": "6.4.3",
+      "section_title": "uniqueItems",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-uniqueitems",
+      "paragraph": "The value of this keyword MUST be a boolean. If this keyword has boolean value false, the instance validates successfully. If it has boolean value true, the instance validates successfully if all of its elements are unique.",
+      "requirement": "MUST",
+      "schema": {
+        "uniqueItems": true
+      },
+      "instance": [
+        1,
+        1.0
+      ],
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-uniqueitems-false",
+      "title": "uniqueItems false constrains nothing",
+      "section": "6.4.3",
+      "section_title": "uniqueItems",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-uniqueitems",
+      "paragraph": "The value of this keyword MUST be a boolean. If this keyword has boolean value false, the instance validates successfully. If it has boolean value true, the instance validates successfully if all of its elements are unique.",
+      "requirement": "MUST",
+      "schema": {
+        "uniqueItems": false
+      },
+      "instance": [
+        1,
+        1
+      ],
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-maxcontains-within",
+      "title": "maxContains counts the matches",
+      "section": "6.4.4",
+      "section_title": "maxContains",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-maxcontains",
+      "paragraph": "The value of this keyword MUST be a non-negative integer. If \"contains\" is not present within the same schema object, then this keyword has no effect. An instance array is valid against \"maxContains\" if the number of elements that are valid against the schema for \"contains\" is less than, or equal to, the value of this keyword.",
+      "requirement": "MUST",
+      "schema": {
+        "contains": {
+          "type": "string"
+        },
+        "maxContains": 1
+      },
+      "instance": [
+        "a",
+        1
+      ],
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-maxcontains-exceeded",
+      "title": "maxContains rejects too many matches",
+      "section": "6.4.4",
+      "section_title": "maxContains",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-maxcontains",
+      "paragraph": "The value of this keyword MUST be a non-negative integer. If \"contains\" is not present within the same schema object, then this keyword has no effect. An instance array is valid against \"maxContains\" if the number of elements that are valid against the schema for \"contains\" is less than, or equal to, the value of this keyword.",
+      "requirement": "MUST",
+      "schema": {
+        "contains": {
+          "type": "string"
+        },
+        "maxContains": 1
+      },
+      "instance": [
+        "a",
+        "b"
+      ],
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-mincontains-met",
+      "title": "minContains counts the matches",
+      "section": "6.4.5",
+      "section_title": "minContains",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-mincontains",
+      "paragraph": "The value of this keyword MUST be a non-negative integer. If \"contains\" is not present within the same schema object, then this keyword has no effect. An instance array is valid against \"minContains\" if the number of elements that are valid against the schema for \"contains\" is greater than, or equal to, the value of this keyword. A value of 0 is allowed, but is only useful for setting a range of occurrences from 0 to the value of \"maxContains\".",
+      "requirement": "MUST",
+      "schema": {
+        "contains": {
+          "type": "string"
+        },
+        "minContains": 2
+      },
+      "instance": [
+        "a",
+        "b"
+      ],
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-mincontains-unmet",
+      "title": "minContains rejects too few matches",
+      "section": "6.4.5",
+      "section_title": "minContains",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-mincontains",
+      "paragraph": "The value of this keyword MUST be a non-negative integer. If \"contains\" is not present within the same schema object, then this keyword has no effect. An instance array is valid against \"minContains\" if the number of elements that are valid against the schema for \"contains\" is greater than, or equal to, the value of this keyword. A value of 0 is allowed, but is only useful for setting a range of occurrences from 0 to the value of \"maxContains\".",
+      "requirement": "MUST",
+      "schema": {
+        "contains": {
+          "type": "string"
+        },
+        "minContains": 2
+      },
+      "instance": [
+        "a",
+        1
+      ],
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-mincontains-zero",
+      "title": "minContains 0 leaves contains unable to fail on its own",
+      "section": "6.4.5",
+      "section_title": "minContains",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-mincontains",
+      "paragraph": "The value of this keyword MUST be a non-negative integer. If \"contains\" is not present within the same schema object, then this keyword has no effect. An instance array is valid against \"minContains\" if the number of elements that are valid against the schema for \"contains\" is greater than, or equal to, the value of this keyword. A value of 0 is allowed, but is only useful for setting a range of occurrences from 0 to the value of \"maxContains\".",
+      "requirement": "MUST",
+      "schema": {
+        "contains": {
+          "type": "string"
+        },
+        "minContains": 0
+      },
+      "instance": [
+        1,
+        2
+      ],
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-maxproperties-equal",
+      "title": "maxProperties is inclusive",
+      "section": "6.5.1",
+      "section_title": "maxProperties",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-maxproperties",
+      "paragraph": "The value of this keyword MUST be a non-negative integer. An object instance is valid against \"maxProperties\" if its number of properties is less than, or equal to, the value of this keyword.",
+      "requirement": "MUST",
+      "schema": {
+        "maxProperties": 2
+      },
+      "instance": {
+        "a": 1,
+        "b": 2
+      },
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-maxproperties-above",
+      "title": "maxProperties rejects a larger object",
+      "section": "6.5.1",
+      "section_title": "maxProperties",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-maxproperties",
+      "paragraph": "The value of this keyword MUST be a non-negative integer. An object instance is valid against \"maxProperties\" if its number of properties is less than, or equal to, the value of this keyword.",
+      "requirement": "MUST",
+      "schema": {
+        "maxProperties": 1
+      },
+      "instance": {
+        "a": 1,
+        "b": 2
+      },
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-minproperties-equal",
+      "title": "minProperties is inclusive",
+      "section": "6.5.2",
+      "section_title": "minProperties",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-minproperties",
+      "paragraph": "The value of this keyword MUST be a non-negative integer. An object instance is valid against \"minProperties\" if its number of properties is greater than, or equal to, the value of this keyword. Omitting this keyword has the same behavior as a value of 0.",
+      "requirement": "MUST",
+      "schema": {
+        "minProperties": 2
+      },
+      "instance": {
+        "a": 1,
+        "b": 2
+      },
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-minproperties-below",
+      "title": "minProperties rejects a smaller object",
+      "section": "6.5.2",
+      "section_title": "minProperties",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-minproperties",
+      "paragraph": "The value of this keyword MUST be a non-negative integer. An object instance is valid against \"minProperties\" if its number of properties is greater than, or equal to, the value of this keyword. Omitting this keyword has the same behavior as a value of 0.",
+      "requirement": "MUST",
+      "schema": {
+        "minProperties": 2
+      },
+      "instance": {
+        "a": 1
+      },
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-required-present",
+      "title": "required accepts a present property",
+      "section": "6.5.3",
+      "section_title": "required",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-required",
+      "paragraph": "The value of this keyword MUST be an array. Elements of this array, if any, MUST be strings, and MUST be unique. An object instance is valid against this keyword if every item in the array is the name of a property in the instance.",
+      "requirement": "MUST",
+      "schema": {
+        "required": [
+          "name"
+        ]
+      },
+      "instance": {
+        "name": "Alice"
+      },
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-required-absent",
+      "title": "required rejects an absent property",
+      "section": "6.5.3",
+      "section_title": "required",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-required",
+      "paragraph": "The value of this keyword MUST be an array. Elements of this array, if any, MUST be strings, and MUST be unique. An object instance is valid against this keyword if every item in the array is the name of a property in the instance.",
+      "requirement": "MUST",
+      "schema": {
+        "required": [
+          "name"
+        ]
+      },
+      "instance": {
+        "age": 30
+      },
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-required-ignores-non-objects",
+      "title": "required says nothing about a non-object",
+      "section": "6.5.3",
+      "section_title": "required",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-required",
+      "paragraph": "The value of this keyword MUST be an array. Elements of this array, if any, MUST be strings, and MUST be unique. An object instance is valid against this keyword if every item in the array is the name of a property in the instance.",
+      "requirement": "MUST",
+      "schema": {
+        "required": [
+          "name"
+        ]
+      },
+      "instance": [
+        1,
+        2
+      ],
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-required-not-an-array",
+      "title": "required must be an array",
+      "section": "6.5.3",
+      "section_title": "required",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-required",
+      "paragraph": "The value of this keyword MUST be an array. Elements of this array, if any, MUST be strings, and MUST be unique. An object instance is valid against this keyword if every item in the array is the name of a property in the instance.",
+      "requirement": "MUST",
+      "schema": {
+        "required": "name"
+      },
+      "instance": {
+        "name": 1
+      },
+      "expect": "schema-error"
+    },
+    {
+      "id": "schema-2020-12-dependentrequired-trigger-absent",
+      "title": "dependentRequired says nothing when its trigger is absent",
+      "section": "6.5.4",
+      "section_title": "dependentRequired",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-dependentrequired",
+      "paragraph": "The value of this keyword MUST be an object. Properties in this object, if any, MUST be arrays. Elements in each array, if any, MUST be strings, and MUST be unique. Validation succeeds if, for each name that appears in both the instance and as a name within this keyword's value, every item in the corresponding array is also the name of a property in the instance.",
+      "requirement": "MUST",
+      "schema": {
+        "dependentRequired": {
+          "card": [
+            "pan"
+          ]
+        }
+      },
+      "instance": {
+        "cash": 1
+      },
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-dependentrequired-satisfied",
+      "title": "dependentRequired accepts the dependency when it is present",
+      "section": "6.5.4",
+      "section_title": "dependentRequired",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-dependentrequired",
+      "paragraph": "The value of this keyword MUST be an object. Properties in this object, if any, MUST be arrays. Elements in each array, if any, MUST be strings, and MUST be unique. Validation succeeds if, for each name that appears in both the instance and as a name within this keyword's value, every item in the corresponding array is also the name of a property in the instance.",
+      "requirement": "MUST",
+      "schema": {
+        "dependentRequired": {
+          "card": [
+            "pan"
+          ]
+        }
+      },
+      "instance": {
+        "card": 1,
+        "pan": "x"
+      },
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-dependentrequired-unsatisfied",
+      "title": "dependentRequired rejects a missing dependency",
+      "section": "6.5.4",
+      "section_title": "dependentRequired",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-dependentrequired",
+      "paragraph": "The value of this keyword MUST be an object. Properties in this object, if any, MUST be arrays. Elements in each array, if any, MUST be strings, and MUST be unique. Validation succeeds if, for each name that appears in both the instance and as a name within this keyword's value, every item in the corresponding array is also the name of a property in the instance.",
+      "requirement": "MUST",
+      "schema": {
+        "dependentRequired": {
+          "card": [
+            "pan"
+          ]
+        }
+      },
+      "instance": {
+        "card": 1
+      },
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-format-annotation-only",
+      "title": "format does not affect validation by default",
+      "section": "7.2.1",
+      "section_title": "Format-Annotation Vocabulary",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-format",
+      "paragraph": "Structural validation alone may be insufficient to allow an application to correctly utilize certain values. The \"format\" annotation keyword is defined to allow schema authors to convey semantic information. By default, \"format\" is an annotation and does not effect validation. Implementations MAY offer the ability to make \"format\" an assertion.",
+      "requirement": "MUST",
+      "schema": {
+        "format": "date"
+      },
+      "instance": "not a date",
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-format-date-time-valid",
+      "title": "format \"date-time\" accepts a well-formed value",
+      "section": "7.3",
+      "section_title": "Defined Formats",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-defined-formats",
+      "paragraph": "Structural validation alone may be insufficient to allow an application to correctly utilize certain values. The \"format\" annotation keyword is defined to allow schema authors to convey semantic information. By default, \"format\" is an annotation and does not effect validation. Implementations MAY offer the ability to make \"format\" an assertion.",
+      "requirement": "SHOULD",
+      "schema": {
+        "format": "date-time"
+      },
+      "instance": "1985-04-12T23:20:50.52Z",
+      "expect": "valid",
+      "assert_format": true
+    },
+    {
+      "id": "schema-2020-12-format-date-time-invalid",
+      "title": "format \"date-time\" rejects a malformed value in assertion mode",
+      "section": "7.3",
+      "section_title": "Defined Formats",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-defined-formats",
+      "paragraph": "Structural validation alone may be insufficient to allow an application to correctly utilize certain values. The \"format\" annotation keyword is defined to allow schema authors to convey semantic information. By default, \"format\" is an annotation and does not effect validation. Implementations MAY offer the ability to make \"format\" an assertion.",
+      "requirement": "SHOULD",
+      "schema": {
+        "format": "date-time"
+      },
+      "instance": "1985-04-12 23:20:50Z",
+      "expect": "invalid",
+      "assert_format": true
+    },
+    {
+      "id": "schema-2020-12-format-date-valid",
+      "title": "format \"date\" accepts a well-formed value",
+      "section": "7.3",
+      "section_title": "Defined Formats",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-defined-formats",
+      "paragraph": "Structural validation alone may be insufficient to allow an application to correctly utilize certain values. The \"format\" annotation keyword is defined to allow schema authors to convey semantic information. By default, \"format\" is an annotation and does not effect validation. Implementations MAY offer the ability to make \"format\" an assertion.",
+      "requirement": "SHOULD",
+      "schema": {
+        "format": "date"
+      },
+      "instance": "2020-02-29",
+      "expect": "valid",
+      "assert_format": true
+    },
+    {
+      "id": "schema-2020-12-format-date-invalid",
+      "title": "format \"date\" rejects a malformed value in assertion mode",
+      "section": "7.3",
+      "section_title": "Defined Formats",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-defined-formats",
+      "paragraph": "Structural validation alone may be insufficient to allow an application to correctly utilize certain values. The \"format\" annotation keyword is defined to allow schema authors to convey semantic information. By default, \"format\" is an annotation and does not effect validation. Implementations MAY offer the ability to make \"format\" an assertion.",
+      "requirement": "SHOULD",
+      "schema": {
+        "format": "date"
+      },
+      "instance": "2021-02-29",
+      "expect": "invalid",
+      "assert_format": true
+    },
+    {
+      "id": "schema-2020-12-format-time-valid",
+      "title": "format \"time\" accepts a well-formed value",
+      "section": "7.3",
+      "section_title": "Defined Formats",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-defined-formats",
+      "paragraph": "Structural validation alone may be insufficient to allow an application to correctly utilize certain values. The \"format\" annotation keyword is defined to allow schema authors to convey semantic information. By default, \"format\" is an annotation and does not effect validation. Implementations MAY offer the ability to make \"format\" an assertion.",
+      "requirement": "SHOULD",
+      "schema": {
+        "format": "time"
+      },
+      "instance": "23:20:50.52Z",
+      "expect": "valid",
+      "assert_format": true
+    },
+    {
+      "id": "schema-2020-12-format-time-invalid",
+      "title": "format \"time\" rejects a malformed value in assertion mode",
+      "section": "7.3",
+      "section_title": "Defined Formats",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-defined-formats",
+      "paragraph": "Structural validation alone may be insufficient to allow an application to correctly utilize certain values. The \"format\" annotation keyword is defined to allow schema authors to convey semantic information. By default, \"format\" is an annotation and does not effect validation. Implementations MAY offer the ability to make \"format\" an assertion.",
+      "requirement": "SHOULD",
+      "schema": {
+        "format": "time"
+      },
+      "instance": "25:20:50Z",
+      "expect": "invalid",
+      "assert_format": true
+    },
+    {
+      "id": "schema-2020-12-format-duration-valid",
+      "title": "format \"duration\" accepts a well-formed value",
+      "section": "7.3",
+      "section_title": "Defined Formats",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-defined-formats",
+      "paragraph": "Structural validation alone may be insufficient to allow an application to correctly utilize certain values. The \"format\" annotation keyword is defined to allow schema authors to convey semantic information. By default, \"format\" is an annotation and does not effect validation. Implementations MAY offer the ability to make \"format\" an assertion.",
+      "requirement": "SHOULD",
+      "schema": {
+        "format": "duration"
+      },
+      "instance": "P3Y6M4DT12H30M5S",
+      "expect": "valid",
+      "assert_format": true
+    },
+    {
+      "id": "schema-2020-12-format-duration-invalid",
+      "title": "format \"duration\" rejects a malformed value in assertion mode",
+      "section": "7.3",
+      "section_title": "Defined Formats",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-defined-formats",
+      "paragraph": "Structural validation alone may be insufficient to allow an application to correctly utilize certain values. The \"format\" annotation keyword is defined to allow schema authors to convey semantic information. By default, \"format\" is an annotation and does not effect validation. Implementations MAY offer the ability to make \"format\" an assertion.",
+      "requirement": "SHOULD",
+      "schema": {
+        "format": "duration"
+      },
+      "instance": "P",
+      "expect": "invalid",
+      "assert_format": true
+    },
+    {
+      "id": "schema-2020-12-format-email-valid",
+      "title": "format \"email\" accepts a well-formed value",
+      "section": "7.3",
+      "section_title": "Defined Formats",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-defined-formats",
+      "paragraph": "Structural validation alone may be insufficient to allow an application to correctly utilize certain values. The \"format\" annotation keyword is defined to allow schema authors to convey semantic information. By default, \"format\" is an annotation and does not effect validation. Implementations MAY offer the ability to make \"format\" an assertion.",
+      "requirement": "SHOULD",
+      "schema": {
+        "format": "email"
+      },
+      "instance": "alice@example.com",
+      "expect": "valid",
+      "assert_format": true
+    },
+    {
+      "id": "schema-2020-12-format-email-invalid",
+      "title": "format \"email\" rejects a malformed value in assertion mode",
+      "section": "7.3",
+      "section_title": "Defined Formats",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-defined-formats",
+      "paragraph": "Structural validation alone may be insufficient to allow an application to correctly utilize certain values. The \"format\" annotation keyword is defined to allow schema authors to convey semantic information. By default, \"format\" is an annotation and does not effect validation. Implementations MAY offer the ability to make \"format\" an assertion.",
+      "requirement": "SHOULD",
+      "schema": {
+        "format": "email"
+      },
+      "instance": "alice@@example.com",
+      "expect": "invalid",
+      "assert_format": true
+    },
+    {
+      "id": "schema-2020-12-format-hostname-valid",
+      "title": "format \"hostname\" accepts a well-formed value",
+      "section": "7.3",
+      "section_title": "Defined Formats",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-defined-formats",
+      "paragraph": "Structural validation alone may be insufficient to allow an application to correctly utilize certain values. The \"format\" annotation keyword is defined to allow schema authors to convey semantic information. By default, \"format\" is an annotation and does not effect validation. Implementations MAY offer the ability to make \"format\" an assertion.",
+      "requirement": "SHOULD",
+      "schema": {
+        "format": "hostname"
+      },
+      "instance": "www.example.com",
+      "expect": "valid",
+      "assert_format": true
+    },
+    {
+      "id": "schema-2020-12-format-hostname-invalid",
+      "title": "format \"hostname\" rejects a malformed value in assertion mode",
+      "section": "7.3",
+      "section_title": "Defined Formats",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-defined-formats",
+      "paragraph": "Structural validation alone may be insufficient to allow an application to correctly utilize certain values. The \"format\" annotation keyword is defined to allow schema authors to convey semantic information. By default, \"format\" is an annotation and does not effect validation. Implementations MAY offer the ability to make \"format\" an assertion.",
+      "requirement": "SHOULD",
+      "schema": {
+        "format": "hostname"
+      },
+      "instance": "-bad.example.com",
+      "expect": "invalid",
+      "assert_format": true
+    },
+    {
+      "id": "schema-2020-12-format-ipv4-valid",
+      "title": "format \"ipv4\" accepts a well-formed value",
+      "section": "7.3",
+      "section_title": "Defined Formats",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-defined-formats",
+      "paragraph": "Structural validation alone may be insufficient to allow an application to correctly utilize certain values. The \"format\" annotation keyword is defined to allow schema authors to convey semantic information. By default, \"format\" is an annotation and does not effect validation. Implementations MAY offer the ability to make \"format\" an assertion.",
+      "requirement": "SHOULD",
+      "schema": {
+        "format": "ipv4"
+      },
+      "instance": "192.168.0.1",
+      "expect": "valid",
+      "assert_format": true
+    },
+    {
+      "id": "schema-2020-12-format-ipv4-invalid",
+      "title": "format \"ipv4\" rejects a malformed value in assertion mode",
+      "section": "7.3",
+      "section_title": "Defined Formats",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-defined-formats",
+      "paragraph": "Structural validation alone may be insufficient to allow an application to correctly utilize certain values. The \"format\" annotation keyword is defined to allow schema authors to convey semantic information. By default, \"format\" is an annotation and does not effect validation. Implementations MAY offer the ability to make \"format\" an assertion.",
+      "requirement": "SHOULD",
+      "schema": {
+        "format": "ipv4"
+      },
+      "instance": "192.168.0.256",
+      "expect": "invalid",
+      "assert_format": true
+    },
+    {
+      "id": "schema-2020-12-format-ipv6-valid",
+      "title": "format \"ipv6\" accepts a well-formed value",
+      "section": "7.3",
+      "section_title": "Defined Formats",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-defined-formats",
+      "paragraph": "Structural validation alone may be insufficient to allow an application to correctly utilize certain values. The \"format\" annotation keyword is defined to allow schema authors to convey semantic information. By default, \"format\" is an annotation and does not effect validation. Implementations MAY offer the ability to make \"format\" an assertion.",
+      "requirement": "SHOULD",
+      "schema": {
+        "format": "ipv6"
+      },
+      "instance": "2001:db8::8a2e:370:7334",
+      "expect": "valid",
+      "assert_format": true
+    },
+    {
+      "id": "schema-2020-12-format-ipv6-invalid",
+      "title": "format \"ipv6\" rejects a malformed value in assertion mode",
+      "section": "7.3",
+      "section_title": "Defined Formats",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-defined-formats",
+      "paragraph": "Structural validation alone may be insufficient to allow an application to correctly utilize certain values. The \"format\" annotation keyword is defined to allow schema authors to convey semantic information. By default, \"format\" is an annotation and does not effect validation. Implementations MAY offer the ability to make \"format\" an assertion.",
+      "requirement": "SHOULD",
+      "schema": {
+        "format": "ipv6"
+      },
+      "instance": "2001:db8:::1",
+      "expect": "invalid",
+      "assert_format": true
+    },
+    {
+      "id": "schema-2020-12-format-uri-valid",
+      "title": "format \"uri\" accepts a well-formed value",
+      "section": "7.3",
+      "section_title": "Defined Formats",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-defined-formats",
+      "paragraph": "Structural validation alone may be insufficient to allow an application to correctly utilize certain values. The \"format\" annotation keyword is defined to allow schema authors to convey semantic information. By default, \"format\" is an annotation and does not effect validation. Implementations MAY offer the ability to make \"format\" an assertion.",
+      "requirement": "SHOULD",
+      "schema": {
+        "format": "uri"
+      },
+      "instance": "https://example.com/a?b#c",
+      "expect": "valid",
+      "assert_format": true
+    },
+    {
+      "id": "schema-2020-12-format-uri-invalid",
+      "title": "format \"uri\" rejects a malformed value in assertion mode",
+      "section": "7.3",
+      "section_title": "Defined Formats",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-defined-formats",
+      "paragraph": "Structural validation alone may be insufficient to allow an application to correctly utilize certain values. The \"format\" annotation keyword is defined to allow schema authors to convey semantic information. By default, \"format\" is an annotation and does not effect validation. Implementations MAY offer the ability to make \"format\" an assertion.",
+      "requirement": "SHOULD",
+      "schema": {
+        "format": "uri"
+      },
+      "instance": "/relative/path",
+      "expect": "invalid",
+      "assert_format": true
+    },
+    {
+      "id": "schema-2020-12-format-uuid-valid",
+      "title": "format \"uuid\" accepts a well-formed value",
+      "section": "7.3",
+      "section_title": "Defined Formats",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-defined-formats",
+      "paragraph": "Structural validation alone may be insufficient to allow an application to correctly utilize certain values. The \"format\" annotation keyword is defined to allow schema authors to convey semantic information. By default, \"format\" is an annotation and does not effect validation. Implementations MAY offer the ability to make \"format\" an assertion.",
+      "requirement": "SHOULD",
+      "schema": {
+        "format": "uuid"
+      },
+      "instance": "f81d4fae-7dec-11d0-a765-00a0c91e6bf6",
+      "expect": "valid",
+      "assert_format": true
+    },
+    {
+      "id": "schema-2020-12-format-uuid-invalid",
+      "title": "format \"uuid\" rejects a malformed value in assertion mode",
+      "section": "7.3",
+      "section_title": "Defined Formats",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-defined-formats",
+      "paragraph": "Structural validation alone may be insufficient to allow an application to correctly utilize certain values. The \"format\" annotation keyword is defined to allow schema authors to convey semantic information. By default, \"format\" is an annotation and does not effect validation. Implementations MAY offer the ability to make \"format\" an assertion.",
+      "requirement": "SHOULD",
+      "schema": {
+        "format": "uuid"
+      },
+      "instance": "f81d4fae7dec11d0a76500a0c91e6bf6",
+      "expect": "invalid",
+      "assert_format": true
+    },
+    {
+      "id": "schema-2020-12-format-regex-valid",
+      "title": "format \"regex\" accepts a well-formed value",
+      "section": "7.3",
+      "section_title": "Defined Formats",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-defined-formats",
+      "paragraph": "Structural validation alone may be insufficient to allow an application to correctly utilize certain values. The \"format\" annotation keyword is defined to allow schema authors to convey semantic information. By default, \"format\" is an annotation and does not effect validation. Implementations MAY offer the ability to make \"format\" an assertion.",
+      "requirement": "SHOULD",
+      "schema": {
+        "format": "regex"
+      },
+      "instance": "^[a-z]+$",
+      "expect": "valid",
+      "assert_format": true
+    },
+    {
+      "id": "schema-2020-12-format-regex-invalid",
+      "title": "format \"regex\" rejects a malformed value in assertion mode",
+      "section": "7.3",
+      "section_title": "Defined Formats",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-defined-formats",
+      "paragraph": "Structural validation alone may be insufficient to allow an application to correctly utilize certain values. The \"format\" annotation keyword is defined to allow schema authors to convey semantic information. By default, \"format\" is an annotation and does not effect validation. Implementations MAY offer the ability to make \"format\" an assertion.",
+      "requirement": "SHOULD",
+      "schema": {
+        "format": "regex"
+      },
+      "instance": "[a-z",
+      "expect": "invalid",
+      "assert_format": true
+    },
+    {
+      "id": "schema-2020-12-format-json-pointer-valid",
+      "title": "format \"json-pointer\" accepts a well-formed value",
+      "section": "7.3",
+      "section_title": "Defined Formats",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-defined-formats",
+      "paragraph": "Structural validation alone may be insufficient to allow an application to correctly utilize certain values. The \"format\" annotation keyword is defined to allow schema authors to convey semantic information. By default, \"format\" is an annotation and does not effect validation. Implementations MAY offer the ability to make \"format\" an assertion.",
+      "requirement": "SHOULD",
+      "schema": {
+        "format": "json-pointer"
+      },
+      "instance": "/a~1b/0",
+      "expect": "valid",
+      "assert_format": true
+    },
+    {
+      "id": "schema-2020-12-format-json-pointer-invalid",
+      "title": "format \"json-pointer\" rejects a malformed value in assertion mode",
+      "section": "7.3",
+      "section_title": "Defined Formats",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-defined-formats",
+      "paragraph": "Structural validation alone may be insufficient to allow an application to correctly utilize certain values. The \"format\" annotation keyword is defined to allow schema authors to convey semantic information. By default, \"format\" is an annotation and does not effect validation. Implementations MAY offer the ability to make \"format\" an assertion.",
+      "requirement": "SHOULD",
+      "schema": {
+        "format": "json-pointer"
+      },
+      "instance": "a/b",
+      "expect": "invalid",
+      "assert_format": true
+    },
+    {
+      "id": "schema-2020-12-format-relative-json-pointer-valid",
+      "title": "format \"relative-json-pointer\" accepts a well-formed value",
+      "section": "7.3",
+      "section_title": "Defined Formats",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-defined-formats",
+      "paragraph": "Structural validation alone may be insufficient to allow an application to correctly utilize certain values. The \"format\" annotation keyword is defined to allow schema authors to convey semantic information. By default, \"format\" is an annotation and does not effect validation. Implementations MAY offer the ability to make \"format\" an assertion.",
+      "requirement": "SHOULD",
+      "schema": {
+        "format": "relative-json-pointer"
+      },
+      "instance": "1/name",
+      "expect": "valid",
+      "assert_format": true
+    },
+    {
+      "id": "schema-2020-12-format-relative-json-pointer-invalid",
+      "title": "format \"relative-json-pointer\" rejects a malformed value in assertion mode",
+      "section": "7.3",
+      "section_title": "Defined Formats",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-defined-formats",
+      "paragraph": "Structural validation alone may be insufficient to allow an application to correctly utilize certain values. The \"format\" annotation keyword is defined to allow schema authors to convey semantic information. By default, \"format\" is an annotation and does not effect validation. Implementations MAY offer the ability to make \"format\" an assertion.",
+      "requirement": "SHOULD",
+      "schema": {
+        "format": "relative-json-pointer"
+      },
+      "instance": "/name",
+      "expect": "invalid",
+      "assert_format": true
+    },
+    {
+      "id": "schema-2020-12-format-unknown-passes",
+      "title": "An unknown format attribute never fails validation",
+      "section": "7.2.3",
+      "section_title": "Custom Format Attributes",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-custom-format-attributes",
+      "paragraph": "Implementations MAY support custom format attributes. Save for agreement between parties, schema authors SHALL NOT expect a peer implementation to support such custom format attributes.",
+      "requirement": "SHOULD",
+      "schema": {
+        "format": "an-invented-format"
+      },
+      "instance": "anything",
+      "expect": "valid",
+      "assert_format": true
+    },
+    {
+      "id": "schema-2020-12-format-ignores-non-strings",
+      "title": "format says nothing about a non-string",
+      "section": "7.2.1",
+      "section_title": "Format-Annotation Vocabulary",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-validation.html#name-format",
+      "paragraph": "Structural validation alone may be insufficient to allow an application to correctly utilize certain values. The \"format\" annotation keyword is defined to allow schema authors to convey semantic information. By default, \"format\" is an annotation and does not effect validation. Implementations MAY offer the ability to make \"format\" an assertion.",
+      "requirement": "MUST",
+      "schema": {
+        "format": "date"
+      },
+      "instance": 42,
+      "expect": "valid",
+      "assert_format": true
+    },
+    {
+      "id": "schema-2020-12-ref-defs-valid",
+      "title": "$ref applies the referenced subschema",
+      "section": "8.2.3.1",
+      "section_title": "Direct References with $ref",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-ref",
+      "paragraph": "The \"$ref\" keyword is an applicator that is used to reference a statically identified schema. Its results are the results of the referenced schema. The value of the \"$ref\" keyword MUST be a string which is a URI-Reference. Resolved against the current URI base, it produces the URI of the schema to apply.",
+      "requirement": "MUST",
+      "schema": {
+        "$defs": {
+          "Name": {
+            "type": "string"
+          }
+        },
+        "properties": {
+          "n": {
+            "$ref": "#/$defs/Name"
+          }
+        }
+      },
+      "instance": {
+        "n": "Alice"
+      },
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-ref-defs-invalid",
+      "title": "$ref reports the referenced subschema's failure",
+      "section": "8.2.3.1",
+      "section_title": "Direct References with $ref",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-ref",
+      "paragraph": "The \"$ref\" keyword is an applicator that is used to reference a statically identified schema. Its results are the results of the referenced schema. The value of the \"$ref\" keyword MUST be a string which is a URI-Reference. Resolved against the current URI base, it produces the URI of the schema to apply.",
+      "requirement": "MUST",
+      "schema": {
+        "$defs": {
+          "Name": {
+            "type": "string"
+          }
+        },
+        "properties": {
+          "n": {
+            "$ref": "#/$defs/Name"
+          }
+        }
+      },
+      "instance": {
+        "n": 7
+      },
+      "expect": "invalid",
+      "notes": "A validator that ignores $ref accepts every instance of this schema, which is the shape of most real schemas."
+    },
+    {
+      "id": "schema-2020-12-ref-empty-fragment-is-the-root",
+      "title": "The fragment # names the root schema",
+      "section": "8.2.3.1",
+      "section_title": "Direct References with $ref",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-ref",
+      "paragraph": "The \"$ref\" keyword is an applicator that is used to reference a statically identified schema. Its results are the results of the referenced schema. The value of the \"$ref\" keyword MUST be a string which is a URI-Reference. Resolved against the current URI base, it produces the URI of the schema to apply.",
+      "requirement": "MUST",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "child": {
+            "$ref": "#"
+          }
+        }
+      },
+      "instance": {
+        "child": {
+          "child": {}
+        }
+      },
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-ref-recursive-invalid",
+      "title": "A recursive $ref still applies at every level",
+      "section": "8.2.3.1",
+      "section_title": "Direct References with $ref",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-ref",
+      "paragraph": "The \"$ref\" keyword is an applicator that is used to reference a statically identified schema. Its results are the results of the referenced schema. The value of the \"$ref\" keyword MUST be a string which is a URI-Reference. Resolved against the current URI base, it produces the URI of the schema to apply.",
+      "requirement": "MUST",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "child": {
+            "$ref": "#"
+          }
+        }
+      },
+      "instance": {
+        "child": {
+          "child": [
+            1
+          ]
+        }
+      },
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-ref-sibling-keywords",
+      "title": "$ref applies alongside its sibling keywords",
+      "section": "8.2.3.1",
+      "section_title": "Direct References with $ref",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-ref",
+      "paragraph": "The \"$ref\" keyword is an applicator that is used to reference a statically identified schema. Its results are the results of the referenced schema. The value of the \"$ref\" keyword MUST be a string which is a URI-Reference. Resolved against the current URI base, it produces the URI of the schema to apply.",
+      "requirement": "MUST",
+      "schema": {
+        "$defs": {
+          "S": {
+            "type": "string"
+          }
+        },
+        "$ref": "#/$defs/S",
+        "maxLength": 3
+      },
+      "instance": "abcd",
+      "expect": "invalid",
+      "notes": "Draft-07 replaced a schema object with its reference. 2020-12 does not, so maxLength is still in force."
+    },
+    {
+      "id": "schema-2020-12-ref-pointer-escaping",
+      "title": "A ~1 in the fragment names a member whose name contains a solidus",
+      "section": "8.2.3.1",
+      "section_title": "Direct References with $ref",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-ref",
+      "paragraph": "The \"$ref\" keyword is an applicator that is used to reference a statically identified schema. Its results are the results of the referenced schema. The value of the \"$ref\" keyword MUST be a string which is a URI-Reference. Resolved against the current URI base, it produces the URI of the schema to apply.",
+      "requirement": "MUST",
+      "schema": {
+        "$defs": {
+          "a/b": {
+            "type": "string"
+          }
+        },
+        "$ref": "#/$defs/a~1b"
+      },
+      "instance": 7,
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-ref-dangling",
+      "title": "A $ref that names nothing is not a schema",
+      "section": "8.2.3.1",
+      "section_title": "Direct References with $ref",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-ref",
+      "paragraph": "The \"$ref\" keyword is an applicator that is used to reference a statically identified schema. Its results are the results of the referenced schema. The value of the \"$ref\" keyword MUST be a string which is a URI-Reference. Resolved against the current URI base, it produces the URI of the schema to apply.",
+      "requirement": "MUST",
+      "schema": {
+        "$ref": "#/$defs/Missing"
+      },
+      "instance": 1,
+      "expect": "schema-error"
+    },
+    {
+      "id": "schema-2020-12-ref-cycle-without-base-case",
+      "title": "A $ref cycle with no base case fails rather than recursing forever",
+      "section": "8.2.3.1",
+      "section_title": "Direct References with $ref",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-ref",
+      "paragraph": "The \"$ref\" keyword is an applicator that is used to reference a statically identified schema. Its results are the results of the referenced schema. The value of the \"$ref\" keyword MUST be a string which is a URI-Reference. Resolved against the current URI base, it produces the URI of the schema to apply.",
+      "requirement": "MUST",
+      "schema": {
+        "$ref": "#"
+      },
+      "instance": 1,
+      "expect": "schema-error",
+      "notes": "The cycle is only detectable while the instance is walked, so this is reported as an evaluation error rather than a verdict."
+    },
+    {
+      "id": "schema-2020-12-anchor-valid",
+      "title": "$anchor names a subschema by plain name",
+      "section": "8.2.2",
+      "section_title": "Defining location-independent identifiers",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-defining-location-independen",
+      "paragraph": "Using JSON Pointer fragments requires knowledge of the structure of the schema. When writing schema documents with the intention to provide re-usable schemas, it may be preferable to use a plain name fragment that is not tied to any particular structural location. The \"$anchor\" keyword is used to specify such a fragment.",
+      "requirement": "MUST",
+      "schema": {
+        "$defs": {
+          "N": {
+            "$anchor": "name",
+            "type": "string"
+          }
+        },
+        "$ref": "#name"
+      },
+      "instance": "Alice",
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-anchor-invalid",
+      "title": "A plain-name $ref reports its target's failure",
+      "section": "8.2.2",
+      "section_title": "Defining location-independent identifiers",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-defining-location-independen",
+      "paragraph": "Using JSON Pointer fragments requires knowledge of the structure of the schema. When writing schema documents with the intention to provide re-usable schemas, it may be preferable to use a plain name fragment that is not tied to any particular structural location. The \"$anchor\" keyword is used to specify such a fragment.",
+      "requirement": "MUST",
+      "schema": {
+        "$defs": {
+          "N": {
+            "$anchor": "name",
+            "type": "string"
+          }
+        },
+        "$ref": "#name"
+      },
+      "instance": 7,
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-anchor-undeclared",
+      "title": "A plain-name $ref must name a declared anchor",
+      "section": "8.2.2",
+      "section_title": "Defining location-independent identifiers",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-defining-location-independen",
+      "paragraph": "Using JSON Pointer fragments requires knowledge of the structure of the schema. When writing schema documents with the intention to provide re-usable schemas, it may be preferable to use a plain name fragment that is not tied to any particular structural location. The \"$anchor\" keyword is used to specify such a fragment.",
+      "requirement": "MUST",
+      "schema": {
+        "$ref": "#nowhere"
+      },
+      "instance": 1,
+      "expect": "schema-error"
+    },
+    {
+      "id": "schema-2020-12-id-reference",
+      "title": "A $ref may name a resource by its $id",
+      "section": "8.2.1",
+      "section_title": "The $id Keyword",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-the-id-keyword",
+      "paragraph": "The \"$id\" keyword identifies a schema resource with its canonical URI. Note that this URI is an identifier and not necessarily a network locator. In the case of a network-addressable URL, a schema need not be downloadable from its canonical URI.",
+      "requirement": "MUST",
+      "schema": {
+        "$id": "https://example.com/root",
+        "$defs": {
+          "N": {
+            "$id": "https://example.com/name",
+            "type": "string"
+          }
+        },
+        "$ref": "https://example.com/name"
+      },
+      "instance": 7,
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-defs-are-inert",
+      "title": "$defs does not validate on its own",
+      "section": "8.2.4",
+      "section_title": "Schema Re-Use With $defs",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-schema-re-use-with-defs",
+      "paragraph": "The \"$defs\" keyword reserves a location for schema authors to inline re-usable JSON Schemas into a more general schema. The keyword does not directly affect the validation result.",
+      "requirement": "MUST",
+      "schema": {
+        "$defs": {
+          "N": {
+            "type": "string"
+          }
+        }
+      },
+      "instance": 7,
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-comment-is-inert",
+      "title": "$comment does not affect validation",
+      "section": "8.3",
+      "section_title": "Comments With $comment",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-comments-with-comment",
+      "paragraph": "This keyword reserves a location for comments from schema authors to readers or maintainers of the schema. Implementations MUST NOT present this string to end users.",
+      "requirement": "MUST",
+      "schema": {
+        "$comment": "a note",
+        "type": "integer"
+      },
+      "instance": 1,
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-schema-keyword-is-inert",
+      "title": "$schema names the dialect and constrains no instance",
+      "section": "8.1.1",
+      "section_title": "The $schema Keyword",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-the-schema-keyword",
+      "paragraph": "The \"$schema\" keyword is both used as a JSON Schema dialect identifier and as the identifier of a resource which is itself a JSON Schema, which describes the set of valid schemas written for this particular dialect.",
+      "requirement": "MUST",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "integer"
+      },
+      "instance": "x",
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-allof-all-match",
+      "title": "allOf requires every subschema",
+      "section": "10.2.1.1",
+      "section_title": "allOf",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-allof",
+      "paragraph": "This keyword's value MUST be a non-empty array. Each item of the array MUST be a valid JSON Schema. An instance validates successfully against this keyword if it validates successfully against all schemas defined by this keyword's value.",
+      "requirement": "MUST",
+      "schema": {
+        "allOf": [
+          {
+            "type": "object"
+          },
+          {
+            "required": [
+              "name"
+            ]
+          }
+        ]
+      },
+      "instance": {
+        "name": "A"
+      },
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-allof-one-fails",
+      "title": "allOf fails when any subschema fails",
+      "section": "10.2.1.1",
+      "section_title": "allOf",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-allof",
+      "paragraph": "This keyword's value MUST be a non-empty array. Each item of the array MUST be a valid JSON Schema. An instance validates successfully against this keyword if it validates successfully against all schemas defined by this keyword's value.",
+      "requirement": "MUST",
+      "schema": {
+        "allOf": [
+          {
+            "type": "object"
+          },
+          {
+            "required": [
+              "name"
+            ]
+          }
+        ]
+      },
+      "instance": {
+        "age": 1
+      },
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-anyof-one-matches",
+      "title": "anyOf needs one subschema to match",
+      "section": "10.2.1.2",
+      "section_title": "anyOf",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-anyof",
+      "paragraph": "This keyword's value MUST be a non-empty array. Each item of the array MUST be a valid JSON Schema. An instance validates successfully against this keyword if it validates successfully against at least one schema defined by this keyword's value.",
+      "requirement": "MUST",
+      "schema": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "integer"
+          }
+        ]
+      },
+      "instance": 42,
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-anyof-none-match",
+      "title": "anyOf fails when no subschema matches",
+      "section": "10.2.1.2",
+      "section_title": "anyOf",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-anyof",
+      "paragraph": "This keyword's value MUST be a non-empty array. Each item of the array MUST be a valid JSON Schema. An instance validates successfully against this keyword if it validates successfully against at least one schema defined by this keyword's value.",
+      "requirement": "MUST",
+      "schema": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "integer"
+          }
+        ]
+      },
+      "instance": true,
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-oneof-exactly-one",
+      "title": "oneOf needs exactly one match",
+      "section": "10.2.1.3",
+      "section_title": "oneOf",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-oneof",
+      "paragraph": "This keyword's value MUST be a non-empty array. Each item of the array MUST be a valid JSON Schema. An instance validates successfully against this keyword if it validates successfully against exactly one schema defined by this keyword's value.",
+      "requirement": "MUST",
+      "schema": {
+        "oneOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "number",
+            "minimum": 10
+          }
+        ]
+      },
+      "instance": 3,
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-oneof-two-matches",
+      "title": "oneOf rejects two matches",
+      "section": "10.2.1.3",
+      "section_title": "oneOf",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-oneof",
+      "paragraph": "This keyword's value MUST be a non-empty array. Each item of the array MUST be a valid JSON Schema. An instance validates successfully against this keyword if it validates successfully against exactly one schema defined by this keyword's value.",
+      "requirement": "MUST",
+      "schema": {
+        "oneOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "number",
+            "minimum": 10
+          }
+        ]
+      },
+      "instance": 12,
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-oneof-no-match",
+      "title": "oneOf rejects no match",
+      "section": "10.2.1.3",
+      "section_title": "oneOf",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-oneof",
+      "paragraph": "This keyword's value MUST be a non-empty array. Each item of the array MUST be a valid JSON Schema. An instance validates successfully against this keyword if it validates successfully against exactly one schema defined by this keyword's value.",
+      "requirement": "MUST",
+      "schema": {
+        "oneOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "number",
+            "minimum": 10
+          }
+        ]
+      },
+      "instance": "x",
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-not-fails-subschema",
+      "title": "not accepts what the subschema rejects",
+      "section": "10.2.1.4",
+      "section_title": "not",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-not",
+      "paragraph": "This keyword's value MUST be a valid JSON Schema. An instance is valid against this keyword if it fails to validate successfully against the schema defined by this keyword.",
+      "requirement": "MUST",
+      "schema": {
+        "not": {
+          "type": "string"
+        }
+      },
+      "instance": 42,
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-not-matches-subschema",
+      "title": "not rejects what the subschema accepts",
+      "section": "10.2.1.4",
+      "section_title": "not",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-not",
+      "paragraph": "This keyword's value MUST be a valid JSON Schema. An instance is valid against this keyword if it fails to validate successfully against the schema defined by this keyword.",
+      "requirement": "MUST",
+      "schema": {
+        "not": {
+          "type": "string"
+        }
+      },
+      "instance": "hello",
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-not-double-negation",
+      "title": "A double negation is the subschema again",
+      "section": "10.2.1.4",
+      "section_title": "not",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-not",
+      "paragraph": "This keyword's value MUST be a valid JSON Schema. An instance is valid against this keyword if it fails to validate successfully against the schema defined by this keyword.",
+      "requirement": "MUST",
+      "schema": {
+        "not": {
+          "not": {
+            "type": "integer"
+          }
+        }
+      },
+      "instance": "x",
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-if-then-applies",
+      "title": "then applies when if succeeds",
+      "section": "10.2.2.1",
+      "section_title": "if",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-if",
+      "paragraph": "This keyword's value MUST be a valid JSON Schema. This validation outcome of this keyword's subschema has no direct effect on the overall validation result. Rather, it controls which of the \"then\" or \"else\" keywords are evaluated.",
+      "requirement": "MUST",
+      "schema": {
+        "if": {
+          "properties": {
+            "k": {
+              "const": "a"
+            }
+          },
+          "required": [
+            "k"
+          ]
+        },
+        "then": {
+          "required": [
+            "z"
+          ]
+        }
+      },
+      "instance": {
+        "k": "a"
+      },
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-if-then-satisfied",
+      "title": "then is satisfied when the instance meets it",
+      "section": "10.2.2.1",
+      "section_title": "if",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-if",
+      "paragraph": "This keyword's value MUST be a valid JSON Schema. This validation outcome of this keyword's subschema has no direct effect on the overall validation result. Rather, it controls which of the \"then\" or \"else\" keywords are evaluated.",
+      "requirement": "MUST",
+      "schema": {
+        "if": {
+          "properties": {
+            "k": {
+              "const": "a"
+            }
+          },
+          "required": [
+            "k"
+          ]
+        },
+        "then": {
+          "required": [
+            "z"
+          ]
+        }
+      },
+      "instance": {
+        "k": "a",
+        "z": 1
+      },
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-if-then-skipped",
+      "title": "then does not apply when if fails",
+      "section": "10.2.2.1",
+      "section_title": "if",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-if",
+      "paragraph": "This keyword's value MUST be a valid JSON Schema. This validation outcome of this keyword's subschema has no direct effect on the overall validation result. Rather, it controls which of the \"then\" or \"else\" keywords are evaluated.",
+      "requirement": "MUST",
+      "schema": {
+        "if": {
+          "properties": {
+            "k": {
+              "const": "a"
+            }
+          },
+          "required": [
+            "k"
+          ]
+        },
+        "then": {
+          "required": [
+            "z"
+          ]
+        }
+      },
+      "instance": {
+        "k": "b"
+      },
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-if-else-applies",
+      "title": "else applies when if fails",
+      "section": "10.2.2.3",
+      "section_title": "else",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-else",
+      "paragraph": "This keyword's value MUST be a valid JSON Schema. This validation outcome of this keyword's subschema has no direct effect on the overall validation result. Rather, it controls which of the \"then\" or \"else\" keywords are evaluated.",
+      "requirement": "MUST",
+      "schema": {
+        "if": {
+          "properties": {
+            "k": {
+              "const": "a"
+            }
+          },
+          "required": [
+            "k"
+          ]
+        },
+        "else": {
+          "required": [
+            "z"
+          ]
+        }
+      },
+      "instance": {
+        "k": "b"
+      },
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-if-alone-never-fails",
+      "title": "if on its own cannot fail an instance",
+      "section": "10.2.2.1",
+      "section_title": "if",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-if",
+      "paragraph": "This keyword's value MUST be a valid JSON Schema. This validation outcome of this keyword's subschema has no direct effect on the overall validation result. Rather, it controls which of the \"then\" or \"else\" keywords are evaluated.",
+      "requirement": "MUST",
+      "schema": {
+        "if": {
+          "type": "integer"
+        }
+      },
+      "instance": "x",
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-dependentschemas-trigger-absent",
+      "title": "dependentSchemas says nothing when its trigger is absent",
+      "section": "10.2.2.4",
+      "section_title": "dependentSchemas",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-dependentschemas",
+      "paragraph": "This keyword specifies subschemas that are evaluated if the instance is an object and contains a certain property. This keyword's value MUST be an object. Each value in the object MUST be a valid JSON Schema.",
+      "requirement": "MUST",
+      "schema": {
+        "dependentSchemas": {
+          "card": {
+            "required": [
+              "pan"
+            ]
+          }
+        }
+      },
+      "instance": {},
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-dependentschemas-applies",
+      "title": "dependentSchemas applies when its trigger is present",
+      "section": "10.2.2.4",
+      "section_title": "dependentSchemas",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-dependentschemas",
+      "paragraph": "This keyword specifies subschemas that are evaluated if the instance is an object and contains a certain property. This keyword's value MUST be an object. Each value in the object MUST be a valid JSON Schema.",
+      "requirement": "MUST",
+      "schema": {
+        "dependentSchemas": {
+          "card": {
+            "required": [
+              "pan"
+            ]
+          }
+        }
+      },
+      "instance": {
+        "card": 1
+      },
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-prefixitems-positional",
+      "title": "prefixItems matches by position",
+      "section": "10.3.1.1",
+      "section_title": "prefixItems",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-prefixitems",
+      "paragraph": "The value of \"prefixItems\" MUST be a non-empty array of valid JSON Schemas. Validation succeeds if each element of the instance validates against the schema at the same position, if any. This keyword does not constrain the length of the array.",
+      "requirement": "MUST",
+      "schema": {
+        "prefixItems": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "string"
+          }
+        ]
+      },
+      "instance": [
+        1,
+        "a"
+      ],
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-prefixitems-wrong-position",
+      "title": "prefixItems fails when a position does not match",
+      "section": "10.3.1.1",
+      "section_title": "prefixItems",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-prefixitems",
+      "paragraph": "The value of \"prefixItems\" MUST be a non-empty array of valid JSON Schemas. Validation succeeds if each element of the instance validates against the schema at the same position, if any. This keyword does not constrain the length of the array.",
+      "requirement": "MUST",
+      "schema": {
+        "prefixItems": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "string"
+          }
+        ]
+      },
+      "instance": [
+        "a",
+        1
+      ],
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-prefixitems-short-array",
+      "title": "prefixItems does not constrain the array's length",
+      "section": "10.3.1.1",
+      "section_title": "prefixItems",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-prefixitems",
+      "paragraph": "The value of \"prefixItems\" MUST be a non-empty array of valid JSON Schemas. Validation succeeds if each element of the instance validates against the schema at the same position, if any. This keyword does not constrain the length of the array.",
+      "requirement": "MUST",
+      "schema": {
+        "prefixItems": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "string"
+          }
+        ]
+      },
+      "instance": [
+        1
+      ],
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-prefixitems-extra-unconstrained",
+      "title": "Elements past the prefix are unconstrained without items",
+      "section": "10.3.1.1",
+      "section_title": "prefixItems",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-prefixitems",
+      "paragraph": "The value of \"prefixItems\" MUST be a non-empty array of valid JSON Schemas. Validation succeeds if each element of the instance validates against the schema at the same position, if any. This keyword does not constrain the length of the array.",
+      "requirement": "MUST",
+      "schema": {
+        "prefixItems": [
+          {
+            "type": "integer"
+          }
+        ]
+      },
+      "instance": [
+        1,
+        "a",
+        true
+      ],
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-items-all",
+      "title": "items applies to every element when alone",
+      "section": "10.3.1.2",
+      "section_title": "items",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-items",
+      "paragraph": "The value of \"items\" MUST be a valid JSON Schema. This keyword applies its subschema to all instance elements at indexes greater than the length of the \"prefixItems\" array in the same schema object, as reported by the annotation result of that \"prefixItems\" keyword.",
+      "requirement": "MUST",
+      "schema": {
+        "items": {
+          "type": "integer"
+        }
+      },
+      "instance": [
+        1,
+        2,
+        3
+      ],
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-items-one-fails",
+      "title": "items fails on any element that does not match",
+      "section": "10.3.1.2",
+      "section_title": "items",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-items",
+      "paragraph": "The value of \"items\" MUST be a valid JSON Schema. This keyword applies its subschema to all instance elements at indexes greater than the length of the \"prefixItems\" array in the same schema object, as reported by the annotation result of that \"prefixItems\" keyword.",
+      "requirement": "MUST",
+      "schema": {
+        "items": {
+          "type": "integer"
+        }
+      },
+      "instance": [
+        1,
+        "two",
+        3
+      ],
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-items-past-the-prefix",
+      "title": "items starts where prefixItems stopped",
+      "section": "10.3.1.2",
+      "section_title": "items",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-items",
+      "paragraph": "The value of \"items\" MUST be a valid JSON Schema. This keyword applies its subschema to all instance elements at indexes greater than the length of the \"prefixItems\" array in the same schema object, as reported by the annotation result of that \"prefixItems\" keyword.",
+      "requirement": "MUST",
+      "schema": {
+        "prefixItems": [
+          {
+            "type": "integer"
+          }
+        ],
+        "items": {
+          "type": "string"
+        }
+      },
+      "instance": [
+        1,
+        "a",
+        "b"
+      ],
+      "expect": "valid",
+      "notes": "Draft-07 applied items from index 0, which would reject the integer at the front."
+    },
+    {
+      "id": "schema-2020-12-items-past-the-prefix-invalid",
+      "title": "items still applies past the prefix",
+      "section": "10.3.1.2",
+      "section_title": "items",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-items",
+      "paragraph": "The value of \"items\" MUST be a valid JSON Schema. This keyword applies its subschema to all instance elements at indexes greater than the length of the \"prefixItems\" array in the same schema object, as reported by the annotation result of that \"prefixItems\" keyword.",
+      "requirement": "MUST",
+      "schema": {
+        "prefixItems": [
+          {
+            "type": "integer"
+          }
+        ],
+        "items": {
+          "type": "string"
+        }
+      },
+      "instance": [
+        1,
+        "a",
+        2
+      ],
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-items-array-form-removed",
+      "title": "The draft-07 array form of items is not a 2020-12 schema",
+      "section": "10.3.1.2",
+      "section_title": "items",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-items",
+      "paragraph": "The value of \"items\" MUST be a valid JSON Schema. This keyword applies its subschema to all instance elements at indexes greater than the length of the \"prefixItems\" array in the same schema object, as reported by the annotation result of that \"prefixItems\" keyword.",
+      "requirement": "MUST",
+      "schema": {
+        "items": [
+          {
+            "type": "integer"
+          }
+        ]
+      },
+      "instance": [
+        1
+      ],
+      "expect": "schema-error"
+    },
+    {
+      "id": "schema-2020-12-contains-match",
+      "title": "contains needs one matching element",
+      "section": "10.3.1.3",
+      "section_title": "contains",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-contains",
+      "paragraph": "The value of this keyword MUST be a valid JSON Schema. An array instance is valid against \"contains\" if at least one of its elements is valid against the given schema, except when \"minContains\" is present and has a value of 0.",
+      "requirement": "MUST",
+      "schema": {
+        "contains": {
+          "type": "string"
+        }
+      },
+      "instance": [
+        1,
+        "a"
+      ],
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-contains-no-match",
+      "title": "contains fails when nothing matches",
+      "section": "10.3.1.3",
+      "section_title": "contains",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-contains",
+      "paragraph": "The value of this keyword MUST be a valid JSON Schema. An array instance is valid against \"contains\" if at least one of its elements is valid against the given schema, except when \"minContains\" is present and has a value of 0.",
+      "requirement": "MUST",
+      "schema": {
+        "contains": {
+          "type": "string"
+        }
+      },
+      "instance": [
+        1,
+        2
+      ],
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-properties-match",
+      "title": "properties applies to the named member",
+      "section": "10.3.2.1",
+      "section_title": "properties",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-properties",
+      "paragraph": "The value of \"properties\" MUST be an object. Each value of this object MUST be a valid JSON Schema. Validation succeeds if, for each name that appears in both the instance and as a name within this keyword's value, the child instance for that name successfully validates against the corresponding schema.",
+      "requirement": "MUST",
+      "schema": {
+        "properties": {
+          "age": {
+            "type": "integer"
+          }
+        }
+      },
+      "instance": {
+        "age": 30
+      },
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-properties-fail",
+      "title": "properties reports the member's failure",
+      "section": "10.3.2.1",
+      "section_title": "properties",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-properties",
+      "paragraph": "The value of \"properties\" MUST be an object. Each value of this object MUST be a valid JSON Schema. Validation succeeds if, for each name that appears in both the instance and as a name within this keyword's value, the child instance for that name successfully validates against the corresponding schema.",
+      "requirement": "MUST",
+      "schema": {
+        "properties": {
+          "age": {
+            "type": "integer"
+          }
+        }
+      },
+      "instance": {
+        "age": "thirty"
+      },
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-properties-absent",
+      "title": "properties says nothing about an absent member",
+      "section": "10.3.2.1",
+      "section_title": "properties",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-properties",
+      "paragraph": "The value of \"properties\" MUST be an object. Each value of this object MUST be a valid JSON Schema. Validation succeeds if, for each name that appears in both the instance and as a name within this keyword's value, the child instance for that name successfully validates against the corresponding schema.",
+      "requirement": "MUST",
+      "schema": {
+        "properties": {
+          "age": {
+            "type": "integer"
+          }
+        }
+      },
+      "instance": {},
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-patternproperties-match",
+      "title": "patternProperties applies to every matching name",
+      "section": "10.3.2.2",
+      "section_title": "patternProperties",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-patternproperties",
+      "paragraph": "The value of \"patternProperties\" MUST be an object. Each property name of this object SHOULD be a valid regular expression, according to the ECMA-262 regular expression dialect. Each property value of this object MUST be a valid JSON Schema. Validation succeeds if, for each instance name that matches any regular expressions that appear as a property name in this keyword's value, the child instance for that name successfully validates against each schema that corresponds to a matching regular expression.",
+      "requirement": "MUST",
+      "schema": {
+        "patternProperties": {
+          "^x_": {
+            "type": "integer"
+          }
+        }
+      },
+      "instance": {
+        "x_1": 1
+      },
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-patternproperties-fail",
+      "title": "patternProperties reports a matching member's failure",
+      "section": "10.3.2.2",
+      "section_title": "patternProperties",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-patternproperties",
+      "paragraph": "The value of \"patternProperties\" MUST be an object. Each property name of this object SHOULD be a valid regular expression, according to the ECMA-262 regular expression dialect. Each property value of this object MUST be a valid JSON Schema. Validation succeeds if, for each instance name that matches any regular expressions that appear as a property name in this keyword's value, the child instance for that name successfully validates against each schema that corresponds to a matching regular expression.",
+      "requirement": "MUST",
+      "schema": {
+        "patternProperties": {
+          "^x_": {
+            "type": "integer"
+          }
+        }
+      },
+      "instance": {
+        "x_1": "one"
+      },
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-patternproperties-non-matching-name",
+      "title": "patternProperties says nothing about a name it does not match",
+      "section": "10.3.2.2",
+      "section_title": "patternProperties",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-patternproperties",
+      "paragraph": "The value of \"patternProperties\" MUST be an object. Each property name of this object SHOULD be a valid regular expression, according to the ECMA-262 regular expression dialect. Each property value of this object MUST be a valid JSON Schema. Validation succeeds if, for each instance name that matches any regular expressions that appear as a property name in this keyword's value, the child instance for that name successfully validates against each schema that corresponds to a matching regular expression.",
+      "requirement": "MUST",
+      "schema": {
+        "patternProperties": {
+          "^x_": {
+            "type": "integer"
+          }
+        }
+      },
+      "instance": {
+        "y": "one"
+      },
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-additionalproperties-false-allowed",
+      "title": "additionalProperties false accepts what properties covered",
+      "section": "10.3.2.3",
+      "section_title": "additionalProperties",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-additionalproperties",
+      "paragraph": "The value of \"additionalProperties\" MUST be a valid JSON Schema. The behavior of this keyword depends on the presence and annotation results of \"properties\" and \"patternProperties\" within the same schema object. Validation with \"additionalProperties\" applies only to the child values of instance names that do not appear in the annotation results of either \"properties\" or \"patternProperties\".",
+      "requirement": "MUST",
+      "schema": {
+        "properties": {
+          "a": {}
+        },
+        "additionalProperties": false
+      },
+      "instance": {
+        "a": 1
+      },
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-additionalproperties-false-rejects",
+      "title": "additionalProperties false rejects anything else",
+      "section": "10.3.2.3",
+      "section_title": "additionalProperties",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-additionalproperties",
+      "paragraph": "The value of \"additionalProperties\" MUST be a valid JSON Schema. The behavior of this keyword depends on the presence and annotation results of \"properties\" and \"patternProperties\" within the same schema object. Validation with \"additionalProperties\" applies only to the child values of instance names that do not appear in the annotation results of either \"properties\" or \"patternProperties\".",
+      "requirement": "MUST",
+      "schema": {
+        "properties": {
+          "a": {}
+        },
+        "additionalProperties": false
+      },
+      "instance": {
+        "a": 1,
+        "b": 2
+      },
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-additionalproperties-offsets-patternproperties",
+      "title": "additionalProperties is offset against patternProperties too",
+      "section": "10.3.2.3",
+      "section_title": "additionalProperties",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-additionalproperties",
+      "paragraph": "The value of \"additionalProperties\" MUST be a valid JSON Schema. The behavior of this keyword depends on the presence and annotation results of \"properties\" and \"patternProperties\" within the same schema object. Validation with \"additionalProperties\" applies only to the child values of instance names that do not appear in the annotation results of either \"properties\" or \"patternProperties\".",
+      "requirement": "MUST",
+      "schema": {
+        "patternProperties": {
+          "^x_": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": false
+      },
+      "instance": {
+        "x_1": 1,
+        "x_2": 2
+      },
+      "expect": "valid",
+      "notes": "A validator that offsets only against properties rejects every member patternProperties already accepted."
+    },
+    {
+      "id": "schema-2020-12-additionalproperties-still-rejects-unmatched",
+      "title": "additionalProperties still covers what neither keyword matched",
+      "section": "10.3.2.3",
+      "section_title": "additionalProperties",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-additionalproperties",
+      "paragraph": "The value of \"additionalProperties\" MUST be a valid JSON Schema. The behavior of this keyword depends on the presence and annotation results of \"properties\" and \"patternProperties\" within the same schema object. Validation with \"additionalProperties\" applies only to the child values of instance names that do not appear in the annotation results of either \"properties\" or \"patternProperties\".",
+      "requirement": "MUST",
+      "schema": {
+        "patternProperties": {
+          "^x_": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": false
+      },
+      "instance": {
+        "x_1": 1,
+        "y": 2
+      },
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-additionalproperties-schema",
+      "title": "additionalProperties may be a schema rather than a boolean",
+      "section": "10.3.2.3",
+      "section_title": "additionalProperties",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-additionalproperties",
+      "paragraph": "The value of \"additionalProperties\" MUST be a valid JSON Schema. The behavior of this keyword depends on the presence and annotation results of \"properties\" and \"patternProperties\" within the same schema object. Validation with \"additionalProperties\" applies only to the child values of instance names that do not appear in the annotation results of either \"properties\" or \"patternProperties\".",
+      "requirement": "MUST",
+      "schema": {
+        "properties": {
+          "a": {}
+        },
+        "additionalProperties": {
+          "type": "string"
+        }
+      },
+      "instance": {
+        "a": 1,
+        "b": 2
+      },
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-propertynames-valid",
+      "title": "propertyNames constrains the names",
+      "section": "10.3.2.4",
+      "section_title": "propertyNames",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-propertynames",
+      "paragraph": "The value of \"propertyNames\" MUST be a valid JSON Schema. If the instance is an object, this keyword validates if every property name in the instance validates against the provided schema. Note the property name that the schema is testing will always be a string.",
+      "requirement": "MUST",
+      "schema": {
+        "propertyNames": {
+          "maxLength": 2
+        }
+      },
+      "instance": {
+        "ab": 1
+      },
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-propertynames-invalid",
+      "title": "propertyNames rejects a name it fails",
+      "section": "10.3.2.4",
+      "section_title": "propertyNames",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-propertynames",
+      "paragraph": "The value of \"propertyNames\" MUST be a valid JSON Schema. If the instance is an object, this keyword validates if every property name in the instance validates against the provided schema. Note the property name that the schema is testing will always be a string.",
+      "requirement": "MUST",
+      "schema": {
+        "propertyNames": {
+          "maxLength": 2
+        }
+      },
+      "instance": {
+        "abc": 1
+      },
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-propertynames-pattern",
+      "title": "propertyNames is where a name pattern is anchored on purpose",
+      "section": "10.3.2.4",
+      "section_title": "propertyNames",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-propertynames",
+      "paragraph": "The value of \"propertyNames\" MUST be a valid JSON Schema. If the instance is an object, this keyword validates if every property name in the instance validates against the provided schema. Note the property name that the schema is testing will always be a string.",
+      "requirement": "MUST",
+      "schema": {
+        "propertyNames": {
+          "pattern": "^[a-z]+$"
+        }
+      },
+      "instance": {
+        "ok": 1,
+        "B4D": 2
+      },
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-unevaluateditems-leftover",
+      "title": "unevaluatedItems covers what prefixItems did not",
+      "section": "11.2",
+      "section_title": "unevaluatedItems",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-unevaluateditems",
+      "paragraph": "The value of \"unevaluatedItems\" MUST be a valid JSON Schema. The behavior of this keyword depends on the annotation results of adjacent keywords that apply to the instance location being validated. If no relevant annotations are present, the \"unevaluatedItems\" subschema MUST be applied to all locations in the array.",
+      "requirement": "MUST",
+      "schema": {
+        "prefixItems": [
+          {}
+        ],
+        "unevaluatedItems": false
+      },
+      "instance": [
+        1,
+        2
+      ],
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-unevaluateditems-nothing-left",
+      "title": "unevaluatedItems has nothing to say when the prefix covers the array",
+      "section": "11.2",
+      "section_title": "unevaluatedItems",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-unevaluateditems",
+      "paragraph": "The value of \"unevaluatedItems\" MUST be a valid JSON Schema. The behavior of this keyword depends on the annotation results of adjacent keywords that apply to the instance location being validated. If no relevant annotations are present, the \"unevaluatedItems\" subschema MUST be applied to all locations in the array.",
+      "requirement": "MUST",
+      "schema": {
+        "prefixItems": [
+          {}
+        ],
+        "unevaluatedItems": false
+      },
+      "instance": [
+        1
+      ],
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-unevaluateditems-after-items",
+      "title": "items evaluates every element, leaving nothing unevaluated",
+      "section": "11.2",
+      "section_title": "unevaluatedItems",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-unevaluateditems",
+      "paragraph": "The value of \"unevaluatedItems\" MUST be a valid JSON Schema. The behavior of this keyword depends on the annotation results of adjacent keywords that apply to the instance location being validated. If no relevant annotations are present, the \"unevaluatedItems\" subschema MUST be applied to all locations in the array.",
+      "requirement": "MUST",
+      "schema": {
+        "items": {
+          "type": "integer"
+        },
+        "unevaluatedItems": false
+      },
+      "instance": [
+        1,
+        2,
+        3
+      ],
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-unevaluateditems-sees-contains",
+      "title": "A matched contains element counts as evaluated",
+      "section": "11.2",
+      "section_title": "unevaluatedItems",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-unevaluateditems",
+      "paragraph": "The value of \"unevaluatedItems\" MUST be a valid JSON Schema. The behavior of this keyword depends on the annotation results of adjacent keywords that apply to the instance location being validated. If no relevant annotations are present, the \"unevaluatedItems\" subschema MUST be applied to all locations in the array.",
+      "requirement": "MUST",
+      "schema": {
+        "contains": {
+          "type": "string"
+        },
+        "unevaluatedItems": false
+      },
+      "instance": [
+        "a"
+      ],
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-unevaluateditems-contains-leftover",
+      "title": "An element contains did not match is still unevaluated",
+      "section": "11.2",
+      "section_title": "unevaluatedItems",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-unevaluateditems",
+      "paragraph": "The value of \"unevaluatedItems\" MUST be a valid JSON Schema. The behavior of this keyword depends on the annotation results of adjacent keywords that apply to the instance location being validated. If no relevant annotations are present, the \"unevaluatedItems\" subschema MUST be applied to all locations in the array.",
+      "requirement": "MUST",
+      "schema": {
+        "contains": {
+          "type": "string"
+        },
+        "unevaluatedItems": false
+      },
+      "instance": [
+        "a",
+        1
+      ],
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-unevaluatedproperties-leftover",
+      "title": "unevaluatedProperties covers what properties did not",
+      "section": "11.3",
+      "section_title": "unevaluatedProperties",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-unevaluatedproperties",
+      "paragraph": "The value of \"unevaluatedProperties\" MUST be a valid JSON Schema. The behavior of this keyword depends on the annotation results of adjacent keywords that apply to the instance location being validated. Validation with \"unevaluatedProperties\" applies only to the child values of instance names that do not appear in the \"properties\", \"patternProperties\", \"additionalProperties\", or \"unevaluatedProperties\" annotation results that apply to the instance location being validated.",
+      "requirement": "MUST",
+      "schema": {
+        "properties": {
+          "a": {}
+        },
+        "unevaluatedProperties": false
+      },
+      "instance": {
+        "a": 1,
+        "b": 2
+      },
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-unevaluatedproperties-nothing-left",
+      "title": "unevaluatedProperties has nothing to say when properties covered the object",
+      "section": "11.3",
+      "section_title": "unevaluatedProperties",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-unevaluatedproperties",
+      "paragraph": "The value of \"unevaluatedProperties\" MUST be a valid JSON Schema. The behavior of this keyword depends on the annotation results of adjacent keywords that apply to the instance location being validated. Validation with \"unevaluatedProperties\" applies only to the child values of instance names that do not appear in the \"properties\", \"patternProperties\", \"additionalProperties\", or \"unevaluatedProperties\" annotation results that apply to the instance location being validated.",
+      "requirement": "MUST",
+      "schema": {
+        "properties": {
+          "a": {}
+        },
+        "unevaluatedProperties": false
+      },
+      "instance": {
+        "a": 1
+      },
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-unevaluatedproperties-sees-allof",
+      "title": "An in-place applicator's annotations reach unevaluatedProperties",
+      "section": "11.3",
+      "section_title": "unevaluatedProperties",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-unevaluatedproperties",
+      "paragraph": "The value of \"unevaluatedProperties\" MUST be a valid JSON Schema. The behavior of this keyword depends on the annotation results of adjacent keywords that apply to the instance location being validated. Validation with \"unevaluatedProperties\" applies only to the child values of instance names that do not appear in the \"properties\", \"patternProperties\", \"additionalProperties\", or \"unevaluatedProperties\" annotation results that apply to the instance location being validated.",
+      "requirement": "MUST",
+      "schema": {
+        "allOf": [
+          {
+            "properties": {
+              "a": {}
+            }
+          },
+          {
+            "properties": {
+              "b": {}
+            }
+          }
+        ],
+        "unevaluatedProperties": false
+      },
+      "instance": {
+        "a": 1,
+        "b": 2
+      },
+      "expect": "valid",
+      "notes": "This is the case that separates a real annotation pass from a local one: neither subschema on its own covers the object."
+    },
+    {
+      "id": "schema-2020-12-unevaluatedproperties-allof-leftover",
+      "title": "unevaluatedProperties still covers what no branch evaluated",
+      "section": "11.3",
+      "section_title": "unevaluatedProperties",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-unevaluatedproperties",
+      "paragraph": "The value of \"unevaluatedProperties\" MUST be a valid JSON Schema. The behavior of this keyword depends on the annotation results of adjacent keywords that apply to the instance location being validated. Validation with \"unevaluatedProperties\" applies only to the child values of instance names that do not appear in the \"properties\", \"patternProperties\", \"additionalProperties\", or \"unevaluatedProperties\" annotation results that apply to the instance location being validated.",
+      "requirement": "MUST",
+      "schema": {
+        "allOf": [
+          {
+            "properties": {
+              "a": {}
+            }
+          },
+          {
+            "properties": {
+              "b": {}
+            }
+          }
+        ],
+        "unevaluatedProperties": false
+      },
+      "instance": {
+        "a": 1,
+        "b": 2,
+        "c": 3
+      },
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-unevaluatedproperties-sees-patternproperties",
+      "title": "patternProperties annotations reach unevaluatedProperties",
+      "section": "11.3",
+      "section_title": "unevaluatedProperties",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-unevaluatedproperties",
+      "paragraph": "The value of \"unevaluatedProperties\" MUST be a valid JSON Schema. The behavior of this keyword depends on the annotation results of adjacent keywords that apply to the instance location being validated. Validation with \"unevaluatedProperties\" applies only to the child values of instance names that do not appear in the \"properties\", \"patternProperties\", \"additionalProperties\", or \"unevaluatedProperties\" annotation results that apply to the instance location being validated.",
+      "requirement": "MUST",
+      "schema": {
+        "patternProperties": {
+          "^x_": {}
+        },
+        "unevaluatedProperties": false
+      },
+      "instance": {
+        "x_1": 1
+      },
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-unevaluatedproperties-sees-the-taken-branch",
+      "title": "Only the branch that applied contributes annotations",
+      "section": "11.3",
+      "section_title": "unevaluatedProperties",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-unevaluatedproperties",
+      "paragraph": "The value of \"unevaluatedProperties\" MUST be a valid JSON Schema. The behavior of this keyword depends on the annotation results of adjacent keywords that apply to the instance location being validated. Validation with \"unevaluatedProperties\" applies only to the child values of instance names that do not appear in the \"properties\", \"patternProperties\", \"additionalProperties\", or \"unevaluatedProperties\" annotation results that apply to the instance location being validated.",
+      "requirement": "MUST",
+      "schema": {
+        "properties": {
+          "a": {}
+        },
+        "if": {
+          "properties": {
+            "a": {
+              "const": 1
+            }
+          },
+          "required": [
+            "a"
+          ]
+        },
+        "then": {
+          "properties": {
+            "b": {}
+          }
+        },
+        "else": {
+          "properties": {
+            "c": {}
+          }
+        },
+        "unevaluatedProperties": false
+      },
+      "instance": {
+        "a": 1,
+        "c": 2
+      },
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-unevaluatedproperties-else-branch",
+      "title": "The else branch contributes its annotations when it applies",
+      "section": "11.3",
+      "section_title": "unevaluatedProperties",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-unevaluatedproperties",
+      "paragraph": "The value of \"unevaluatedProperties\" MUST be a valid JSON Schema. The behavior of this keyword depends on the annotation results of adjacent keywords that apply to the instance location being validated. Validation with \"unevaluatedProperties\" applies only to the child values of instance names that do not appear in the \"properties\", \"patternProperties\", \"additionalProperties\", or \"unevaluatedProperties\" annotation results that apply to the instance location being validated.",
+      "requirement": "MUST",
+      "schema": {
+        "properties": {
+          "a": {}
+        },
+        "if": {
+          "properties": {
+            "a": {
+              "const": 1
+            }
+          },
+          "required": [
+            "a"
+          ]
+        },
+        "then": {
+          "properties": {
+            "b": {}
+          }
+        },
+        "else": {
+          "properties": {
+            "c": {}
+          }
+        },
+        "unevaluatedProperties": false
+      },
+      "instance": {
+        "a": 2,
+        "c": 3
+      },
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-unevaluatedproperties-sees-ref",
+      "title": "A $ref is an in-place applicator, so its annotations count",
+      "section": "11.3",
+      "section_title": "unevaluatedProperties",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-unevaluatedproperties",
+      "paragraph": "The value of \"unevaluatedProperties\" MUST be a valid JSON Schema. The behavior of this keyword depends on the annotation results of adjacent keywords that apply to the instance location being validated. Validation with \"unevaluatedProperties\" applies only to the child values of instance names that do not appear in the \"properties\", \"patternProperties\", \"additionalProperties\", or \"unevaluatedProperties\" annotation results that apply to the instance location being validated.",
+      "requirement": "MUST",
+      "schema": {
+        "$defs": {
+          "Base": {
+            "properties": {
+              "a": {}
+            }
+          }
+        },
+        "$ref": "#/$defs/Base",
+        "unevaluatedProperties": false
+      },
+      "instance": {
+        "a": 1
+      },
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-unevaluatedproperties-as-a-schema",
+      "title": "unevaluatedProperties may be a schema rather than a boolean",
+      "section": "11.3",
+      "section_title": "unevaluatedProperties",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-unevaluatedproperties",
+      "paragraph": "The value of \"unevaluatedProperties\" MUST be a valid JSON Schema. The behavior of this keyword depends on the annotation results of adjacent keywords that apply to the instance location being validated. Validation with \"unevaluatedProperties\" applies only to the child values of instance names that do not appear in the \"properties\", \"patternProperties\", \"additionalProperties\", or \"unevaluatedProperties\" annotation results that apply to the instance location being validated.",
+      "requirement": "MUST",
+      "schema": {
+        "properties": {
+          "a": {}
+        },
+        "unevaluatedProperties": {
+          "type": "string"
+        }
+      },
+      "instance": {
+        "a": 1,
+        "b": 2
+      },
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-boolean-true",
+      "title": "The true schema accepts every instance",
+      "section": "4.3.2",
+      "section_title": "Boolean JSON Schemas",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-boolean-json-schemas",
+      "paragraph": "A JSON Schema MUST be an object or a boolean. The boolean schema values \"true\" and \"false\" are trivial schemas that always produce themselves as assertion results, regardless of the instance value. The boolean schema true is equivalent to the empty schema {}, and the boolean schema false is equivalent to {\"not\": {}}.",
+      "requirement": "MUST",
+      "schema": true,
+      "instance": {
+        "anything": [
+          1,
+          2
+        ]
+      },
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-boolean-false",
+      "title": "The false schema rejects every instance",
+      "section": "4.3.2",
+      "section_title": "Boolean JSON Schemas",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-boolean-json-schemas",
+      "paragraph": "A JSON Schema MUST be an object or a boolean. The boolean schema values \"true\" and \"false\" are trivial schemas that always produce themselves as assertion results, regardless of the instance value. The boolean schema true is equivalent to the empty schema {}, and the boolean schema false is equivalent to {\"not\": {}}.",
+      "requirement": "MUST",
+      "schema": false,
+      "instance": null,
+      "expect": "invalid"
+    },
+    {
+      "id": "schema-2020-12-empty-object-schema",
+      "title": "The empty schema accepts every instance",
+      "section": "4.3.1",
+      "section_title": "JSON Schema Objects and Keywords",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-json-schema-objects-and-keyw",
+      "paragraph": "A JSON Schema MUST be an object or a boolean. The boolean schema values \"true\" and \"false\" are trivial schemas that always produce themselves as assertion results, regardless of the instance value. The boolean schema true is equivalent to the empty schema {}, and the boolean schema false is equivalent to {\"not\": {}}.",
+      "requirement": "MUST",
+      "schema": {},
+      "instance": [
+        1,
+        2,
+        3
+      ],
+      "expect": "valid"
+    },
+    {
+      "id": "schema-2020-12-schema-must-be-object-or-boolean",
+      "title": "An array is not a schema",
+      "section": "4.3",
+      "section_title": "JSON Schema Documents",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-json-schema-documents",
+      "paragraph": "A JSON Schema MUST be an object or a boolean. The boolean schema values \"true\" and \"false\" are trivial schemas that always produce themselves as assertion results, regardless of the instance value. The boolean schema true is equivalent to the empty schema {}, and the boolean schema false is equivalent to {\"not\": {}}.",
+      "requirement": "MUST",
+      "schema": [
+        1,
+        2,
+        3
+      ],
+      "instance": 1,
+      "expect": "schema-error"
+    },
+    {
+      "id": "schema-2020-12-error-path-escapes-solidus",
+      "title": "An error path for a member named a/b is an escaped JSON Pointer",
+      "section": "12.3",
+      "section_title": "Output Formats",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-output-formats",
+      "paragraph": "A JSON Schema output unit contains a keyword location, an absolute keyword location, an instance location, and either an error or an annotation. The instance location is a JSON Pointer to the instance location, and the keyword location is a JSON Pointer to the keyword within the schema.",
+      "requirement": "SHOULD",
+      "schema": {
+        "properties": {
+          "a/b": {
+            "type": "string"
+          }
+        }
+      },
+      "instance": {
+        "a/b": 1
+      },
+      "expect": "invalid",
+      "notes": "Naive concatenation yields /a/b, which addresses a different location. The runner only asserts the verdict; the escaping is asserted in test_schema.mojo."
+    },
+    {
+      "id": "schema-2020-12-error-path-escapes-tilde",
+      "title": "An error path for a member named m~n is an escaped JSON Pointer",
+      "section": "12.3",
+      "section_title": "Output Formats",
+      "section_url": "https://json-schema.org/draft/2020-12/json-schema-core.html#name-output-formats",
+      "paragraph": "A JSON Schema output unit contains a keyword location, an absolute keyword location, an instance location, and either an error or an annotation. The instance location is a JSON Pointer to the instance location, and the keyword location is a JSON Pointer to the keyword within the schema.",
+      "requirement": "SHOULD",
+      "schema": {
+        "properties": {
+          "m~n": {
+            "type": "string"
+          }
+        }
+      },
+      "instance": {
+        "m~n": 1
+      },
+      "expect": "invalid"
+    }
+  ]
+}
