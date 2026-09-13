@@ -3,12 +3,12 @@ authors = ["ehsanmok <ehsanmok@users.noreply.github.com>"]
 channels = ["https://conda.modular.com/max", "conda-forge", "https://prefix.dev/modular-community"]
 name = "json"
 platforms = ["linux-64", "osx-arm64"]
-version = "0.3.1"
+version = "0.4.0"
 preview = ["pixi-build"]
 
 [package]
 name = "json"
-version = "0.3.1"
+version = "0.4.0"
 
 [package.build]
 # Lower bound only, deliberately.
