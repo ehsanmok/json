@@ -10,7 +10,7 @@
   into that tape, so iteration is a tape walk rather than a re-parse.
   `doc["a"]` hands back an independent value, so a nested mutation is
   written through `doc.set_at("/a/b", v)` rather than by chaining.
-- **GPU acceleration.** `target='gpu'` runs natively on NVIDIA, AMD,
+- **GPU acceleration.** `json.gpu.loads_gpu` runs natively on NVIDIA, AMD,
   and Apple Metal under one lean pipeline (fused structural-bitmap
   kernel plus positions-only stream compaction). Only worth it for
   files >100 MB on discrete cards.
@@ -47,7 +47,11 @@ scores.append(Value(95))
 doc.set("scores", scores)
 
 var fast = loads[target="cpu-simdjson"]('{"x": 1}')   # simdjson FFI
-var big  = load[target="gpu"]("huge.json")            # GPU (>100 MB)
+
+# GPU parsing is opt-in: it needs `max-core`, which is under the
+# Modular Community License. See `json/gpu/LICENSE-GPU.md`.
+from json.gpu import load_gpu
+var big = load_gpu("huge.json")                       # GPU (>100 MB)
 
 print(dumps(data, indent="  "))         # pretty print
 ```
@@ -62,7 +66,7 @@ Notes:
   containers allocate nothing.
 - The default CPU parser is the two-pass stage 1 + stage 2 walker
   (`json.cpu.parse_cpu_native_tape`).
-- `loads[target='gpu']` emits a raw structural bitmap on the GPU
+- `json.gpu.loads_gpu` emits a raw structural bitmap on the GPU
   and applies the in-string filter on the CPU side in
   `gpu/tape_adapter.mojo`, so NVIDIA / AMD / Apple Metal share one
   pipeline.

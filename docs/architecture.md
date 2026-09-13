@@ -24,6 +24,27 @@ exactly a declared list of known gaps, so a regression fails the build
 and so does fixing a gap without deleting its entry. Those lists are
 currently empty.
 
+## Licences
+
+`json` is MIT throughout, but what it builds against is not.
+
+| Component | Terms | Where to read them |
+|---|---|---|
+| `json` | MIT | `LICENSE` |
+| Mojo toolchain | Source is Apache-2.0 with LLVM Exceptions; the conda packages still declare `LicenseRef-Modular-Proprietary` and ship the Modular Community License Terms | `info/licenses/LICENSE` in the installed package |
+| simdjson | Apache-2.0, linked into `libsimdjson_wrapper.so` | `NOTICE` |
+| MAX (`max-core`) | Modular Community License; GPU path only | `json/gpu/LICENSE-GPU.md` |
+
+`json/gpu/` is the only part that needs `max-core`, and nothing on the
+CPU import graph names it. That is load-bearing rather than tidy: Mojo
+resolves every import statement it can see, whether or not the branch
+holding it survives `comptime if`, and a module-scope `comptime if` is
+rejected outright, so there is no way to write a conditional import. An
+unimported submodule, by contrast, is never compiled. Keeping the GPU
+entry point in `json/gpu/loads.mojo`, which `json/parser.mojo` does not
+import, is therefore the only construction that keeps a default install
+free of MAX. `pixi run verify-cpu-only` asserts it.
+
 ## System Overview
 
 ```mermaid
@@ -284,6 +305,7 @@ json/
 ├── pointer.mojo               # JSON Pointer (RFC 6901), shared by every layer
 ├── patch.mojo                 # JSON Patch & Merge Patch (RFC 6902 / 7396)
 ├── jsonpath.mojo              # JSONPath (RFC 9535)
+├── gpu/                       # opt-in; needs max-core (see LICENSE-GPU.md)
 ├── regex.mojo                 # I-Regexp (RFC 9485), for schema and JSONPath
 ├── schema.mojo                # JSON Schema draft 2020-12
 ├── ijson.mojo                 # I-JSON (RFC 7493) checks
