@@ -55,12 +55,16 @@ max-core = ">=26.5.0"   # GPU only, Modular Community License
 ```
 
 ```mojo
-from json.gpu import loads_gpu
+from json import loads, load
+from json_gpu import Gpu
 
-var data = loads_gpu(huge_json)
+var data = loads[Gpu](huge_json)
+var file = load[Gpu]("huge.json")
 ```
 
-Read the [Modular Community License](https://www.modular.com/legal/community) before you add that dependency: it places conditions on commercial and production use that MIT does not, and those are between you and Modular. See [`json/gpu/LICENSE-GPU.md`](./json/gpu/LICENSE-GPU.md).
+One `loads`, selected by backend type. The type has to come from `json_gpu` rather than a `target="gpu"` name because the name would have to be resolved inside `json/parser.mojo`, and that module is precisely the one that must never reference the GPU code.
+
+Read the [Modular Community License](https://www.modular.com/legal/community) before you add that dependency: it places conditions on commercial and production use that MIT does not, and those are between you and Modular. See [`json_gpu/LICENSE-GPU.md`](./json_gpu/LICENSE-GPU.md).
 
 Hardware: NVIDIA CUDA 7.0+, AMD ROCm 6+, or Apple Silicon. See [GPU compatibility](https://docs.modular.com/max/packages#gpu-compatibility).
 
@@ -238,6 +242,6 @@ The full task list, including every per-example and per-fuzz target, is in [`pix
 | `json` | MIT | [`LICENSE`](./LICENSE) |
 | Mojo toolchain | The compiler and standard library sources are Apache-2.0 with LLVM Exceptions. The `mojo` and `mojo-compiler` conda packages you actually install still declare `LicenseRef-Modular-Proprietary` and ship the Modular Community License Terms. | `info/licenses/LICENSE` inside the installed package |
 | simdjson | Apache-2.0. `libsimdjson_wrapper.so`, which this package builds and ships, links it. | [`NOTICE`](./NOTICE) |
-| MAX (`max-core`) | **Modular Community License**, not an open-source licence. Needed only for the GPU path, never installed by depending on `json`. | [`json/gpu/LICENSE-GPU.md`](./json/gpu/LICENSE-GPU.md) |
+| MAX (`max-core`) | **Modular Community License**, not an open-source licence. Needed only for the GPU path, never installed by depending on `json`. | [`json_gpu/LICENSE-GPU.md`](./json_gpu/LICENSE-GPU.md) |
 
 The published package declares `mojo` and `simdjson` as dependencies and `max-core` only as a constraint, so installing `json` brings in nothing under the Modular Community License.

@@ -5,7 +5,7 @@ from max.gpu.host import DeviceContext
 from std.collections import List
 from std.memory import unsafe_memcpy
 
-from json.gpu.bracket_match import match_brackets_gpu
+from json_gpu.bracket_match import match_brackets_gpu
 from json.types import JSONResult
 
 

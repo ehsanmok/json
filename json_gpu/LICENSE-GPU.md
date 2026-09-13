@@ -17,7 +17,10 @@ component and compiles no file in this directory. Reaching it takes an
 explicit import:
 
 ```mojo
-from json.gpu import loads_gpu
+from json import loads
+from json_gpu import Gpu
+
+var data = loads[Gpu](huge_json)
 ```
 
 and a dependency you add yourself:

@@ -244,6 +244,29 @@ def parse_number_scalar(s: String, start: Int) raises -> Value:
 # =============================================================================
 
 
+trait ParseBackend:
+    """A parser a caller can select with `loads[Backend](...)`.
+
+    The built-in targets are chosen by name, `loads[target="cpu"]`,
+    because they all live in this module. A backend that lives
+    somewhere else cannot be: Mojo resolves an import statement
+    wherever it appears, including inside a `comptime if` branch that
+    is false, and a module-scope `comptime if` is rejected outright, so
+    there is no way for this module to import an implementation
+    conditionally. Naming the backend by type instead moves the import
+    to the caller, who is the one who decided to use it.
+
+    `json_gpu.Gpu` is the backend that arrangement exists for: it needs
+    `max-core`, which is licensed differently from this project, so it
+    must not be reachable from a build that never asked for it.
+    """
+
+    @staticmethod
+    def parse(var s: String) raises -> Value:
+        """Parse a whole JSON document."""
+        ...
+
+
 def loads[target: StaticString = "cpu"](var s: String) raises -> Value:
     """Deserialize JSON string to a Value (like Python's json.loads).
 
@@ -270,6 +293,41 @@ def loads[target: StaticString = "cpu"](var s: String) raises -> Value:
     return _loads_value[target](s^)
 
 
+def loads[backend: ParseBackend](var s: String) raises -> Value:
+    """Deserialize a JSON string with an out-of-tree backend.
+
+    Parameters:
+        backend: A type conforming to `ParseBackend`, such as
+            `json_gpu.Gpu`.
+
+    Args:
+        s: JSON string to parse.
+
+    Returns:
+        Parsed Value.
+
+    Example:
+        from json_gpu import Gpu
+        var data = loads[Gpu](huge_json).
+    """
+    return backend.parse(s^)
+
+
+def loads[backend: ParseBackend](bytes: Span[UInt8, _]) raises -> Value:
+    """`loads[backend]` for callers that already hold bytes.
+
+    Parameters:
+        backend: A type conforming to `ParseBackend`.
+
+    Args:
+        bytes: JSON text to parse.
+
+    Returns:
+        Parsed Value.
+    """
+    return backend.parse(String(unsafe_from_utf8=bytes))
+
+
 def _loads_value[target: StaticString](var s: String) raises -> Value:
     """The body of `loads`, callable without overload ambiguity.
 
@@ -287,12 +345,11 @@ def _loads_value[target: StaticString](var s: String) raises -> Value:
         # holding it survives `comptime if`, so a `from .gpu import ...`
         # anywhere in this module would make `max-core` a hard
         # requirement of `import json`. Keeping the GPU entry point in
-        # `json/gpu/loads.mojo`, which nothing on the CPU path imports,
+        # `json_gpu/loads.mojo`, which nothing on the CPU path imports,
         # is what lets the default install need only Mojo and simdjson.
-        comptime assert False, (
-            "target='gpu' moved in 0.4.0: install max-core and call"
-            " json.gpu.loads_gpu"
-        )
+        comptime assert (
+            False
+        ), "target='gpu' moved in 0.4.0: install max-core and call json_gpu"
     else:
         return _parse_cpu_mojo(s^)
 
@@ -486,6 +543,53 @@ def load[target: StaticString = "cpu"](path: String) raises -> Value:
         return _list_to_array_value(values)
 
     return loads[target](content)
+
+
+def load[backend: ParseBackend](path: String) raises -> Value:
+    """Load a file with an out-of-tree backend, `.ndjson` included.
+
+    Parameters:
+        backend: A type conforming to `ParseBackend`.
+
+    Args:
+        path: Path to a `.json` or `.ndjson` file.
+
+    Returns:
+        Value, or an array of values for `.ndjson`.
+
+    Example:
+        from json_gpu import Gpu
+        var data = load[Gpu]("huge.json").
+    """
+    var f = open(path, "r")
+    var content = f.read()
+    f.close()
+
+    if path.endswith(".ndjson"):
+        var values = List[Value]()
+        var lines = _split_lines(content)
+        for i in range(len(lines)):
+            if _is_whitespace_only(lines[i]):
+                continue
+            values.append(backend.parse(lines[i]))
+        return _list_to_array_value(values)
+
+    return backend.parse(content^)
+
+
+def load[backend: ParseBackend](mut f: FileHandle) raises -> Value:
+    """`load[backend]` reading from an already-open file.
+
+    Parameters:
+        backend: A type conforming to `ParseBackend`.
+
+    Args:
+        f: FileHandle positioned at the start of one JSON value.
+
+    Returns:
+        Parsed Value.
+    """
+    return backend.parse(f.read())
 
 
 def _list_to_array_value(values: List[Value]) raises -> Value:

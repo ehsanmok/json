@@ -11,14 +11,14 @@
 
 from std.sys import has_accelerator
 
-from json import loads, dumps, Value
-from json.gpu import loads_gpu, load_gpu
+from json import loads, load, dumps, Value
+from json_gpu import Gpu
 
 
 def _demo() raises:
     print("1. Basic GPU parsing:")
     var json_str = '{"message": "Hello from GPU!", "count": 42}'
-    var data = loads_gpu(json_str)
+    var data = loads[Gpu](json_str)
     print("   Input:", json_str)
     print("   Parsed:", dumps(data))
     print()
@@ -35,7 +35,7 @@ def _demo() raises:
             "generated_at": "2024-01-01T00:00:00Z"
         }
     }"""
-    var nested_data = loads_gpu(nested_json)
+    var nested_data = loads[Gpu](nested_json)
     print("   Parsed successfully!")
     print("   Result:", dumps(nested_data))
     print()
@@ -45,7 +45,7 @@ def _demo() raises:
         _ = f.write(nested_json)
 
     with open("gpu_test.json", "r") as f:
-        var file_data = load_gpu(f)
+        var file_data = load[Gpu](f)
         print("   Loaded from file successfully!")
         var keys = file_data.object_keys()
         print("   Object keys:", ", ".join(keys))
@@ -54,7 +54,7 @@ def _demo() raises:
     print("4. CPU vs GPU comparison:")
     var test_json = '{"x": 1, "y": 2, "z": 3}'
     var cpu_result = loads(test_json)
-    var gpu_result = loads_gpu(test_json)
+    var gpu_result = loads[Gpu](test_json)
     print("   CPU result:", dumps(cpu_result))
     print("   GPU result:", dumps(gpu_result))
     print()

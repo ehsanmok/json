@@ -8,7 +8,7 @@ from std.memory import unsafe_memcpy
 
 def test_stream_compact_simple() raises:
     """Test stream compaction with simple bitmap."""
-    from json.gpu.stream_compact import extract_positions_gpu_lean
+    from json_gpu.stream_compact import extract_positions_gpu_lean
 
     var ctx = DeviceContext()
 
@@ -38,7 +38,7 @@ def test_stream_compact_simple() raises:
 
 def test_stream_compact_multiple_words() raises:
     """Test stream compaction with multiple bitmap words."""
-    from json.gpu.stream_compact import extract_positions_gpu_lean
+    from json_gpu.stream_compact import extract_positions_gpu_lean
 
     var ctx = DeviceContext()
 
@@ -74,7 +74,7 @@ def test_stream_compact_multiple_words() raises:
 
 def test_stream_compact_empty() raises:
     """Test stream compaction with empty bitmap."""
-    from json.gpu.stream_compact import extract_positions_gpu_lean
+    from json_gpu.stream_compact import extract_positions_gpu_lean
 
     var ctx = DeviceContext()
 
@@ -103,7 +103,7 @@ def test_stream_compact_empty() raises:
 
 def test_stream_compact_all_set() raises:
     """Test stream compaction with all bits set in one word."""
-    from json.gpu.stream_compact import extract_positions_gpu_lean
+    from json_gpu.stream_compact import extract_positions_gpu_lean
 
     var ctx = DeviceContext()
 
@@ -133,7 +133,7 @@ def test_stream_compact_all_set() raises:
 
 def test_stream_compact_large() raises:
     """Test stream compaction with larger bitmap (multiple blocks)."""
-    from json.gpu.stream_compact import extract_positions_gpu_lean
+    from json_gpu.stream_compact import extract_positions_gpu_lean
 
     var ctx = DeviceContext()
 

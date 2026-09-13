@@ -1,5 +1,5 @@
 # GPU loading tests
-# Tests: loads_gpu(...)
+# Tests: loads[Gpu](...)
 #
 # The GPU path runs natively on NVIDIA, AMD, and Apple Metal. Tests
 # are short-circuited only on hosts without any accelerator at all
@@ -9,10 +9,10 @@ from std.os import remove
 from std.sys import has_accelerator
 from std.testing import assert_equal, assert_true, TestSuite
 
-from json import loads, dumps, Value, Null
-from json.gpu import loads_gpu, load_gpu, loads_ndjson_gpu
+from json import loads, load, dumps, Value, Null
+from json_gpu import Gpu
 from json import serialize_json, deserialize_json
-from json.gpu.tape_adapter import parse_gpu_to_value
+from json_gpu.tape_adapter import parse_gpu_to_value
 from json.cpu.stage1_scalar import parse_structural_scalar
 from json.types import JSONResult
 
@@ -30,7 +30,7 @@ def test_loads_gpu_simple_object() raises:
     """Test GPU loads with simple object."""
     comptime if not GPU_RUNTIME_AVAILABLE:
         return
-    var v = loads_gpu('{"name": "Alice"}')
+    var v = loads[Gpu]('{"name": "Alice"}')
     assert_true(v.is_object(), "GPU should return object")
 
 
@@ -38,7 +38,7 @@ def test_loads_gpu_simple_array() raises:
     """Test GPU loads with simple array."""
     comptime if not GPU_RUNTIME_AVAILABLE:
         return
-    var v = loads_gpu("[1, 2, 3, 4, 5]")
+    var v = loads[Gpu]("[1, 2, 3, 4, 5]")
     assert_true(v.is_array(), "GPU should return array")
 
 
@@ -46,7 +46,7 @@ def test_loads_gpu_nested() raises:
     """Test GPU loads with nested structure."""
     comptime if not GPU_RUNTIME_AVAILABLE:
         return
-    var v = loads_gpu('{"data": {"nested": [1, 2, 3]}}')
+    var v = loads[Gpu]('{"data": {"nested": [1, 2, 3]}}')
     assert_true(v.is_object(), "GPU should handle nested structures")
 
 
@@ -54,7 +54,7 @@ def test_loads_gpu_string() raises:
     """Test GPU loads with string."""
     comptime if not GPU_RUNTIME_AVAILABLE:
         return
-    var v = loads_gpu('"hello world"')
+    var v = loads[Gpu]('"hello world"')
     assert_true(v.is_string(), "GPU should return string")
 
 
@@ -62,7 +62,7 @@ def test_loads_gpu_number() raises:
     """Test GPU loads with number."""
     comptime if not GPU_RUNTIME_AVAILABLE:
         return
-    var v = loads_gpu("12345")
+    var v = loads[Gpu]("12345")
     assert_true(v.is_int() or v.is_float(), "GPU should return number")
 
 
@@ -70,7 +70,7 @@ def test_loads_gpu_bool() raises:
     """Test GPU loads with boolean."""
     comptime if not GPU_RUNTIME_AVAILABLE:
         return
-    var v = loads_gpu("true")
+    var v = loads[Gpu]("true")
     assert_true(v.is_bool(), "GPU should return bool")
 
 
@@ -78,7 +78,7 @@ def test_loads_gpu_null() raises:
     """Test GPU loads with null."""
     comptime if not GPU_RUNTIME_AVAILABLE:
         return
-    var v = loads_gpu("null")
+    var v = loads[Gpu]("null")
     assert_true(v.is_null(), "GPU should return null")
 
 
@@ -86,7 +86,7 @@ def test_loads_gpu_bool_false() raises:
     """Test GPU loads with false."""
     comptime if not GPU_RUNTIME_AVAILABLE:
         return
-    var v = loads_gpu("false")
+    var v = loads[Gpu]("false")
     assert_true(v.is_bool(), "GPU should return bool")
     assert_equal(v.bool_value(), False)
 
@@ -95,7 +95,7 @@ def test_loads_gpu_negative_number() raises:
     """Test GPU loads with negative number."""
     comptime if not GPU_RUNTIME_AVAILABLE:
         return
-    var v = loads_gpu("-42")
+    var v = loads[Gpu]("-42")
     assert_true(v.is_int() or v.is_float(), "GPU should return number")
 
 
@@ -103,7 +103,7 @@ def test_loads_gpu_float() raises:
     """Test GPU loads with float."""
     comptime if not GPU_RUNTIME_AVAILABLE:
         return
-    var v = loads_gpu("3.14159")
+    var v = loads[Gpu]("3.14159")
     assert_true(v.is_float(), "GPU should return float")
 
 
@@ -111,7 +111,7 @@ def test_loads_gpu_empty_object() raises:
     """Test GPU loads with empty object."""
     comptime if not GPU_RUNTIME_AVAILABLE:
         return
-    var v = loads_gpu("{}")
+    var v = loads[Gpu]("{}")
     assert_true(v.is_object(), "GPU should return empty object")
 
 
@@ -119,7 +119,7 @@ def test_loads_gpu_empty_array() raises:
     """Test GPU loads with empty array."""
     comptime if not GPU_RUNTIME_AVAILABLE:
         return
-    var v = loads_gpu("[]")
+    var v = loads[Gpu]("[]")
     assert_true(v.is_array(), "GPU should return empty array")
 
 
@@ -127,7 +127,7 @@ def test_loads_gpu_array_of_objects() raises:
     """Test GPU loads with array of objects."""
     comptime if not GPU_RUNTIME_AVAILABLE:
         return
-    var v = loads_gpu('[{"a": 1}, {"b": 2}]')
+    var v = loads[Gpu]('[{"a": 1}, {"b": 2}]')
     assert_true(v.is_array(), "GPU should return array")
 
 
@@ -135,7 +135,7 @@ def test_loads_gpu_deeply_nested() raises:
     """Test GPU loads with deeply nested structure."""
     comptime if not GPU_RUNTIME_AVAILABLE:
         return
-    var v = loads_gpu('{"a": {"b": {"c": {"d": 1}}}}')
+    var v = loads[Gpu]('{"a": {"b": {"c": {"d": 1}}}}')
     assert_true(v.is_object(), "GPU should handle deep nesting")
 
 
@@ -150,7 +150,7 @@ def test_cpu_gpu_equivalence_object() raises:
         return
     var json = '{"a": 1, "b": 2}'
     var cpu_result = loads[target="cpu"](json)
-    var gpu_result = loads_gpu(json)
+    var gpu_result = loads[Gpu](json)
     assert_equal(cpu_result.is_object(), gpu_result.is_object())
 
 
@@ -160,7 +160,7 @@ def test_cpu_gpu_equivalence_array() raises:
         return
     var json = "[1, 2, 3, 4, 5]"
     var cpu_result = loads[target="cpu"](json)
-    var gpu_result = loads_gpu(json)
+    var gpu_result = loads[Gpu](json)
     assert_equal(cpu_result.is_array(), gpu_result.is_array())
 
 
@@ -170,7 +170,7 @@ def test_cpu_gpu_equivalence_nested() raises:
         return
     var json = '{"users": [{"name": "Alice"}, {"name": "Bob"}], "count": 2}'
     var cpu_result = loads[target="cpu"](json)
-    var gpu_result = loads_gpu(json)
+    var gpu_result = loads[Gpu](json)
     assert_equal(cpu_result.is_object(), gpu_result.is_object())
 
 
@@ -179,7 +179,7 @@ def test_gpu_dumps_roundtrip() raises:
     comptime if not GPU_RUNTIME_AVAILABLE:
         return
     var json = '{"test": "value"}'
-    var v = loads_gpu(json)
+    var v = loads[Gpu](json)
     var output = dumps(v)
     var v2 = loads[target="cpu"](output)
     assert_true(v2.is_object(), "GPU roundtrip should produce valid object")
@@ -210,7 +210,7 @@ def test_gpu_reflection_roundtrip() raises:
     comptime if not GPU_RUNTIME_AVAILABLE:
         return
     var json_str = '{"name":"GPU Test","age":42,"active":true}'
-    var parsed = loads_gpu(json_str)
+    var parsed = loads[Gpu](json_str)
     assert_equal(parsed["name"].string_value(), "GPU Test")
 
     var person = deserialize_json[_GPUPerson](json_str)
@@ -239,7 +239,7 @@ def test_gpu_handles_escaped_quotes_in_strings() raises:
     comptime if not GPU_RUNTIME_AVAILABLE:
         return
     var json = String('{"msg":"He said \\"hi\\"","items":[1,2,3]}')
-    var v = loads_gpu(json)
+    var v = loads[Gpu](json)
     assert_equal(v["msg"].string_value(), 'He said "hi"')
     assert_equal(v["items"].array_count(), 3)
     assert_equal(v["items"][0].int_value(), 1)
@@ -253,7 +253,7 @@ def test_gpu_handles_brace_inside_string() raises:
     comptime if not GPU_RUNTIME_AVAILABLE:
         return
     var json = String('{"sql":"SELECT * FROM t WHERE k=\'a,b,c\'","n":7}')
-    var v = loads_gpu(json)
+    var v = loads[Gpu](json)
     assert_equal(v["sql"].string_value(), "SELECT * FROM t WHERE k='a,b,c'")
     assert_equal(v["n"].int_value(), 7)
 
@@ -310,7 +310,7 @@ def test_gpu_cross_chunk_strings() raises:
 
     # CPU parse as oracle.
     var v_cpu = loads(json)
-    var v_gpu = loads_gpu(json)
+    var v_gpu = loads[Gpu](json)
 
     # Oracle and GPU must agree on the structurally-rich tail.
     var users_cpu = v_cpu[1]["users"]
@@ -386,17 +386,20 @@ def test_load_ndjson_gpu() raises:
     f_out.write('{"x":1}\n{"x":2}\n{"x":3}\n')
     f_out.close()
 
-    var data = load_gpu("test_gpu_api.ndjson")
+    var data = load[Gpu]("test_gpu_api.ndjson")
     assert_true(data.is_array())
     assert_equal(data.array_count(), 3)
 
 
-def test_loads_ndjson_gpu() raises:
+def test_loads_ndjson_on_gpu() raises:
     """Newline-delimited JSON, one line per GPU launch."""
     comptime if not GPU_RUNTIME_AVAILABLE:
         return
-    var values = loads_ndjson_gpu('{"id":1}\n{"id":2}')
-    assert_equal(len(values), 2)
+    var f_out = open("test_gpu_lines.ndjson", "w")
+    f_out.write('{"id":1}\n{"id":2}\n')
+    f_out.close()
+    var values = load[Gpu]("test_gpu_lines.ndjson")
+    assert_equal(values.array_count(), 2)
 
 
 def main() raises:
@@ -409,5 +412,6 @@ def main() raises:
     # Best effort: a test that failed early may not have created it.
     try:
         remove("test_gpu_api.ndjson")
+        remove("test_gpu_lines.ndjson")
     except:
         pass

@@ -18,7 +18,8 @@ from std.sys import argv
 from std.memory import unsafe_memcpy
 from std.collections import List
 
-from json.gpu import loads_gpu, parse_json_gpu_from_pinned
+from json import loads
+from json_gpu import Gpu, parse_json_gpu_from_pinned
 from max.gpu.host import DeviceContext
 from max.benchmark import bencher_iter_custom
 
@@ -58,7 +59,7 @@ def main() raises:
     # Warmup GPU
     print("Warming up GPU...")
     for _ in range(2):
-        var result = loads_gpu(content)
+        var result = loads[Gpu](content)
         _ = result.is_object()
     print()
 
@@ -171,7 +172,7 @@ def main() raises:
         @parameter
         @always_inline
         def call_fn() raises:
-            var v = loads_gpu(content)
+            var v = loads[Gpu](content)
             _ = v.is_object()
 
         b.iter[call_fn]()

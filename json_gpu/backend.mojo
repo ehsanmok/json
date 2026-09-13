@@ -2,7 +2,7 @@
 #
 # Licensing: this file is MIT like the rest of the library, but using
 # it requires `max-core`, which is governed by the Modular Community
-# License. See `json/gpu/LICENSE-GPU.md`.
+# License. See `json_gpu/LICENSE-GPU.md`.
 #
 # These live here rather than in `json/parser.mojo` for a mechanical
 # reason. Mojo resolves every import statement it can see, whether or
@@ -18,21 +18,49 @@
 from std.collections import List
 from std.memory import unsafe_memcpy
 
-from ..errors import json_parse_error
-from ..parser import (
+from json.errors import json_parse_error
+from json.parser import (
+    ParseBackend,
     _is_whitespace_only,
     _list_to_array_value,
     _split_lines,
     parse_number_scalar,
     parse_string_scalar,
 )
-from ..types import JSONInput
-from ..value import Value, Null
+from json.types import JSONInput
+from json.value import Value, Null
 from .parser import parse_json_gpu
 from .tape_adapter import parse_gpu_to_value
 
 
-def loads_gpu(s: String) raises -> Value:
+struct Gpu(ParseBackend):
+    """The GPU backend, selected with `loads[Gpu](...)`.
+
+    A type rather than a target name because a name would have to be
+    resolved inside `json/parser.mojo`, and that module cannot mention
+    this one: Mojo resolves an import statement wherever it appears,
+    even in a `comptime if` branch that is false, so a single reference
+    would make `max-core` a requirement of `import json` for everyone.
+    Naming the backend by type puts the import in the caller's hands.
+
+    Using it requires `max-core`, which is governed by the Modular
+    Community License. See `json_gpu/LICENSE-GPU.md`.
+
+    Example:
+        from json import loads, load
+        from json.gpu import Gpu
+
+        var data = loads[Gpu](huge_json)
+        var file = load[Gpu]("huge.json").
+    """
+
+    @staticmethod
+    def parse(var s: String) raises -> Value:
+        """Parse a whole JSON document on the GPU."""
+        return _parse_on_gpu(s)
+
+
+def _parse_on_gpu(s: String) raises -> Value:
     """Parse JSON on the GPU, returning a tape-backed `Value`.
 
     The GPU computes structural positions in parallel; the tape adapter
@@ -53,10 +81,6 @@ def loads_gpu(s: String) raises -> Value:
 
     Raises:
         Error: On malformed input, or if no accelerator is available.
-
-    Example:
-        from json.gpu import loads_gpu
-        var data = loads_gpu(huge_json).
     """
     var data = s.as_bytes()
     var start = 0
@@ -100,55 +124,3 @@ def loads_gpu(s: String) raises -> Value:
     var result = parse_json_gpu(input_obj^)
 
     return parse_gpu_to_value(s, result^)
-
-
-def load_gpu(mut f: FileHandle) raises -> Value:
-    """Read an open file and parse it on the GPU.
-
-    Args:
-        f: An open file positioned at the start of one JSON value.
-
-    Returns:
-        The parsed value.
-    """
-    return loads_gpu(f.read())
-
-
-def load_gpu(path: String) raises -> Value:
-    """Read a file and parse it on the GPU.
-
-    Format is taken from the extension, as in `load`: a `.ndjson` file
-    is read as one value per line and returned as an array.
-
-    Args:
-        path: Path to a `.json` or `.ndjson` file.
-
-    Returns:
-        The parsed value, or an array of values for `.ndjson`.
-    """
-    var f = open(path, "r")
-    var content = f.read()
-    f.close()
-
-    if path.endswith(".ndjson"):
-        return _list_to_array_value(loads_ndjson_gpu(content))
-
-    return loads_gpu(content)
-
-
-def loads_ndjson_gpu(s: String) raises -> List[Value]:
-    """Parse newline-delimited JSON, each line on the GPU.
-
-    Args:
-        s: NDJSON text, one JSON value per line.
-
-    Returns:
-        One value per non-empty line.
-    """
-    var out = List[Value]()
-    var lines = _split_lines(s)
-    for i in range(len(lines)):
-        if _is_whitespace_only(lines[i]):
-            continue
-        out.append(loads_gpu(lines[i]))
-    return out^

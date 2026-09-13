@@ -5,7 +5,7 @@
 # consumer of the published conda package gets: Mojo and simdjson, and
 # nothing from Modular's MAX distribution. If `max-core` reappears here
 # it means some module on the CPU import graph has started naming
-# `json.gpu` again, which puts a proprietary-licensed dependency back
+# `json_gpu` again, which puts a proprietary-licensed dependency back
 # into every downstream lock file. That is the regression this check
 # exists to catch, so it fails the build rather than warning.
 set -euo pipefail
@@ -24,7 +24,7 @@ done
 
 if [ -n "$bad" ]; then
   echo "FAIL: the default environment contains:$bad"
-  echo "      Something on the CPU import graph is importing json.gpu."
+  echo "      Something on the CPU import graph is importing json_gpu."
   exit 1
 fi
 
