@@ -114,7 +114,7 @@ from .pointer import (
     escape_token,
     parse_pointer,
 )
-from .jsonpath import jsonpath_query, jsonpath_one
+from .jsonpath import JSONPath, jsonpath_query, jsonpath_one
 from .schema import validate, is_valid, ValidationResult, ValidationError
 
 # Streaming/lazy parsing (CPU only).
