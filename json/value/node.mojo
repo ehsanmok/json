@@ -165,3 +165,45 @@ struct OwnedValue(Copyable, Deinitable, Movable):
     def push(mut self, var value: OwnedValue):
         """Append to an array node. O(1) amortized."""
         self.array_val.append(value^)
+
+    def take_key(mut self, key: String) raises -> OwnedValue:
+        """Remove `key` from an object node and hand back its value.
+
+        The value is moved out rather than copied, so removing a large
+        subtree costs no more than removing a scalar. Removal shifts the
+        later members down one slot, which keeps the two parallel lists
+        in step and preserves the insertion order of everything that
+        stays; an object that round-trips through a removal therefore
+        still serializes its remaining members in the order they were
+        parsed.
+
+        Args:
+            key: The member name to remove.
+
+        Returns:
+            The value that was stored under `key`.
+
+        Raises:
+            Error: If no member named `key` is present.
+        """
+        var pos = self.find_key(key)
+        if pos < 0:
+            raise Error("Key not found: " + key)
+        _ = self.object_keys.pop(pos)
+        return self.object_values.pop(pos)
+
+    def take_index(mut self, index: Int) raises -> OwnedValue:
+        """Remove element `index` from an array node and hand it back.
+
+        Args:
+            index: A position already normalized into `0 ..< len`.
+
+        Returns:
+            The element that was stored at `index`.
+
+        Raises:
+            Error: If `index` names no element.
+        """
+        if index < 0 or index >= len(self.array_val):
+            raise Error("Array index out of bounds: " + String(index))
+        return self.array_val.pop(index)

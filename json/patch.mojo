@@ -137,7 +137,7 @@ def _apply_operation(document: Value, operation: Value) raises -> Value:
     elif op_type == "test":
         var expected = _member(operation, "value")
         var actual = _resolve(document, tokens)
-        if not _values_equal(actual, expected):
+        if actual != expected:
             raise Error("test failed: value at '" + path + "' does not match")
         return document.copy()
     else:
@@ -407,7 +407,7 @@ def create_merge_patch(source: Value, target: Value) raises -> Value:
         if not target_has_key:
             # Key was removed
             patch.set(key, Value(Null()))
-        elif not _values_equal(source_val, target_val):
+        elif source_val != target_val:
             # Key was changed
             if source_val.is_object() and target_val.is_object():
                 var sub_patch = create_merge_patch(source_val, target_val)
@@ -489,79 +489,3 @@ def _array_remove(arr: Value, index: Int) raises -> Value:
         if i != index:
             out.append(items[i])
     return out^
-
-
-def _numbers_equal(a: Value, b: Value) -> Bool:
-    """Numeric equality as RFC 6902 section 4.6 defines it.
-
-    "Numerically equal" is about the value, not the spelling, so `1`
-    and `1.0` are the same number. Two integers are compared as
-    integers so that magnitudes above the range a `Float64` can name
-    exactly do not collapse into each other.
-    """
-    var a_integral = a.is_int() or a.is_uint()
-    var b_integral = b.is_int() or b.is_uint()
-    if a_integral and b_integral:
-        if a.is_uint() or b.is_uint():
-            # A negative value is never equal to one that needed the
-            # unsigned range to be represented at all.
-            if a.is_int() and a.int_value() < 0:
-                return False
-            if b.is_int() and b.int_value() < 0:
-                return False
-            var a_bits = a.uint_value() if a.is_uint() else UInt64(
-                a.int_value()
-            )
-            var b_bits = b.uint_value() if b.is_uint() else UInt64(
-                b.int_value()
-            )
-            return a_bits == b_bits
-        return a.int_value() == b.int_value()
-
-    var a_number = a.float_value() if a.is_float() else Float64(a.int_value())
-    var b_number = b.float_value() if b.is_float() else Float64(b.int_value())
-    return a_number == b_number
-
-
-def _values_equal(a: Value, b: Value) raises -> Bool:
-    """Deep equality, with member order ignored.
-
-    RFC 6902 section 4.6 says two objects are equal when they have the
-    same members regardless of order, so this compares member by
-    member instead of comparing the serialized text, which made
-    `{"a":1,"b":2}` and `{"b":2,"a":1}` fail a `test` that should pass.
-    """
-    if a.is_null():
-        return b.is_null()
-    if a.is_bool():
-        return b.is_bool() and a.bool_value() == b.bool_value()
-    if a.is_number():
-        return b.is_number() and _numbers_equal(a, b)
-    if a.is_string():
-        return b.is_string() and a.string_value() == b.string_value()
-
-    if a.is_array():
-        if not b.is_array() or a.array_count() != b.array_count():
-            return False
-        var left = a.array_items()
-        var right = b.array_items()
-        for i in range(len(left)):
-            if not _values_equal(left[i], right[i]):
-                return False
-        return True
-
-    if a.is_object():
-        if not b.is_object() or a.object_count() != b.object_count():
-            return False
-        var members = a.object_items()
-        for i in range(len(members)):
-            var other: Value
-            try:
-                other = b[members[i][0]]
-            except:
-                return False
-            if not _values_equal(members[i][1], other):
-                return False
-        return True
-
-    return False

@@ -219,7 +219,43 @@ flowchart LR
 
 ## Value Type
 
-The `Value` struct represents any JSON value (null, bool, int, float, string, array, object).
+The `Value` struct represents any JSON value (null, bool, int, float,
+string, array, object). It carries one of two representations -- a
+tape-backed view over a shared `Document`, or an owned mutable tree --
+and which one it holds is an implementation detail; the whole API
+behaves identically either way. A parsed value converts to the owned
+tree the first time it is mutated, and at most once.
+
+It behaves the way a JSON value behaves elsewhere:
+
+- `len(v)` counts an array's elements, an object's members, or a
+  string's bytes, and raises on a scalar rather than answering 0.
+- `Bool(v)` is falsy for null, `false`, zero, and any empty string,
+  array or object.
+- `"key" in obj` and `3 in arr` test membership.
+- `==` is a **structural deep comparison**: member order does not
+  matter and `1 == 1.0`, because an object carries no order and JSON
+  has one number type. `__hash__` agrees with it, so a `Value` can key
+  a `Dict` and a reordered object finds the same bucket.
+- `for item in arr:` and `obj.items()` / `keys()` / `values()` are
+  lazy. `array_items()` / `object_items()` still build the whole
+  `List` up front and are kept only for compatibility.
+- Reading a scalar has three flavours by design: `int_value()` and
+  friends never raise and never check the tag, `as_int()` and friends
+  raise an error naming the type actually found, and `int_or(default)`
+  and friends substitute a fallback.
+- `get(key)` returns `Optional[Value]`, `get(key, default)` a value,
+  `__setitem__` / `remove` / `pop` write and delete, negative indices
+  count from the end, and `try_at(pointer)` is the non-raising twin of
+  `at(pointer)`.
+
+**Breaking change in 0.4.0:** `get(key)` used to return the member's
+raw JSON *text* and raise on an absent key. That behaviour now lives
+under the name that says what it does, `raw_member(key)`.
+
+A nested write goes through a JSON Pointer. `doc["a"]` hands back an
+independent value, so `doc["a"].set("b", v)` edits a detached child;
+`doc.set_at("/a/b", v)` is the spelling that reaches `doc`.
 
 See [API Reference](https://ehsanmok.github.io/json/) for complete `Value` methods.
 

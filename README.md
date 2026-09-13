@@ -18,7 +18,7 @@ print(dumps(data, indent="  "))        # pretty print
 ## Why json
 
 - **Pure Mojo, zero FFI on the hot path.** The default CPU parser is a 64-byte branchless SIMD scan (PSHUFB-style classifier with prefix-XOR escape tracking) that emits a packed `Document` tape. The simdjson FFI shim is opt-in via `target="cpu-simdjson"`.
-- **One representation across CPU and GPU.** Every backend writes into the same tape-backed `Document`. `Value` is a stable index into that tape, so iteration is a tape walk rather than a re-parse, and nested mutation propagates through the parent (`doc["a"]["b"].set(...)` is observed by `doc`).
+- **One representation across CPU and GPU.** Every backend writes into the same tape-backed `Document`. `Value` is a stable index into that tape, so iteration is a tape walk rather than a re-parse. A parsed value converts to an owned tree the first time it is mutated, once rather than once per write, and a nested write is addressed by pointer: `doc.set_at("/a/b", v)`.
 - **GPU that wins on big files.** [Numbers below](#performance); details in [`docs/performance.md`](./docs/performance.md).
 - **Reflection serde with no boilerplate.** `serialize_json(struct)` and `deserialize_json[T](json)` walk struct fields at compile time, no hand-written `to_json` / `from_json` needed. Custom traits (`JsonSerializable`, `JsonDeserializable`) override the default for one type without abandoning reflection for the rest.
 - **Strict where it matters, lenient where it asks for it.** RFC 8259 by default; opt into comments, trailing commas, and a custom max-depth via `ParserConfig`, or tighten to I-JSON (RFC 7493) with `ParserConfig.interoperable()`.

@@ -255,9 +255,11 @@ materialise an owned `String` when the bytes need unescaping or the
 caller asks for one.
 
 The GPU pipeline emits the same `Document` shape, so CPU and GPU
-agree on one DOM representation; mutation propagates correctly
-through nested containers because every `Value` is just a stable
-index into the same tape.
+agree on one DOM representation, and a `Value` from either backend is
+just a stable index into the same tape. Mutating one converts it to
+the owned tree once, not once per write. A nested write is addressed
+by pointer -- `doc.set_at("/a/b", v)` -- because a subscript hands
+back an independent value rather than a handle into its parent.
 
 ### Benchmark methodology
 

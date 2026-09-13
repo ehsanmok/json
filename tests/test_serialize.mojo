@@ -309,6 +309,15 @@ def test_config_combines_every_option() raises:
     assert_equal(out, '{\n  "a": "caf\\u00e9",\n  "z": "a\\/b"\n}')
 
 
+def test_ndjson_honours_the_serializer_config() raises:
+    """One value per line, so the indent option has nothing to do."""
+    var values: List[Value] = [loads('{"z":1,"a":"é"}'), loads('{"b":2}')]
+    var out = dumps[format="ndjson"](
+        values, SerializerConfig(sort_keys=True, escape_unicode=True)
+    )
+    assert_equal(out, '{"a":"\\u00e9","z":1}\n{"b":2}')
+
+
 def main() raises:
     print("=" * 60)
     print("test_serialize.mojo")

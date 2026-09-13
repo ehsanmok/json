@@ -7,9 +7,11 @@
 #      previously parsed -- it does not silently drop sibling keys or
 #      reorder them within an object.
 #   3. `Value.set_at(pointer, value)` propagates a mutation through the
-#      full parent chain, so `doc["a"]["b"].set("c", value)` is
-#      visible from `doc` afterwards even though `__getitem__`
-#      returns a fresh view.
+#      full parent chain. Chaining does NOT: `__getitem__` hands back an
+#      independent value, so `doc["a"].set("b", v)` edits a child `doc`
+#      no longer shares and leaves `doc` alone. `test_chained_*` below
+#      pins that, because the package docstring used to claim the
+#      opposite.
 #   4. The patch convenience pattern used by `json/patch.mojo`
 #      (read parent, mutate, write parent back) keeps working.
 #   5. `Value.object()` / `Value.array()` build the same JSON as the
@@ -423,7 +425,7 @@ def test_factory_raw_json_and_str_agree() raises:
     o.set("k", Value(Int64(1)))
     assert_equal(o.raw_json(), '{"k":1}')
     assert_equal(String(o), '{"k":1}')
-    assert_equal(o.get("k"), "1")
+    assert_equal(o.raw_member("k"), "1")
 
 
 def test_factory_copy_is_independent() raises:
@@ -485,6 +487,205 @@ def test_deeply_nested_build_stays_correct() raises:
         var child = walk["child"]
         walk = child^
     assert_equal(walk["v"].int_value(), 0)
+
+
+# ---------------------------------------------------------------------------
+# What chaining does and does not do (bug 2).
+#
+# `json/__init__.mojo` used to promise that a mutation through a
+# chained subscript was observed by the parent. It never was: every
+# mutator calls `_to_owned_in_place`, which detaches the child from the
+# shared document. These tests pin the behaviour the documentation now
+# describes, so a future change to either one has to face the other.
+# ---------------------------------------------------------------------------
+
+
+def test_chained_subscript_mutation_does_not_reach_the_parent() raises:
+    """`doc["a"].set(...)` leaves `doc` untouched, and must keep saying so."""
+    var doc = loads('{"a":{"b":1}}')
+    var child = doc["a"]
+    child.set("b", Value(Int64(42)))
+    assert_equal(child["b"].int_value(), 42)
+    assert_equal(
+        doc["a"]["b"].int_value(), 1, "the parent must still read the old value"
+    )
+    assert_equal(dumps(doc), '{"a":{"b":1}}')
+
+
+def test_chained_temporary_mutation_is_discarded() raises:
+    """The one-liner shape drops the mutation on the floor entirely."""
+    var doc = loads('{"a":{"b":1}}')
+    var temp = doc["a"]
+    temp.set("b", Value(Int64(99)))
+    assert_equal(dumps(doc), '{"a":{"b":1}}')
+
+
+def test_set_at_is_how_a_nested_write_reaches_the_parent() raises:
+    """`set_at(pointer, value)` is the spelling that does propagate."""
+    var doc = loads('{"a":{"b":1},"c":2}')
+    doc.set_at("/a/b", Value(Int64(42)))
+    assert_equal(doc["a"]["b"].int_value(), 42)
+    assert_equal(doc["c"].int_value(), 2, "siblings are left alone")
+    assert_equal(dumps(doc), '{"a":{"b":42},"c":2}')
+
+
+def test_chained_array_mutation_does_not_reach_the_parent() raises:
+    """The same holds for an array element reached by subscript."""
+    var doc = loads('{"a":[1,2,3]}')
+    var arr = doc["a"]
+    arr.set(0, Value(Int64(9)))
+    assert_equal(arr[0].int_value(), 9)
+    assert_equal(doc["a"][0].int_value(), 1)
+    doc.set_at("/a/0", Value(Int64(9)))
+    assert_equal(doc["a"][0].int_value(), 9)
+
+
+# ---------------------------------------------------------------------------
+# Subscript assignment.
+# ---------------------------------------------------------------------------
+
+
+def test_setitem_on_object() raises:
+    """`obj["k"] = v` adds and updates members."""
+    var obj = loads('{"name":"Alice"}')
+    obj["age"] = Value(Int64(30))
+    obj["name"] = Value("Bob")
+    assert_equal(obj.object_count(), 2)
+    assert_equal(obj["name"].string_value(), "Bob")
+    assert_equal(obj["age"].int_value(), 30)
+
+
+def test_setitem_on_array_including_negative() raises:
+    """`arr[0] = v` and `arr[-1] = v` replace elements."""
+    var arr = loads("[1,2,3]")
+    arr[0] = Value(Int64(10))
+    arr[-1] = Value(Int64(30))
+    assert_equal(dumps(arr), "[10,2,30]")
+
+
+def test_setitem_out_of_range_raises() raises:
+    """Assignment replaces; it does not grow the array."""
+    var arr = loads("[1]")
+    var raised = False
+    try:
+        arr[5] = Value(Int64(1))
+    except:
+        raised = True
+    assert_true(raised, "an index past the end must raise")
+
+
+def test_setitem_on_owned_tree() raises:
+    """Subscript assignment works on a hand-built value too."""
+    var obj = Value.object()
+    obj["a"] = Value(Int64(1))
+    var arr = Value.array()
+    arr.append(Value(Int64(0)))
+    arr[0] = Value("replaced")
+    obj["list"] = arr^
+    assert_equal(dumps(obj), '{"a":1,"list":["replaced"]}')
+
+
+# ---------------------------------------------------------------------------
+# Removal.
+# ---------------------------------------------------------------------------
+
+
+def test_remove_object_member() raises:
+    """`remove(key)` drops a member and keeps the order of the rest."""
+    var obj = loads('{"a":1,"b":2,"c":3}')
+    obj.remove("b")
+    assert_equal(obj.object_count(), 2)
+    assert_equal(dumps(obj), '{"a":1,"c":3}')
+    assert_false("b" in obj, "the member is gone")
+
+
+def test_remove_missing_member_raises() raises:
+    """Removing what is not there is an error, not a silent no-op."""
+    var obj = loads('{"a":1}')
+    var raised = False
+    try:
+        obj.remove("zz")
+    except:
+        raised = True
+    assert_true(raised, "removing an absent member must raise")
+    assert_equal(obj.object_count(), 1)
+
+
+def test_remove_array_element() raises:
+    """`remove(index)` shifts the later elements down."""
+    var arr = loads("[1,2,3,4]")
+    arr.remove(1)
+    assert_equal(dumps(arr), "[1,3,4]")
+    arr.remove(-1)
+    assert_equal(dumps(arr), "[1,3]")
+
+
+def test_pop_object_member_returns_it() raises:
+    """`pop(key)` hands back the value it removed."""
+    var obj = loads('{"a":{"deep":[1,2]},"b":2}')
+    var taken = obj.pop("a")
+    assert_equal(dumps(taken), '{"deep":[1,2]}')
+    assert_equal(dumps(obj), '{"b":2}')
+
+
+def test_pop_array_element_and_last() raises:
+    """`pop(index)`, `pop(-1)` and the no-argument `pop()` all work."""
+    var arr = loads('[1,"two",3]')
+    assert_equal(arr.pop(1).string_value(), "two")
+    assert_equal(dumps(arr), "[1,3]")
+    assert_equal(arr.pop().int_value(), 3)
+    assert_equal(dumps(arr), "[1]")
+    assert_equal(arr.pop(-1).int_value(), 1)
+    assert_equal(dumps(arr), "[]")
+
+    var raised = False
+    try:
+        _ = arr.pop()
+    except:
+        raised = True
+    assert_true(raised, "popping an empty array must raise")
+
+
+def test_remove_then_rebuild_round_trips() raises:
+    """A value survives removal and reserializes to valid JSON."""
+    var doc = loads('{"keep":[1,2,3],"drop":{"x":1}}')
+    doc.remove("drop")
+    # A read of the detached child changes nothing.
+    _ = doc["keep"].__str__()
+    assert_equal(dumps(loads(dumps(doc))), dumps(doc))
+    assert_equal(dumps(doc), '{"keep":[1,2,3]}')
+
+
+# ---------------------------------------------------------------------------
+# Ergonomics on a mutated value.
+# ---------------------------------------------------------------------------
+
+
+def test_iteration_and_len_after_mutation() raises:
+    """The lazy iterators read the owned tree a mutation left behind."""
+    var doc = loads('{"a":1}')
+    doc["b"] = Value(Int64(2))
+    assert_equal(len(doc), 2)
+    var names = String()
+    for key in doc.keys():
+        names += key
+    assert_equal(names, "ab")
+
+    var arr = loads("[1]")
+    arr.append(Value(Int64(2)))
+    assert_equal(len(arr), 2)
+    var total = Int64(0)
+    for item in arr:
+        total += item.int_value()
+    assert_equal(total, 3)
+
+
+def test_equality_survives_the_representation_switch() raises:
+    """A mutated value equals the parse of what it serializes to."""
+    var doc = loads('{"a":{"x":1},"b":[1,2]}')
+    doc.set_at("/a/x", Value(Int64(5)))
+    assert_true(doc == loads('{"b":[1,2],"a":{"x":5}}'), "order-insensitive")
+    assert_equal(doc.hash_u64(), loads('{"b":[1,2],"a":{"x":5}}').hash_u64())
 
 
 def main() raises:

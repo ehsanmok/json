@@ -7,9 +7,9 @@
   tape. The simdjson FFI shim is opt-in via `target='cpu-simdjson'`.
 - **One representation across CPU and GPU.** Every backend writes
   into the same tape-backed `Document`. `Value` is a stable index
-  into that tape, so iteration is a tape walk rather than a re-parse,
-  and nested mutation propagates through the parent
-  (`doc["a"]["b"].set(...)` is observed by `doc`).
+  into that tape, so iteration is a tape walk rather than a re-parse.
+  `doc["a"]` hands back an independent value, so a nested mutation is
+  written through `doc.set_at("/a/b", v)` rather than by chaining.
 - **GPU acceleration.** `target='gpu'` runs natively on NVIDIA, AMD,
   and Apple Metal under one lean pipeline (fused structural-bitmap
   kernel plus positions-only stream compaction). Only worth it for
@@ -82,7 +82,14 @@ from .ijson import (
 )
 
 # Value type.
-from .value import Value, Null
+from .value import (
+    Null,
+    Value,
+    ValueArrayIter,
+    ValueItemsIter,
+    ValueKeysIter,
+    ValueValuesIter,
+)
 
 # Manual ser/de traits.
 from .serialize import to_json_value, to_json_string, Serializable, serialize

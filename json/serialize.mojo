@@ -113,6 +113,40 @@ def dumps[format: StaticString = "json"](values: List[Value]) -> String:
     return result^
 
 
+def dumps[
+    format: StaticString = "json"
+](values: List[Value], config: SerializerConfig) -> String:
+    """Serialize a list of Values to NDJSON with custom configuration.
+
+    The indent option is ignored here: NDJSON puts one value per line,
+    so a value spread over several lines would not be readable back.
+
+    Parameters:
+        format: Must be "ndjson" for this overload.
+
+    Args:
+        values: List of Values to serialize.
+        config: Serializer configuration.
+
+    Returns:
+        NDJSON string (one JSON value per line).
+    """
+
+    comptime if format != "ndjson":
+        comptime assert False, "Use format='ndjson' for List[Value] input"
+
+    var result = String()
+    for i in range(len(values)):
+        if i > 0:
+            result += "\n"
+        result += values[i].to_json(
+            ascii_only=config.escape_unicode,
+            escape_solidus=config.escape_forward_slash,
+            sort_keys=config.sort_keys,
+        )
+    return result^
+
+
 def dump(v: Value, mut f: FileHandle) raises:
     """Serialize a Value and write to file (like Python's json.dump).
 
@@ -140,6 +174,21 @@ def dump(v: Value, mut f: FileHandle, indent: String) raises:
             dump(data, f, indent="  ").
     """
     f.write(dumps(v, indent))
+
+
+def dump(v: Value, mut f: FileHandle, config: SerializerConfig) raises:
+    """Serialize a Value with custom configuration and write to file.
+
+    Args:
+        v: Value to serialize.
+        f: FileHandle to write JSON to.
+        config: Serializer configuration.
+
+    Example:
+        with open("output.json", "w") as f:
+            dump(data, f, SerializerConfig(indent="  ", sort_keys=True)).
+    """
+    f.write(dumps(v, config))
 
 
 def dump[
