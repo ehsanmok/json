@@ -397,8 +397,17 @@ def loads[
         var data = loads('{"a": 1} // comment', ParserConfig(allow_comments=True)).
     """
 
+    # The surrogate rule reads the source, because parsing turns an
+    # unpaired escape into U+FFFD and that is indistinguishable from a
+    # literal one. The uniqueness rule reads the parse, because it is
+    # about structure. Both run only when asked for.
+    if config.ijson:
+        check_no_unpaired_surrogates(s)
     var preprocessed = preprocess_json(s, config)
-    return _loads_value[target](preprocessed^)
+    var value = _loads_value[target](preprocessed^)
+    if config.ijson:
+        check_unique_member_names(value)
+    return value^
 
 
 def loads[
@@ -619,6 +628,7 @@ def load[streaming: Bool](path: String) raises -> StreamingParser:
 
 
 from .config import ParserConfig
+from .ijson import check_no_unpaired_surrogates, check_unique_member_names
 from .lazy import LazyValue
 from .streaming import StreamingParser
 from .errors import json_parse_error

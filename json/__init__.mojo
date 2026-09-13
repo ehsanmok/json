@@ -75,6 +75,11 @@ Notes:
 from .parser import loads, load
 from .serialize import dumps, dump
 from .config import ParserConfig, SerializerConfig
+from .ijson import (
+    check_ijson,
+    check_no_unpaired_surrogates,
+    check_unique_member_names,
+)
 
 # Value type.
 from .value import Value, Null

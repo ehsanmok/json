@@ -20,11 +20,21 @@ struct ParserConfig:
     var allow_trailing_comma: Bool
     """Allow trailing commas in arrays and objects. Default: False."""
 
+    var ijson: Bool
+    """Enforce I-JSON (RFC 7493). Default: False.
+
+    I-JSON is RFC 8259 narrowed to what implementations agree on. Two
+    of its rules can be checked against a document: an object may not
+    name a member twice (section 2.1), and a string may not hold an
+    unpaired surrogate (section 2.3). Both are accepted by a plain
+    RFC 8259 parser, correctly, so they are opt-in here."""
+
     def __init__(
         out self,
         max_depth: Int = 0,
         allow_comments: Bool = False,
         allow_trailing_comma: Bool = False,
+        ijson: Bool = False,
     ):
         """Create parser configuration.
 
@@ -32,10 +42,12 @@ struct ParserConfig:
             max_depth: Maximum nesting depth (0 = unlimited).
             allow_comments: Allow // and /* */ comments.
             allow_trailing_comma: Allow trailing commas.
+            ijson: Enforce the checkable rules of RFC 7493.
         """
         self.max_depth = max_depth
         self.allow_comments = allow_comments
         self.allow_trailing_comma = allow_trailing_comma
+        self.ijson = ijson
 
     @staticmethod
     def default() -> Self:
@@ -50,6 +62,15 @@ struct ParserConfig:
             allow_comments=True,
             allow_trailing_comma=True,
         )
+
+    @staticmethod
+    def interoperable() -> Self:
+        """Create an I-JSON (RFC 7493) parser configuration.
+
+        Stricter than the default: the extensions stay off and the two
+        checkable I-JSON rules are enforced.
+        """
+        return Self(ijson=True)
 
 
 struct SerializerConfig:

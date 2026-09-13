@@ -290,6 +290,57 @@ def test_parser_config_enforces_max_depth() raises:
     assert_true(raised)
 
 
+def test_ijson_rejects_duplicate_member_names() raises:
+    """RFC 7493 section 2.1. The default parser accepts them, correctly."""
+    var strict = ParserConfig.interoperable()
+    _ = loads('{"a":1,"b":2}', strict)
+    var raised = False
+    try:
+        _ = loads('{"a":1,"a":2}', strict)
+    except:
+        raised = True
+    assert_true(raised)
+    # Nested objects are checked too.
+    raised = False
+    try:
+        _ = loads('{"x":[{"b":1,"b":2}]}', strict)
+    except:
+        raised = True
+    assert_true(raised)
+    # Without the mode this is a valid RFC 8259 document.
+    assert_equal(Int(loads('{"a":1,"a":2}')["a"].int_value()), 1)
+
+
+def test_ijson_rejects_unpaired_surrogates() raises:
+    """RFC 7493 section 2.3.
+
+    Checked against the source text, because parsing turns an unpaired
+    escape into U+FFFD and that is indistinguishable from a literal one.
+    """
+    var strict = ParserConfig.interoperable()
+    _ = loads('"\\ud834\\udd1e"', strict)
+    _ = loads('"\\u0041"', strict)
+    var bad_cases: List[String] = ['"\\ud800"', '"\\udc00"', '"\\ud800a"']
+    for bad in bad_cases:
+        var raised = False
+        try:
+            _ = loads(bad, strict)
+        except:
+            raised = True
+        assert_true(raised, "should have been rejected: " + bad)
+
+
+def test_ijson_keeps_exact_large_integers() raises:
+    """RFC 7493 section 2.2 is advice to protocol designers.
+
+    An integer outside the range a `Float64` names exactly is kept
+    exact here, so rejecting it would lose information rather than
+    protect anyone.
+    """
+    var strict = ParserConfig.interoperable()
+    assert_equal(dumps(loads("9007199254740993", strict)), "9007199254740993")
+
+
 def main() raises:
     print("=" * 60)
     print("test_api.mojo - Unified API Tests")

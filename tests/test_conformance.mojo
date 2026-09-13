@@ -26,15 +26,12 @@ from json import ParserConfig, Value, loads
 # Cases this release is known to get wrong.
 #
 # Every entry is a bug, not a disagreement with the catalog, except
-# where noted. Remove an entry in the same commit that fixes it.
+# where noted. Remove an entry in the same commit that fixes it. The
+# list is empty, and the assertion below is what keeps it that way:
+# a new failure fails the build rather than being absorbed here.
 # ---------------------------------------------------------------------------
 
-comptime _KNOWN_GAPS = [
-    # RFC 7493 sections 2.1 and 2.3 -- there is no I-JSON mode yet, so
-    # duplicate names and unpaired surrogate escapes are both accepted.
-    "ijson-no-duplicate-keys",
-    "ijson-no-lone-surrogate",
-]
+comptime _KNOWN_GAPS = List[String]()
 
 # Cases we fail on purpose, with the reason. These are all SHOULD-level
 # and the catalog says so in its own notes; they are not bugs and this
@@ -44,7 +41,7 @@ comptime _DELIBERATE = [
     # catalog records the case at SHOULD NOT for interchange, and its
     # note says as much. An unpaired escape becomes U+FFFD here, which
     # is what the section describes software doing, and I-JSON mode
-    # will reject it outright. Rejecting it by default would refuse
+    # rejects it outright. Rejecting it by default would refuse
     # documents the grammar allows.
     "json-8259-lone-surrogate",
 ]
@@ -216,13 +213,11 @@ def run_catalogs() raises -> Int:
     _report("RFC 8259", core)
     bad += len(core[3]) + core[2]
 
-    # I-JSON is RFC 8259 narrowed, so its catalog belongs under an
-    # I-JSON parser configuration. There is no such mode yet, so this
-    # runs the default parser and the narrowing rules sit in
-    # `_KNOWN_GAPS`; the config argument is what changes when the mode
-    # lands, not the catalog.
+    # I-JSON is RFC 8259 narrowed, so its catalog runs under an I-JSON
+    # parser configuration. The narrowing rules used to sit in
+    # `_KNOWN_GAPS` because there was no such mode.
     var ijson = _run_catalog(
-        "tests/conformance/rfc7493-ijson.json", ParserConfig()
+        "tests/conformance/rfc7493-ijson.json", ParserConfig.interoperable()
     )
     _report("RFC 7493", ijson)
     bad += len(ijson[3]) + ijson[2]
