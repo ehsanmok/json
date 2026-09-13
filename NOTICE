@@ -39,5 +39,6 @@ MAX
 ---
 
 The GPU path additionally requires `max-core`, which is governed by the
-Modular Community License. That path is opt-in and is not needed to use
-this library. See `json/gpu/LICENSE-GPU.md`.
+Modular Community License, not an open-source licence. That path is
+opt-in: depending on this library installs no MAX component. See
+`json/gpu/LICENSE-GPU.md`.
