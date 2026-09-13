@@ -6,6 +6,24 @@ and GPU pipeline funnels into the same shape, so the rest of the
 library (LazyValue, JSONPath, JSON Patch, schema validation,
 reflection serde) operates on one model.
 
+## Standards
+
+| Standard | Where it lives | Catalog |
+|---|---|---|
+| RFC 8259 (JSON) | `cpu/stage1.mojo`, `cpu/stage2.mojo`, `cpu/number_parse.mojo`, `cpu/validate.mojo` | `tests/conformance/rfc8259.json` |
+| RFC 7493 (I-JSON) | `ijson.mojo`, opt in with `ParserConfig.interoperable()` | `tests/conformance/rfc7493-ijson.json` |
+| RFC 6901 (JSON Pointer) | `pointer.mojo`, used by `Value.at`, `patch.mojo` and `lazy.mojo` | `tests/conformance/rfc6901-pointer.json` |
+| RFC 6902 (JSON Patch) | `patch.mojo` | `tests/conformance/rfc6902-patch.json` |
+| RFC 7396 (JSON Merge Patch) | `patch.mojo` | `tests/conformance/rfc7396-merge-patch.json` |
+| RFC 9535 (JSONPath) | `jsonpath.mojo` | the specification's own worked examples, in `tests/test_jsonpath.mojo` |
+| RFC 9485 (I-Regexp) | `regex.mojo`, used by JSONPath `match`/`search` and schema `pattern` | `tests/test_regex.mojo` |
+| JSON Schema draft 2020-12 | `schema.mojo` | `tests/conformance/jsonschema-2020-12.json` |
+
+Each catalog has a runner that asserts the set of failing cases is
+exactly a declared list of known gaps, so a regression fails the build
+and so does fixing a gap without deleting its entry. Those lists are
+currently empty.
+
 ## System Overview
 
 ```mermaid
@@ -227,9 +245,12 @@ json/
 ├── config.mojo                # Parser / serializer configuration
 ├── errors.mojo                # Error formatting with line / column
 ├── unicode.mojo               # Unicode escape handling
+├── pointer.mojo               # JSON Pointer (RFC 6901), shared by every layer
 ├── patch.mojo                 # JSON Patch & Merge Patch (RFC 6902 / 7396)
 ├── jsonpath.mojo              # JSONPath (RFC 9535)
-├── schema.mojo                # JSON Schema validation
+├── regex.mojo                 # I-Regexp (RFC 9485), for schema and JSONPath
+├── schema.mojo                # JSON Schema draft 2020-12
+├── ijson.mojo                 # I-JSON (RFC 7493) checks
 ├── reflection.mojo            # Compile-time reflection serde
 ├── deserialize.mojo           # serialize_json / deserialize_json
 ├── cpu/
@@ -261,7 +282,11 @@ tests/
 ├── test_reflection.mojo            # Compile-time reflection serde
 ├── test_patch.mojo                 # JSON Patch / Merge Patch
 ├── test_jsonpath.mojo              # JSONPath (RFC 9535)
-├── test_schema.mojo                # JSON Schema
+├── test_regex.mojo                 # I-Regexp (RFC 9485)
+├── test_schema.mojo                # JSON Schema draft 2020-12
+├── test_conformance.mojo           # RFC 8259 and RFC 7493 catalogs
+├── test_pointer_patch_conformance.mojo  # RFC 6901 / 6902 / 7396 catalogs
+├── test_schema_conformance.mojo    # JSON Schema 2020-12 catalog
 ├── test_e2e.mojo                   # End-to-end
 ├── test_gpu.mojo                   # GPU parser
 ├── test_gpu_kernels.mojo           # GPU kernel correctness (stream compaction)

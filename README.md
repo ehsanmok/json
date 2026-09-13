@@ -4,7 +4,7 @@
 [![Docs](https://github.com/ehsanmok/json/actions/workflows/docs.yaml/badge.svg)](https://ehsanmok.github.io/json/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**High-performance JSON for Mojo** 🔥 Pure-Mojo two-pass CPU parser, GPU-accelerated parsing on NVIDIA, AMD, and Apple Metal, tape-backed `Document` shared by every backend, reflection serde with zero boilerplate, RFC-compliant JSONPath, JSON Patch, and JSON Schema. The simdjson FFI shim is opt-in for the cases where you need it.
+**High-performance JSON for Mojo** 🔥 Pure-Mojo two-pass CPU parser, GPU-accelerated parsing on NVIDIA, AMD, and Apple Metal, tape-backed `Document` shared by every backend, reflection serde with zero boilerplate, and JSONPath, JSON Pointer, JSON Patch and JSON Schema implemented against their specifications rather than approximated. The simdjson FFI shim is opt-in for the cases where you need it.
 
 ```mojo
 from json import loads, dumps
@@ -21,7 +21,8 @@ print(dumps(data, indent="  "))        # pretty print
 - **One representation across CPU and GPU.** Every backend writes into the same tape-backed `Document`. `Value` is a stable index into that tape, so iteration is a tape walk rather than a re-parse, and nested mutation propagates through the parent (`doc["a"]["b"].set(...)` is observed by `doc`).
 - **GPU that wins on big files.** [Numbers below](#performance); details in [`docs/performance.md`](./docs/performance.md).
 - **Reflection serde with no boilerplate.** `serialize_json(struct)` and `deserialize_json[T](json)` walk struct fields at compile time, no hand-written `to_json` / `from_json` needed. Custom traits (`JsonSerializable`, `JsonDeserializable`) override the default for one type without abandoning reflection for the rest.
-- **Strict where it matters, lenient where it asks for it.** RFC 7159 by default; opt into comments, trailing commas, and a custom max-depth via `ParserConfig`.
+- **Strict where it matters, lenient where it asks for it.** RFC 8259 by default; opt into comments, trailing commas, and a custom max-depth via `ParserConfig`, or tighten to I-JSON (RFC 7493) with `ParserConfig.interoperable()`.
+- **Conformance is a build gate, not a claim.** Catalogs for RFC 8259, RFC 7493, RFC 6901, RFC 6902, RFC 7396 and JSON Schema draft 2020-12 run in `pixi run tests-cpu`. Each runner asserts the set of failing cases equals a declared list of known gaps, so a regression fails the build and so does fixing a gap without deleting its entry. Those lists are empty.
 - **Fuzzed.** Five mozz harnesses (parser, simdjson FFI, Value access, JSONPath, NDJSON) with a differential property that simdjson and the native parser must agree on canonical `dumps` output, plus an ASan harness over the FFI and tape boundaries.
 
 ## Install
