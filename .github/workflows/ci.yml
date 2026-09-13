@@ -70,3 +70,89 @@ jobs:
 
       - name: Build conda package
         run: pixi build
+
+  # Compiler warnings are about the published artifact, so the gate has
+  # to cover the package, every test, every benchmark and every example
+  # rather than whatever a given test run happens to compile. It was
+  # never run here, which made it a gate in name only. One platform is
+  # enough: the warnings this catches are not platform-specific, and
+  # the job compiles close to fifty targets.
+  warnings:
+    name: Compiler warnings
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Pixi
+        uses: prefix-dev/setup-pixi@v0.9.4
+        with:
+          environments: dev
+          cache: false
+          post-cleanup: false
+
+      - name: Check for warnings
+        run: pixi run -e dev warnings-check
+
+  # Formatting was enforced only by a local pre-commit hook, so a
+  # contributor who had not run `install-pre-commit` had nothing
+  # checking it anywhere. `format-check` is the non-mutating variant
+  # and had no callers at all until now.
+  format:
+    name: Formatting
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Pixi
+        uses: prefix-dev/setup-pixi@v0.9.4
+        with:
+          environments: dev
+          cache: false
+          post-cleanup: false
+
+      - name: Check formatting
+        run: pixi run -e dev format-check
+
+  # The GPU sources and the benchmark binaries are only ever built by
+  # tasks nobody runs in CI, so a break in either was invisible until
+  # someone benchmarked or reached for a device. Compiling them needs
+  # no GPU and no dataset.
+  compile-only:
+    name: Compile-only targets
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Pixi
+        uses: prefix-dev/setup-pixi@v0.9.4
+        with:
+          environments: dev
+          cache: false
+          post-cleanup: false
+
+      - name: Build the GPU sources
+        run: pixi run -e dev check-gpu-build
+
+      - name: Build the benchmark binaries
+        run: |
+          pixi run -e dev build-bench-cpu
+          pixi run -e dev build-bench-serde
+          pixi run -e dev build-bench-build
+
+  # AddressSanitizer over the FFI and lifetime-heavy tests. Linux only,
+  # which is where the task supports it.
+  sanitizers:
+    name: AddressSanitizer
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Pixi
+        uses: prefix-dev/setup-pixi@v0.9.4
+        with:
+          environments: dev
+          cache: false
+          post-cleanup: false
+
+      - name: Run sanitized tests
+        run: pixi run -e dev tests-asan

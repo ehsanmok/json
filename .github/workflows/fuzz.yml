@@ -1,0 +1,31 @@
+name: Fuzz
+
+# The fuzz environment had no CI entry point at all, so the five
+# harnesses only ran when someone remembered. They are slower and
+# noisier than the unit tests, so they run on a schedule and on
+# request rather than on every pull request.
+on:
+  schedule:
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  fuzz:
+    name: Fuzz harnesses
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Pixi
+        uses: prefix-dev/setup-pixi@v0.9.4
+        with:
+          environments: fuzz
+          cache: false
+          post-cleanup: false
+
+      - name: Run every harness
+        run: pixi run -e fuzz fuzz-all
