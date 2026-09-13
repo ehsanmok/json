@@ -35,7 +35,12 @@ scripts = ["json/cpu/simdjson_ffi/build.sh"]
 # compiles the simdjson FFI wrapper on every env activation, so a C++ compiler
 # has to be available here, not gated behind a dev feature.
 mojo = ">=1.0.0,<1.1.0"
-max = ">=26.5.0"
+# `max-core`, not `max`. The Mojo packages the GPU path imports
+# (`max.gpu`, `max.gpu.host`, ...) ship in `lib/mojo/max.mojoc`, which
+# belongs to `max-core`. `max` is the Python MAX framework and carries
+# CPython, NumPy, rich, msgspec, click and psutil without providing a
+# single Mojo module this library uses.
+max-core = ">=26.5.0"
 simdjson = ">=4.2.4,<5"
 
 [target.linux-64.dependencies]

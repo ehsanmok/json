@@ -56,7 +56,7 @@ requirements:
     - simdjson >=4.2.4,<5
   run:
     - mojo >=1.0.0,<1.1.0
-    - max >=26.5.0
+    - max-core >=26.5.0
     - simdjson >=4.2.4,<5
 
 about:
