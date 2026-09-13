@@ -342,17 +342,65 @@ struct Value(Copyable, Movable, Writable):
         One structural walk with an indent-aware writer, rather than
         serializing compactly and re-scanning the text.
         """
+        return self.to_json(indent=indent)
+
+    def to_json(
+        self,
+        *,
+        indent: String = String(),
+        ascii_only: Bool = False,
+        escape_solidus: Bool = False,
+        sort_keys: Bool = False,
+    ) -> String:
+        """This value as JSON, with serializer options applied.
+
+        Args:
+            indent: One level of indentation. Empty means compact.
+            ascii_only: Escape every code point above U+007F.
+            escape_solidus: Escape `/` as `\\/`.
+            sort_keys: Emit object members ordered by key.
+
+        See `_to_json`. The two escaping options become parameters
+        here so the walk that does not use them is the walk that ran
+        before they existed."""
+        if ascii_only:
+            if escape_solidus:
+                return self._to_json[True, True](indent, sort_keys)
+            return self._to_json[True, False](indent, sort_keys)
+        if escape_solidus:
+            return self._to_json[False, True](indent, sort_keys)
+        return self._to_json[False, False](indent, sort_keys)
+
+    def _to_json[
+        ascii_only: Bool, escape_solidus: Bool
+    ](self, indent: String, sort_keys: Bool) -> String:
+        """This value as JSON, with the writer's options applied.
+
+        Every option is honoured during the structural walk. They used
+        to be applied by re-scanning the finished text, which cost a
+        second pass and, for the two escaping options, rebuilt the
+        string one code point at a time through `chr`, turning every
+        byte above 0x7F into a different character.
+
+        Args:
+            indent: One level of indentation. Empty means compact.
+            ascii_only: Escape every code point above U+007F.
+            escape_solidus: Escape `/` as `\\/`.
+            sort_keys: Emit object members ordered by key.
+        """
         if self._is_view():
             var w = JsonWriter(
                 capacity=_estimate_view_bytes(self._doc.value()) * 2,
                 indent=indent,
             )
-            _write_view(w, self._doc.value(), self._tape_idx)
+            _write_view[ascii_only, escape_solidus](
+                w, self._doc.value(), self._tape_idx, sort_keys
+            )
             return w^.finish_string()
         var ow = JsonWriter(
             capacity=_estimate_owned_bytes(self._owned) * 2, indent=indent
         )
-        _write_owned(ow, self._owned)
+        _write_owned[ascii_only, escape_solidus](ow, self._owned, sort_keys)
         return ow^.finish_string()
 
     def array_count(self) -> Int:
@@ -849,7 +897,40 @@ def write_value(mut w: JsonWriter, v: Value):
         _write_owned(w, v._owned)
 
 
-def _write_view(mut w: JsonWriter, doc: ArcPointer[Document], tape_idx: Int):
+def _member_order(d: Document, child_start: Int, pair_count: Int) -> List[Int]:
+    """Positions of an object's members ordered by key.
+
+    Only reached when sorting was asked for, because the allocation it
+    needs would otherwise cost a heap block per object emitted.
+    Ordering by bytes is ordering by code point for UTF-8, and an
+    insertion sort keeps equal keys in the order they were parsed, so a
+    document carrying a repeated name still round-trips.
+    """
+    var order = List[Int](capacity=pair_count)
+    for i in range(pair_count):
+        order.append(i)
+
+    var keys = List[String](capacity=pair_count)
+    for i in range(pair_count):
+        keys.append(d.get_key(child_start + 2 * i))
+    for i in range(1, pair_count):
+        var slot = order[i]
+        var j = i - 1
+        while j >= 0 and keys[order[j]] > keys[slot]:
+            order[j + 1] = order[j]
+            j -= 1
+        order[j + 1] = slot
+    return order^
+
+
+def _write_view[
+    ascii_only: Bool = False, solidus: Bool = False
+](
+    mut w: JsonWriter,
+    doc: ArcPointer[Document],
+    tape_idx: Int,
+    sort_keys: Bool = False,
+):
     """Walk a tape entry into `w`.
 
     Recurses structurally but writes into one buffer, so a leaf's bytes
@@ -878,7 +959,7 @@ def _write_view(mut w: JsonWriter, doc: ArcPointer[Document], tape_idx: Int):
         w.write_float(d.get_float(tape_idx))
         return
     if tag == TAPE_TAG_STRING or tag == TAPE_TAG_STRING_OWNED:
-        w.write_string(d.get_string(tape_idx))
+        w.write_string[ascii_only, solidus](d.get_string(tape_idx))
         return
     if tag == TAPE_TAG_ARRAY:
         var count = d.get_count(tape_idx)
@@ -886,18 +967,35 @@ def _write_view(mut w: JsonWriter, doc: ArcPointer[Document], tape_idx: Int):
         w.open_container(UInt8(0x5B))
         for i in range(count):
             w.next_child(i == 0)
-            _write_view(w, doc, child_start + i)
+            _write_view[ascii_only, solidus](w, doc, child_start + i, sort_keys)
         w.close_container(UInt8(0x5D), count == 0)
         return
     if tag == TAPE_TAG_OBJECT:
         var pair_count = d.get_count(tape_idx)
         var child_start = d.get_child_start(tape_idx)
         w.open_container(UInt8(0x7B))
-        for i in range(pair_count):
-            w.next_child(i == 0)
-            w.write_string(d.get_key(child_start + 2 * i))
-            w.colon()
-            _write_view(w, doc, child_start + 2 * i + 1)
+        if sort_keys and pair_count > 1:
+            var order = _member_order(d, child_start, pair_count)
+            for i in range(pair_count):
+                var slot = order[i]
+                w.next_child(i == 0)
+                w.write_string[ascii_only, solidus](
+                    d.get_key(child_start + 2 * slot)
+                )
+                w.colon()
+                _write_view[ascii_only, solidus](
+                    w, doc, child_start + 2 * slot + 1, sort_keys
+                )
+        else:
+            for i in range(pair_count):
+                w.next_child(i == 0)
+                w.write_string[ascii_only, solidus](
+                    d.get_key(child_start + 2 * i)
+                )
+                w.colon()
+                _write_view[ascii_only, solidus](
+                    w, doc, child_start + 2 * i + 1, sort_keys
+                )
         w.close_container(UInt8(0x7D), pair_count == 0)
         return
     w.write_literal("<bad-tape>")

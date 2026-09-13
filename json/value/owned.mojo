@@ -443,7 +443,30 @@ def _estimate_owned_bytes(o: OwnedValue) -> Int:
     return 4
 
 
-def _write_owned(mut w: JsonWriter, o: OwnedValue):
+def _owned_member_order(keys: List[String]) -> List[Int]:
+    """Positions of an object's members ordered by key.
+
+    Only reached when sorting was asked for, because the allocation it
+    needs would otherwise cost a heap block per object emitted. An
+    insertion sort keeps equal keys in the order they were added, so a
+    repeated name still round-trips.
+    """
+    var order = List[Int](capacity=len(keys))
+    for i in range(len(keys)):
+        order.append(i)
+    for i in range(1, len(keys)):
+        var slot = order[i]
+        var j = i - 1
+        while j >= 0 and keys[order[j]] > keys[slot]:
+            order[j + 1] = order[j]
+            j -= 1
+        order[j + 1] = slot
+    return order^
+
+
+def _write_owned[
+    ascii_only: Bool = False, solidus: Bool = False
+](mut w: JsonWriter, o: OwnedValue, sort_keys: Bool = False):
     """Walk an owned tree into `w`, copying each leaf's bytes once."""
     if o.kind == OWNED_NULL:
         w.write_null()
@@ -461,23 +484,37 @@ def _write_owned(mut w: JsonWriter, o: OwnedValue):
         w.write_float(o.float_val)
         return
     if o.kind == OWNED_STRING:
-        w.write_string(o.str_val)
+        w.write_string[ascii_only, solidus](o.str_val)
         return
     if o.kind == OWNED_ARRAY:
         w.open_container(UInt8(0x5B))
         for i in range(len(o.array_val)):
             w.next_child(i == 0)
-            _write_owned(w, o.array_val[i])
+            _write_owned[ascii_only, solidus](w, o.array_val[i], sort_keys)
         w.close_container(UInt8(0x5D), len(o.array_val) == 0)
         return
     if o.kind == OWNED_OBJECT:
+        var pair_count = len(o.object_keys)
         w.open_container(UInt8(0x7B))
-        for i in range(len(o.object_keys)):
-            w.next_child(i == 0)
-            w.write_string(o.object_keys[i])
-            w.colon()
-            _write_owned(w, o.object_values[i])
-        w.close_container(UInt8(0x7D), len(o.object_keys) == 0)
+        if sort_keys and pair_count > 1:
+            var order = _owned_member_order(o.object_keys)
+            for i in range(pair_count):
+                var slot = order[i]
+                w.next_child(i == 0)
+                w.write_string[ascii_only, solidus](o.object_keys[slot])
+                w.colon()
+                _write_owned[ascii_only, solidus](
+                    w, o.object_values[slot], sort_keys
+                )
+        else:
+            for i in range(pair_count):
+                w.next_child(i == 0)
+                w.write_string[ascii_only, solidus](o.object_keys[i])
+                w.colon()
+                _write_owned[ascii_only, solidus](
+                    w, o.object_values[i], sort_keys
+                )
+        w.close_container(UInt8(0x7D), pair_count == 0)
         return
     w.write_null()
 

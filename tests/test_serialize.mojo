@@ -2,7 +2,7 @@
 
 from std.testing import assert_equal, assert_true, TestSuite
 
-from json import Value, Null, dumps, loads
+from json import Value, Null, dumps, loads, SerializerConfig
 
 
 def test_serialize_null() raises:
@@ -245,6 +245,68 @@ def test_escaped_output_reparses_to_same_value() raises:
     built.set("k", Value(original))
     var back = loads(dumps(built))
     assert_equal(back["k"].string_value(), original)
+
+
+def test_config_sorts_object_keys() raises:
+    """`sort_keys` used to call a function that returned its input."""
+    var v = loads('{"z":1,"a":{"y":2,"b":3},"m":[3,1]}')
+    assert_equal(
+        dumps(v, SerializerConfig(sort_keys=True)),
+        '{"a":{"b":3,"y":2},"m":[3,1],"z":1}',
+    )
+    # Arrays keep their order; only members are sorted.
+    assert_equal(
+        dumps(loads("[3,1,2]"), SerializerConfig(sort_keys=True)), "[3,1,2]"
+    )
+
+
+def test_config_escapes_by_code_point_not_by_byte() raises:
+    """`escape_unicode` escaped each UTF-8 byte as if it were Latin-1.
+
+    `é` came out as `Ã©`, which is valid JSON that reads back
+    as two different characters.
+    """
+    var v = loads('{"a":"café"}')
+    var escaped = dumps(v, SerializerConfig(escape_unicode=True))
+    assert_equal(escaped, '{"a":"caf\\u00e9"}')
+    assert_equal(dumps(loads(escaped)), dumps(v))
+
+
+def test_config_escapes_astral_as_a_surrogate_pair() raises:
+    var v = loads('["\U0001F600"]')
+    var escaped = dumps(v, SerializerConfig(escape_unicode=True))
+    assert_equal(escaped, '["\\ud83d\\ude00"]')
+    assert_equal(dumps(loads(escaped)), dumps(v))
+
+
+def test_config_escapes_the_solidus() raises:
+    var v = loads('{"a":"x/y"}')
+    assert_equal(
+        dumps(v, SerializerConfig(escape_forward_slash=True)), '{"a":"x\\/y"}'
+    )
+
+
+def test_config_leaves_non_ascii_alone_when_escaping_slashes() raises:
+    """The solidus pass rebuilt the text byte by byte through `chr`."""
+    var v = loads('{"a":"café/x"}')
+    assert_equal(
+        dumps(v, SerializerConfig(escape_forward_slash=True)),
+        '{"a":"café\\/x"}',
+    )
+
+
+def test_config_combines_every_option() raises:
+    var v = loads('{"z":"a/b","a":"café"}')
+    var out = dumps(
+        v,
+        SerializerConfig(
+            indent="  ",
+            sort_keys=True,
+            escape_unicode=True,
+            escape_forward_slash=True,
+        ),
+    )
+    assert_equal(out, '{\n  "a": "caf\\u00e9",\n  "z": "a\\/b"\n}')
 
 
 def main() raises:

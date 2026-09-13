@@ -257,6 +257,39 @@ def test_ndjson_roundtrip() raises:
     assert_equal(len(reparsed), 3)
 
 
+def test_parser_config_keeps_non_ascii_intact() raises:
+    """Preprocessing rebuilt the document through `chr` per byte.
+
+    Any byte above 0x7F was read as a code point and written back as
+    two, so a document with non-ASCII text was corrupted before the
+    parser saw it. This only happened when a `ParserConfig` asked for
+    comments or trailing commas, which is exactly when nobody looks.
+    """
+    var config = ParserConfig(allow_comments=True, allow_trailing_comma=True)
+    var data = loads('{"a": "café 😀" /* note */, "b": [1, 2, ],}', config)
+    assert_equal(data["a"].string_value(), "café 😀")
+    assert_equal(data["b"].array_count(), 2)
+
+
+def test_parser_config_leaves_string_contents_alone() raises:
+    """A comma inside a string is not a trailing comma."""
+    var config = ParserConfig(allow_trailing_comma=True)
+    var data = loads('{"a": "x, }", "b": [1,]}', config)
+    assert_equal(data["a"].string_value(), "x, }")
+    assert_equal(data["b"].array_count(), 1)
+
+
+def test_parser_config_enforces_max_depth() raises:
+    var config = ParserConfig(max_depth=3)
+    _ = loads("[[1]]", config)
+    var raised = False
+    try:
+        _ = loads("[[[[1]]]]", config)
+    except:
+        raised = True
+    assert_true(raised)
+
+
 def main() raises:
     print("=" * 60)
     print("test_api.mojo - Unified API Tests")

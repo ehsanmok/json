@@ -69,6 +69,7 @@ comptime _DIGIT_PAIRS_ARRAY = _make_digit_pairs()
 comptime _HEX = "0123456789abcdef".as_bytes()
 
 comptime _QUOTE = UInt8(0x22)
+comptime _SOLIDUS = UInt8(0x2F)
 comptime _BACKSLASH = UInt8(0x5C)
 comptime _SPACE = UInt8(0x20)
 
@@ -420,11 +421,29 @@ struct JsonWriter(Movable):
             self._put(pair[0])
             self._put(pair[1])
 
-    def write_string(mut self, s: String):
-        """A quoted, escaped JSON string literal."""
-        self.write_string_span(s.as_bytes())
+    def write_string[
+        ascii_only: Bool = False, solidus: Bool = False
+    ](mut self, s: String):
+        """A quoted, escaped JSON string literal.
 
-    def write_string_span(mut self, b: Span[UInt8, _]):
+        Parameters:
+            ascii_only: Escape every code point above U+007F as
+                `\\uXXXX`. A character outside the basic plane becomes
+                the surrogate pair JSON spells it with.
+            solidus: Escape `/` as `\\/`. JSON does not require it, but
+                embedding output in a `<script>` element does.
+
+        Both default off and are parameters rather than fields so the
+        ordinary path compiles to exactly what it did before they
+        existed. Carrying them as `Bool` fields instead measured about
+        eight percent on `document@100 serialize` even with every read
+        of them removed.
+        """
+        self.write_string_span[ascii_only, solidus](s.as_bytes())
+
+    def write_string_span[
+        ascii_only: Bool = False, solidus: Bool = False
+    ](mut self, b: Span[UInt8, _]):
         """A quoted, escaped JSON string literal.
 
         One pass, not two. The scan that decides whether anything
@@ -435,9 +454,15 @@ struct JsonWriter(Movable):
         restarts from the beginning; a string with no escapes -- the
         usual case -- is a quote, one memcpy and a quote.
         """
+        comptime if ascii_only:
+            self._write_string_ascii[solidus](b)
+            return
         var n = len(b)
+        comptime if solidus:
+            self._write_string_escaped[True](b)
+            return
         if needs_escape(b):
-            self._write_string_escaped(b)
+            self._write_string_escaped[False](b)
             return
         self.ensure(n + 2)
         self._put(_QUOTE)
@@ -450,7 +475,9 @@ struct JsonWriter(Movable):
             self.pos += n
         self._put(_QUOTE)
 
-    def _write_string_escaped(mut self, b: Span[UInt8, _]):
+    def _write_string_escaped[
+        solidus: Bool = False
+    ](mut self, b: Span[UInt8, _]):
         """Escape path: bulk-copy the clean runs between escapes.
 
         Worst case is 6 bytes out per byte in, plus the two quotes.
@@ -467,7 +494,10 @@ struct JsonWriter(Movable):
 
         while i + _SCAN_W <= n:
             var chunk = ptr.unsafe_load[width=_SCAN_W](i)
-            var bits = pack_bits(chunk.eq(q) | chunk.eq(bs) | chunk.lt(sp))
+            var hit = chunk.eq(q) | chunk.eq(bs) | chunk.lt(sp)
+            comptime if solidus:
+                hit |= chunk.eq(SIMD[DType.uint8, _SCAN_W](_SOLIDUS))
+            var bits = pack_bits(hit)
             if Int(bits) == 0:
                 i += _SCAN_W
                 continue
@@ -484,7 +514,10 @@ struct JsonWriter(Movable):
 
         while i < n:
             var c = b[i]
-            if c == _QUOTE or c == _BACKSLASH or c < _SPACE:
+            var escape = c == _QUOTE or c == _BACKSLASH or c < _SPACE
+            comptime if solidus:
+                escape = escape or c == _SOLIDUS
+            if escape:
                 if i > start:
                     self.write_bytes(b[start:i])
                 self._escape_one(c)
@@ -495,12 +528,90 @@ struct JsonWriter(Movable):
             self.write_bytes(b[start:n])
         self.write_byte(_QUOTE)
 
+    def _write_string_ascii[solidus: Bool = False](mut self, b: Span[UInt8, _]):
+        """Escape path that leaves nothing above U+007F in the output.
+
+        Decoding happens here rather than reusing the byte masks the
+        other paths use, because a `\\uXXXX` escape names a code point,
+        not a byte. Escaping each UTF-8 byte separately is what the
+        previous post-pass did, and it turned `e` with an acute accent
+        into two Latin-1 escapes that read back as mojibake. A
+        character outside the basic plane needs the surrogate pair.
+        """
+        var n = len(b)
+        # Six bytes out per byte in covers `\\uXXXX` for an ASCII byte,
+        # and a multi-byte sequence only ever shrinks against that.
+        self.ensure(n * 6 + 2)
+        self._put(_QUOTE)
+        var i = 0
+        while i < n:
+            var c = b[i]
+            if c < 0x80:
+                var escape = c == _QUOTE or c == _BACKSLASH or c < _SPACE
+                comptime if solidus:
+                    escape = escape or c == _SOLIDUS
+                if escape:
+                    self._escape_one(c)
+                else:
+                    self._put(c)
+                i += 1
+                continue
+
+            var code: Int
+            var width: Int
+            if c >= 0xF0 and i + 3 < n:
+                code = (
+                    ((Int(c) & 0x07) << 18)
+                    | ((Int(b[i + 1]) & 0x3F) << 12)
+                    | ((Int(b[i + 2]) & 0x3F) << 6)
+                    | (Int(b[i + 3]) & 0x3F)
+                )
+                width = 4
+            elif c >= 0xE0 and i + 2 < n:
+                code = (
+                    ((Int(c) & 0x0F) << 12)
+                    | ((Int(b[i + 1]) & 0x3F) << 6)
+                    | (Int(b[i + 2]) & 0x3F)
+                )
+                width = 3
+            elif c >= 0xC0 and i + 1 < n:
+                code = ((Int(c) & 0x1F) << 6) | (Int(b[i + 1]) & 0x3F)
+                width = 2
+            else:
+                # A byte that cannot begin a sequence, or one the span
+                # ends in the middle of. The replacement character is
+                # the only output that stays valid JSON.
+                code = 0xFFFD
+                width = 1
+
+            if code >= 0x10000:
+                var rest = code - 0x10000
+                self._put_unicode_escape(0xD800 + (rest >> 10))
+                self._put_unicode_escape(0xDC00 + (rest & 0x3FF))
+            else:
+                self._put_unicode_escape(code)
+            i += width
+        self._put(_QUOTE)
+
+    def _put_unicode_escape(mut self, code: Int):
+        """One `\\uXXXX` escape for a code point below U+10000."""
+        self.ensure(6)
+        self._put(_BACKSLASH)
+        self._put(UInt8(0x75))  # u
+        self._put(_HEX[(code >> 12) & 0xF])
+        self._put(_HEX[(code >> 8) & 0xF])
+        self._put(_HEX[(code >> 4) & 0xF])
+        self._put(_HEX[code & 0xF])
+
     def _escape_one(mut self, c: UInt8):
         """Emit the escape sequence for one byte that needs it."""
         self.ensure(6)
         if c == _QUOTE:
             self._put(_BACKSLASH)
             self._put(_QUOTE)
+        elif c == _SOLIDUS:
+            self._put(_BACKSLASH)
+            self._put(_SOLIDUS)
         elif c == _BACKSLASH:
             self._put(_BACKSLASH)
             self._put(_BACKSLASH)
