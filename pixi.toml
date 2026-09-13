@@ -29,18 +29,27 @@ backend = { name = "pixi-build-rattler-build", version = ">=0.3.13" }
 # Auto-build FFI wrapper on environment activation (idempotent - skips if up-to-date)
 scripts = ["json/cpu/simdjson_ffi/build.sh"]
 
+# `max-core` is never installed by depending on this package, but if a
+# consumer does install it -- which the GPU path needs -- it has to be a
+# version this code compiles against. That is what a run constraint is
+# for: it pins without pulling.
+[package.run-constraints]
+max-core = ">=26.5.0"
+
+# Declared so that `json = { git = "...", extras = ["gpu"] }` works the
+# day a released build backend reports extra groups. Pixi takes a source
+# package's extras from the backend's `conda/outputs` response, and no
+# released backend fills that field yet, so this is inert today and the
+# README documents the explicit `max-core` line instead.
+[package.extra-dependencies.gpu]
+max-core = ">=26.5.0"
+
 [dependencies]
 # Runtime + build-essential for anyone working with this repo (running tests,
 # examples, `mojo build`-ing benchmark binaries). The activation hook below
 # compiles the simdjson FFI wrapper on every env activation, so a C++ compiler
 # has to be available here, not gated behind a dev feature.
 mojo = ">=1.0.0,<1.1.0"
-# `max-core`, not `max`. The Mojo packages the GPU path imports
-# (`max.gpu`, `max.gpu.host`, ...) ship in `lib/mojo/max.mojoc`, which
-# belongs to `max-core`. `max` is the Python MAX framework and carries
-# CPython, NumPy, rich, msgspec, click and psutil without providing a
-# single Mojo module this library uses.
-max-core = ">=26.5.0"
 simdjson = ">=4.2.4,<5"
 
 [target.linux-64.dependencies]
@@ -75,17 +84,31 @@ gdown = ">=5.0"           # Google Drive CLI for downloading benchmark datasets
 # packaged as mozz.mojopkg into $PREFIX/lib/mojo/ so harnesses pick
 # it up without an explicit -I flag.
 # ------------------------------------------------------------------
+# ------------------------------------------------------------------
+# The GPU path. `max-core` ships `lib/mojo/max.mojoc`, which is what
+# `json/gpu/` imports, and it is governed by the Modular Community
+# License rather than by this project's MIT licence -- see
+# `json/gpu/LICENSE-GPU.md`. Keeping it in a feature rather than in
+# `[dependencies]` is what makes the default environment the same shape
+# a consumer of the published package gets.
+# ------------------------------------------------------------------
+[feature.gpu.dependencies]
+max-core = ">=26.5.0"
+
 [feature.fuzz.dependencies]
 mozz = { git = "https://github.com/ehsanmok/mozz.git", branch = "main" }
 
 [environments]
-# `default` stays lean -- just what's needed to build + run the library.
-# `dev`  opts into the extra tooling (docs, linters, dataset downloader).
-# `fuzz` layers mozz on top of `dev` so fuzz harnesses can also use
-# the dev-only `mojo build` (sysroot pin) and download tooling.
+# `default` is deliberately what a consumer of the published package
+# gets: Mojo and simdjson, no MAX. `verify-cpu-only` asserts that.
+# `gpu`  adds max-core so the GPU suite can run.
+# `dev`  opts into the extra tooling (docs, linters, dataset downloader)
+#        and the GPU feature, since it builds every source in the repo.
+# `fuzz` layers mozz on top of `dev`.
 default = { solve-group = "default" }
-dev     = { features = ["dev"], solve-group = "default" }
-fuzz    = { features = ["dev", "fuzz"], solve-group = "default" }
+gpu     = { features = ["gpu"], solve-group = "default" }
+dev     = { features = ["gpu", "dev"], solve-group = "default" }
+fuzz    = { features = ["gpu", "dev", "fuzz"], solve-group = "default" }
 
 [tasks]
 # Build simdjson FFI (CPU backend)
@@ -100,10 +123,8 @@ tests = "mojo -I . tests/test_value.mojo && mojo -I . tests/test_value_build_sca
 # tests-cpu: full CPU suite. `loads(target='cpu')` routes through the
 # tape-backed Value view, so this is also the tape conformance suite.
 tests-cpu = "mojo -I . tests/test_value.mojo && mojo -I . tests/test_parser.mojo && mojo -I . tests/test_serialize.mojo && mojo -I . tests/test_serde.mojo && mojo -I . tests/test_reflection.mojo && mojo -I . tests/test_jsonpath.mojo && mojo -I . tests/test_patch.mojo && mojo -I . tests/test_schema.mojo && mojo -I . tests/test_value_mutation.mojo && mojo -I . tests/test_value_build_scaling.mojo && mojo -I . tests/test_writer.mojo && mojo -I . tests/test_stage1_equivalence.mojo && mojo -I . tests/test_backend_equivalence.mojo && mojo -I . tests/test_document.mojo && mojo -I . tests/test_stage2_tape.mojo && mojo -I . tests/test_api.mojo && mojo -I . tests/test_reader.mojo && mojo -I . tests/test_float_format.mojo && mojo -I . tests/test_validate.mojo && mojo -I . tests/test_number_parse.mojo && mojo -I . tests/test_conformance.mojo && mojo -I . tests/test_pointer_patch_conformance.mojo && mojo -I . tests/test_regex.mojo && mojo -I . tests/test_schema_conformance.mojo && mojo -I . tests/test_e2e.mojo && mojo -I . examples/basic/parsing.mojo && mojo -I . examples/basic/file_io.mojo && mojo -I . examples/basic/value_types.mojo && mojo -I . examples/basic/error_handling.mojo && mojo -I . examples/advanced/lazy_parsing.mojo && mojo -I . examples/intermediate/jsonpath.mojo && mojo -I . examples/intermediate/schema_validation.mojo && mojo -I . examples/intermediate/json_patch.mojo && mojo -I . examples/intermediate/reflection_serde.mojo && mojo -I . examples/intermediate/struct_serde.mojo && mojo -I . examples/intermediate/ndjson.mojo"
-# tests-gpu: GPU suite. Runs natively on NVIDIA, AMD, and Apple Metal.
-tests-gpu = "mojo -I . tests/test_gpu.mojo && mojo -I . examples/advanced/gpu_parsing.mojo"
+verify-cpu-only = "bash tools/verify_cpu_only.sh"
 tests-e2e = "mojo -I . tests/test_e2e.mojo"
-tests-e2e-gpu = "MOJSON_TEST_GPU=1 mojo -I . tests/test_e2e.mojo"
 
 # Per-example tasks (examples/<tier>/<file>.mojo).
 example-parsing    = "mojo -I . examples/basic/parsing.mojo"
@@ -117,7 +138,6 @@ example-jsonpath   = "mojo -I . examples/intermediate/jsonpath.mojo"
 example-schema     = "mojo -I . examples/intermediate/schema_validation.mojo"
 example-patch      = "mojo -I . examples/intermediate/json_patch.mojo"
 example-lazy       = "mojo -I . examples/advanced/lazy_parsing.mojo"
-example-gpu        = "mojo -I . examples/advanced/gpu_parsing.mojo"
 examples = "mojo -I . examples/basic/parsing.mojo && mojo -I . examples/basic/file_io.mojo && mojo -I . examples/basic/value_types.mojo && mojo -I . examples/basic/error_handling.mojo && mojo -I . examples/intermediate/reflection_serde.mojo && mojo -I . examples/intermediate/struct_serde.mojo && mojo -I . examples/intermediate/ndjson.mojo && mojo -I . examples/intermediate/jsonpath.mojo && mojo -I . examples/intermediate/schema_validation.mojo && mojo -I . examples/intermediate/json_patch.mojo && mojo -I . examples/advanced/lazy_parsing.mojo && mojo -I . examples/advanced/gpu_parsing.mojo"
 
 # ------------------------------------------------------------------
@@ -146,11 +166,6 @@ tests-asan = "bash tools/run_sanitizer_tests.sh asan"
 # is about the published artifact rather than tidiness here.
 warnings-check = "bash tools/check_warnings.sh"
 
-# check-gpu-build: compile every GPU source. Running them needs a
-# device; compiling them does not, and a type error in a kernel
-# signature is exactly the kind of break that otherwise sits unnoticed
-# until someone with a GPU tries it.
-check-gpu-build = "bash -c 'mkdir -p target/gpu-check && for f in tests/test_gpu.mojo tests/test_gpu_kernels.mojo tests/test_bracket_match.mojo tests/bench_bracket_match.mojo examples/advanced/gpu_parsing.mojo benchmark/mojo/bench_gpu.mojo benchmark/mojo/bench_gpu_apple.mojo; do echo \"  $f\"; mojo build -I . -o target/gpu-check/$(basename $f .mojo) $f || exit 1; done && echo \"All GPU sources compile.\"'"
 
 # Download benchmark datasets from Google Drive (cuJSON datasets)
 # Full folder: https://drive.google.com/drive/folders/1PkDEy0zWOkVREfL7VuINI-m9wJe45P2Q
@@ -158,8 +173,6 @@ download-twitter-large = "gdown -O benchmark/datasets/twitter_large_record.json 
 download-walmart-large = "gdown -O benchmark/datasets/walmart_large_record.json 10vicgS7dPa4aL5PwEjqAvpAKCXYLblMt"
 download-wiki-large = "gdown -O benchmark/datasets/wiki_large_record.json 1bXdzhfWSdrnpg9WKOeV-oanYIT2j4yLE"
 
-# cuJSON (optional) - NVIDIA benchmarks only
-build-cujson = "bash -c 'cd benchmark && if [ ! -d cuJSON ]; then echo \"Error: cuJSON not found. Download it first:\\n  cd benchmark && git clone https://github.com/AutomataLab/cuJSON.git\" && exit 1; fi && mkdir -p cuJSON/build && nvcc -O3 -w -std=c++17 -arch=sm_100 -o cuJSON/build/cujson_benchmark cuJSON/paper_reproduced/src/cuJSON-standardjson.cu'"
 
 # Build benchmark binaries (calls `mojo build` -> needs sysroot >= 2.34).
 # `-D ASSERT=none` strips the Mojo stdlib safety asserts that the
@@ -169,10 +182,6 @@ build-cujson = "bash -c 'cd benchmark && if [ ! -d cuJSON ]; then echo \"Error: 
 build-bench-cpu = { cmd = "mkdir -p benchmark/build && mojo build -D ASSERT=none -I . -o benchmark/build/bench_cpu benchmark/mojo/bench_cpu.mojo", depends-on = ["build"] }
 build-bench-build = { cmd = "mkdir -p benchmark/build && mojo build -D ASSERT=none -I . -o benchmark/build/bench_build benchmark/mojo/bench_build.mojo", depends-on = ["build"] }
 build-bench-serde = { cmd = "mkdir -p benchmark/build && mojo build -D ASSERT=none -I . -o benchmark/build/bench_serde benchmark/mojo/bench_serde.mojo", depends-on = ["build"] }
-# bench_gpu builds on every accelerator backend (NVIDIA, AMD, Apple
-# Metal). The Apple Metal toolchain ships with Xcode (install via
-# `xcodebuild -downloadComponent MetalToolchain` if missing).
-build-bench-gpu = { cmd = "bash -c 'mkdir -p benchmark/build && mojo build -D ASSERT=none -I . -o benchmark/build/bench_gpu benchmark/mojo/bench_gpu.mojo'", depends-on = ["build"] }
 build-bench-simdjson = { cmd = "bash -c 'mkdir -p benchmark/build && CXX=$(if [[ $(uname) == Darwin ]]; then echo clang++; else echo g++; fi) && $CXX -O3 -std=c++17 -o benchmark/build/bench_simdjson benchmark/cpp/bench_simdjson.cpp -I$CONDA_PREFIX/include -L$CONDA_PREFIX/lib -lsimdjson -Wl,-rpath,$CONDA_PREFIX/lib'", depends-on = ["build"] }
 
 # Benchmarks - pass file path and flags as arguments, path defaults to twitter.json
@@ -186,17 +195,7 @@ bench-build = { cmd = "benchmark/build/bench_build", depends-on = ["build-bench-
 # Value-tree round trip, over five record shapes at n = 1 and n = 100.
 # Pass --json for machine-readable output.
 bench-serde = { cmd = "bash -c 'benchmark/build/bench_serde \"$@\"' _", depends-on = ["build-bench-serde"] }
-bench-gpu = { cmd = "bash -c 'if [ \"$#\" -eq 0 ]; then benchmark/build/bench_gpu benchmark/datasets/twitter.json; else benchmark/build/bench_gpu \"$@\"; fi' _", depends-on = ["build-bench-gpu"] }
-# Apple Metal GPU sweep -- runs `loads[target='gpu']` against multiple
-# file sizes (twitter, citm, twitter_large_record) and reports best-of-N
-# throughput per file. The Apple chunked path is exercised here, so
-# this is the script to use for refreshing the README's Apple M3 Pro row.
-bench-gpu-apple = { cmd = "bash -c 'if [ \"$#\" -eq 0 ]; then mojo -D ASSERT=none -I . benchmark/mojo/bench_gpu_apple.mojo benchmark/datasets/twitter.json benchmark/datasets/citm_catalog.json; else mojo -D ASSERT=none -I . benchmark/mojo/bench_gpu_apple.mojo \"$@\"; fi' _" }
-bench-gpu-all = { cmd = "bash -c 'for i in 1 2 3; do for f in benchmark/datasets/*_large_*.json; do echo \"=== Run $i: $f ===\"; benchmark/build/bench_gpu \"$f\"; done; done'", depends-on = ["build-bench-gpu"] }
 
-# GPU benchmark vs cuJSON (NVIDIA only, requires manual cuJSON download)
-# First: cd benchmark && git clone https://github.com/AutomataLab/cuJSON.git
-bench-gpu-cujson = { cmd = "bash -c 'F=${1:-benchmark/datasets/twitter.json}; if [ ! -f benchmark/cuJSON/build/cujson_benchmark ]; then echo \"Error: cuJSON not built. Run: pixi run -e dev build-cujson\" && exit 1; fi; echo \"--- cuJSON ---\" && benchmark/cuJSON/build/cujson_benchmark -b \"$F\" && echo && echo \"--- json GPU ---\" && benchmark/build/bench_gpu \"$F\"' --", depends-on = ["build-bench-gpu"] }
 
 # Docs
 docs = "mojodoc ./json --open"
@@ -209,6 +208,40 @@ docs-build = "mojodoc ./json --out-dir target/doc --base-url /json/"
 # writes crash repros to .mozz_crashes/<harness>/ -- check those into
 # fuzz/corpus/<harness>/ to lock in regressions.
 # ------------------------------------------------------------------
+# ------------------------------------------------------------------
+# GPU tasks. They live in the `gpu` feature because they need
+# `max-core`, which the default environment deliberately does not have.
+# Run them with `pixi run -e gpu <task>` or from `dev`.
+# ------------------------------------------------------------------
+[feature.gpu.tasks]
+# tests-gpu: GPU suite. Runs natively on NVIDIA, AMD, and Apple Metal.
+tests-gpu = "mojo -I . tests/test_gpu.mojo && mojo -I . examples/advanced/gpu_parsing.mojo"
+# tests-e2e-gpu is gone: test_e2e.mojo is CPU-only now, because
+# importing the GPU entry point there would put max-core back into the
+# default environment. The GPU equivalents live in test_gpu.mojo.
+example-gpu        = "mojo -I . examples/advanced/gpu_parsing.mojo"
+# check-gpu-build: compile every GPU source. Running them needs a
+# device; compiling them does not, and a type error in a kernel
+# signature is exactly the kind of break that otherwise sits unnoticed
+# until someone with a GPU tries it.
+check-gpu-build = "bash -c 'mkdir -p target/gpu-check && for f in tests/test_gpu.mojo tests/test_gpu_kernels.mojo tests/test_bracket_match.mojo tests/bench_bracket_match.mojo examples/advanced/gpu_parsing.mojo benchmark/mojo/bench_gpu.mojo benchmark/mojo/bench_gpu_apple.mojo; do echo \"  $f\"; mojo build -I . -o target/gpu-check/$(basename $f .mojo) $f || exit 1; done && echo \"All GPU sources compile.\"'"
+# cuJSON (optional) - NVIDIA benchmarks only
+build-cujson = "bash -c 'cd benchmark && if [ ! -d cuJSON ]; then echo \"Error: cuJSON not found. Download it first:\\n  cd benchmark && git clone https://github.com/AutomataLab/cuJSON.git\" && exit 1; fi && mkdir -p cuJSON/build && nvcc -O3 -w -std=c++17 -arch=sm_100 -o cuJSON/build/cujson_benchmark cuJSON/paper_reproduced/src/cuJSON-standardjson.cu'"
+# bench_gpu builds on every accelerator backend (NVIDIA, AMD, Apple
+# Metal). The Apple Metal toolchain ships with Xcode (install via
+# `xcodebuild -downloadComponent MetalToolchain` if missing).
+build-bench-gpu = { cmd = "bash -c 'mkdir -p benchmark/build && mojo build -D ASSERT=none -I . -o benchmark/build/bench_gpu benchmark/mojo/bench_gpu.mojo'", depends-on = ["build"] }
+bench-gpu = { cmd = "bash -c 'if [ \"$#\" -eq 0 ]; then benchmark/build/bench_gpu benchmark/datasets/twitter.json; else benchmark/build/bench_gpu \"$@\"; fi' _", depends-on = ["build-bench-gpu"] }
+# Apple Metal GPU sweep -- runs `loads[target='gpu']` against multiple
+# file sizes (twitter, citm, twitter_large_record) and reports best-of-N
+# throughput per file. The Apple chunked path is exercised here, so
+# this is the script to use for refreshing the README's Apple M3 Pro row.
+bench-gpu-apple = { cmd = "bash -c 'if [ \"$#\" -eq 0 ]; then mojo -D ASSERT=none -I . benchmark/mojo/bench_gpu_apple.mojo benchmark/datasets/twitter.json benchmark/datasets/citm_catalog.json; else mojo -D ASSERT=none -I . benchmark/mojo/bench_gpu_apple.mojo \"$@\"; fi' _" }
+bench-gpu-all = { cmd = "bash -c 'for i in 1 2 3; do for f in benchmark/datasets/*_large_*.json; do echo \"=== Run $i: $f ===\"; benchmark/build/bench_gpu \"$f\"; done; done'", depends-on = ["build-bench-gpu"] }
+# GPU benchmark vs cuJSON (NVIDIA only, requires manual cuJSON download)
+# First: cd benchmark && git clone https://github.com/AutomataLab/cuJSON.git
+bench-gpu-cujson = { cmd = "bash -c 'F=${1:-benchmark/datasets/twitter.json}; if [ ! -f benchmark/cuJSON/build/cujson_benchmark ]; then echo \"Error: cuJSON not built. Run: pixi run -e dev build-cujson\" && exit 1; fi; echo \"--- cuJSON ---\" && benchmark/cuJSON/build/cujson_benchmark -b \"$F\" && echo && echo \"--- json GPU ---\" && benchmark/build/bench_gpu \"$F\"' --", depends-on = ["build-bench-gpu"] }
+
 [feature.fuzz.tasks]
 fuzz-loads          = "mojo -I . fuzz/fuzz_loads.mojo"
 fuzz-simdjson       = "mojo -I . fuzz/fuzz_simdjson_ffi.mojo"
