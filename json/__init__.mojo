@@ -103,6 +103,12 @@ from .reflection import (
 
 # RFCs and queries.
 from .patch import apply_patch, merge_patch, create_merge_patch
+from .pointer import (
+    array_index,
+    build_pointer,
+    escape_token,
+    parse_pointer,
+)
 from .jsonpath import jsonpath_query, jsonpath_one
 from .schema import validate, is_valid, ValidationResult, ValidationError
 

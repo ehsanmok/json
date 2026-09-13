@@ -2,8 +2,16 @@
 #
 # JSON Patch: Apply a sequence of operations to a JSON document
 # JSON Merge Patch: Merge two JSON documents together
+#
+# Operation paths are reference-token lists from `json/pointer.mojo`
+# rather than strings sliced on the way past. The previous shape
+# resolved a parent with one pointer parser and computed the final
+# token with another, so `"/"`, `"//"` and `"/a/"` were validated
+# against one location and written to a different one.
 
 from std.collections import List
+
+from .pointer import array_index, index_value, parse_pointer
 from .value import Value, Null
 from .parser import loads
 from .serialize import dumps
@@ -22,6 +30,12 @@ def apply_patch(document: Value, patch: Value) raises -> Value:
     - "path": JSON Pointer to the target location
     - "value": The value (for add, replace, test)
     - "from": Source path (for move, copy)
+
+    Operations are applied in order, and the whole patch either
+    succeeds or changes nothing: the document is never edited in
+    place, so an operation that raises leaves the caller's value as it
+    was. The failure names the operation's index, because a patch that
+    only says "key not found" is hard to place in a long list.
 
     Args:
         document: The original JSON document.
@@ -43,146 +57,238 @@ def apply_patch(document: Value, patch: Value) raises -> Value:
     var ops = patch.array_items()
 
     for i in range(len(ops)):
-        var op = ops[i].copy()
-        result = _apply_operation(result, op)
+        try:
+            result = _apply_operation(result, ops[i])
+        except e:
+            raise Error(
+                "JSON Patch operation " + String(i) + " failed: " + String(e)
+            )
 
     return result^
+
+
+def _member(operation: Value, name: String) raises -> Value:
+    """A required member of a patch operation."""
+    try:
+        return operation[name]
+    except:
+        raise Error("operation has no '" + name + "' member")
+
+
+def _string_member(operation: Value, name: String) raises -> String:
+    """A required member that RFC 6902 spells as a string.
+
+    `Value.string_value` does not check the tag, so reading `path` off
+    an operation that spells it as a number used to hand back whatever
+    the number's payload looked like as an offset into the input. An
+    empty result then meant "the whole document", and the operation
+    silently replaced it.
+    """
+    var member = _member(operation, name)
+    if not member.is_string():
+        raise Error("'" + name + "' must be a string")
+    return member.string_value()
 
 
 def _apply_operation(document: Value, operation: Value) raises -> Value:
     """Apply a single patch operation."""
     if not operation.is_object():
-        raise Error("Patch operation must be an object")
+        raise Error("patch operation must be an object")
 
-    var op_type = operation["op"].string_value()
-    var path = operation["path"].string_value()
+    var op_type = _string_member(operation, "op")
+    var path = _string_member(operation, "path")
+    var tokens = parse_pointer(path)
 
     if op_type == "add":
-        var value = operation["value"].copy()
-        return _patch_add(document, path, value)
+        return _add_at(document, tokens, 0, _member(operation, "value"))
     elif op_type == "remove":
-        return _patch_remove(document, path)
+        if len(tokens) == 0:
+            raise Error("cannot remove the whole document")
+        return _remove_at(document, tokens, 0)
     elif op_type == "replace":
-        var value = operation["value"].copy()
-        return _patch_replace(document, path, value)
+        if len(tokens) == 0:
+            return _member(operation, "value").copy()
+        return _replace_at(document, tokens, 0, _member(operation, "value"))
     elif op_type == "move":
-        var from_path = operation["from"].string_value()
-        return _patch_move(document, from_path, path)
+        var from_tokens = parse_pointer(_string_member(operation, "from"))
+        return _move(document, from_tokens, tokens)
     elif op_type == "copy":
-        var from_path = operation["from"].string_value()
-        return _patch_copy(document, from_path, path)
+        var from_tokens = parse_pointer(_string_member(operation, "from"))
+        var source = _resolve(document, from_tokens)
+        return _add_at(document, tokens, 0, source)
     elif op_type == "test":
-        var value = operation["value"].copy()
-        _patch_test(document, path, value)
+        var expected = _member(operation, "value")
+        var actual = _resolve(document, tokens)
+        if not _values_equal(actual, expected):
+            raise Error("test failed: value at '" + path + "' does not match")
         return document.copy()
     else:
-        raise Error("Unknown patch operation: " + op_type)
+        raise Error("unknown patch operation: " + op_type)
 
 
-def _patch_add(document: Value, path: String, value: Value) raises -> Value:
-    """Add a value at the specified path."""
-    if path == "":
+def _resolve(document: Value, tokens: List[String]) raises -> Value:
+    """The value named by `tokens`, or an error naming what is missing."""
+    var current = document.copy()
+    for i in range(len(tokens)):
+        var token = tokens[i]
+        if current.is_object():
+            current = current[token]
+        elif current.is_array():
+            current = current[array_index(token, current.array_count())]
+        else:
+            raise Error(
+                "'" + token + "' names a member of a value that has none"
+            )
+    return current^
+
+
+def _add_at(
+    node: Value, tokens: List[String], depth: Int, value: Value
+) raises -> Value:
+    """RFC 6902 `add`, rebuilding the containers along the way.
+
+    Whether the final token is an array index or an object member is
+    decided by the container's runtime type, not by how the token is
+    spelled, which is what RFC 6902 section 4.1 requires.
+    """
+    if depth == len(tokens):
         return value.copy()
 
-    var result = document.copy()
-    var parent_path = _get_parent_path(path)
-    var key = _get_last_token(path)
+    var token = tokens[depth]
+    var last = depth == len(tokens) - 1
 
-    if parent_path == "":
-        # Adding to root
-        if result.is_object():
-            result.set(key, value)
-        elif result.is_array():
-            var idx = _parse_array_index(key, result.array_count() + 1)
-            if key == "-" or idx == result.array_count():
-                result.append(value)
+    if node.is_object():
+        if last:
+            var out = node.copy()
+            out.set(token, value)
+            return out^
+        var child = _add_at(node[token], tokens, depth + 1, value)
+        var out = node.copy()
+        out.set(token, child)
+        return out^
+
+    if node.is_array():
+        var count = node.array_count()
+        if last:
+            var index: Int
+            if token == "-":
+                index = count
             else:
-                result = _array_insert(result, idx, value)
-        else:
-            raise Error("Cannot add to primitive value")
-    else:
-        var parent = result.at(parent_path)
-        if parent.is_object():
-            parent.set(key, value)
-            result = _set_at_path(result, parent_path, parent)
-        elif parent.is_array():
-            var idx = _parse_array_index(key, parent.array_count() + 1)
-            if key == "-" or idx == parent.array_count():
-                parent.append(value)
-            else:
-                parent = _array_insert(parent, idx, value)
-            result = _set_at_path(result, parent_path, parent)
-        else:
-            raise Error("Cannot add to primitive value")
+                index = index_value(token)
+                if index > count:
+                    raise Error(
+                        "cannot add at index "
+                        + token
+                        + " of an array of length "
+                        + String(count)
+                    )
+            return _array_insert(node, index, value)
+        var index = array_index(token, count)
+        var child = _add_at(node[index], tokens, depth + 1, value)
+        var out = node.copy()
+        out.set(index, child)
+        return out^
 
-    return result^
+    raise Error("cannot add '" + token + "' to a value that has no members")
 
 
-def _patch_remove(document: Value, path: String) raises -> Value:
-    """Remove the value at the specified path."""
-    if path == "":
-        raise Error("Cannot remove root document")
+def _remove_at(node: Value, tokens: List[String], depth: Int) raises -> Value:
+    """RFC 6902 `remove`. The target must exist."""
+    var token = tokens[depth]
+    var last = depth == len(tokens) - 1
 
-    var result = document.copy()
-    var parent_path = _get_parent_path(path)
-    var key = _get_last_token(path)
+    if node.is_object():
+        if last:
+            return _remove_object_key(node, token, required=True)
+        var child = _remove_at(node[token], tokens, depth + 1)
+        var out = node.copy()
+        out.set(token, child)
+        return out^
 
-    if parent_path == "":
-        if result.is_object():
-            result = _remove_object_key(result, key)
-        elif result.is_array():
-            var idx = _parse_array_index(key, result.array_count())
-            result = _array_remove(result, idx)
-        else:
-            raise Error("Cannot remove from primitive value")
-    else:
-        var parent = result.at(parent_path)
-        if parent.is_object():
-            parent = _remove_object_key(parent, key)
-            result = _set_at_path(result, parent_path, parent)
-        elif parent.is_array():
-            var idx = _parse_array_index(key, parent.array_count())
-            parent = _array_remove(parent, idx)
-            result = _set_at_path(result, parent_path, parent)
-        else:
-            raise Error("Cannot remove from primitive value")
+    if node.is_array():
+        var index = array_index(token, node.array_count())
+        if last:
+            return _array_remove(node, index)
+        var child = _remove_at(node[index], tokens, depth + 1)
+        var out = node.copy()
+        out.set(index, child)
+        return out^
 
-    return result^
+    raise Error(
+        "cannot remove '" + token + "' from a value that has no members"
+    )
 
 
-def _patch_replace(document: Value, path: String, value: Value) raises -> Value:
-    """Replace the value at the specified path."""
-    if path == "":
-        return value.copy()
-
-    # Verify path exists
-    _ = document.at(path)
-
-    return _set_at_path(document.copy(), path, value)
-
-
-def _patch_move(
-    document: Value, from_path: String, to_path: String
+def _replace_at(
+    node: Value, tokens: List[String], depth: Int, value: Value
 ) raises -> Value:
-    """Move a value from one path to another."""
-    var value = document.at(from_path).copy()
-    var temp = _patch_remove(document, from_path)
-    return _patch_add(temp, to_path, value)
+    """RFC 6902 `replace`. The target must already exist."""
+    var token = tokens[depth]
+    var last = depth == len(tokens) - 1
+
+    if node.is_object():
+        # Reading the member first is what makes replacing something
+        # that is not there an error rather than an add.
+        var existing = node[token]
+        if last:
+            var out = node.copy()
+            out.set(token, value)
+            return out^
+        var child = _replace_at(existing, tokens, depth + 1, value)
+        var out = node.copy()
+        out.set(token, child)
+        return out^
+
+    if node.is_array():
+        var index = array_index(token, node.array_count())
+        if last:
+            var out = node.copy()
+            out.set(index, value)
+            return out^
+        var child = _replace_at(node[index], tokens, depth + 1, value)
+        var out = node.copy()
+        out.set(index, child)
+        return out^
+
+    raise Error("cannot replace '" + token + "' in a value that has no members")
 
 
-def _patch_copy(
-    document: Value, from_path: String, to_path: String
+def _move(
+    document: Value, from_tokens: List[String], to_tokens: List[String]
 ) raises -> Value:
-    """Copy a value from one path to another."""
-    var value = document.at(from_path).copy()
-    return _patch_add(document, to_path, value)
+    """RFC 6902 `move`, which is a remove followed by an add."""
+    if _same_location(from_tokens, to_tokens):
+        # Removing and re-adding in one place is a no-op for an object
+        # and, for an array, an identity insert. Saying so directly is
+        # cheaper and cannot get the index arithmetic wrong.
+        return document.copy()
+    if _is_proper_prefix(from_tokens, to_tokens):
+        raise Error("cannot move a value into one of its own children")
+    var value = _resolve(document, from_tokens)
+    if len(from_tokens) == 0:
+        raise Error("cannot move the whole document")
+    var without = _remove_at(document, from_tokens, 0)
+    return _add_at(without, to_tokens, 0, value)
 
 
-def _patch_test(document: Value, path: String, value: Value) raises:
-    """Test that a value at the path equals the expected value."""
-    var actual = document.at(path)
-    if not _values_equal(actual, value):
-        raise Error("Test failed: value at " + path + " does not match")
+def _same_location(a: List[String], b: List[String]) -> Bool:
+    """Whether two token lists name the same place."""
+    if len(a) != len(b):
+        return False
+    for i in range(len(a)):
+        if a[i] != b[i]:
+            return False
+    return True
+
+
+def _is_proper_prefix(a: List[String], b: List[String]) -> Bool:
+    """Whether `a` names a strict ancestor of `b`."""
+    if len(a) >= len(b):
+        return False
+    for i in range(len(a)):
+        if a[i] != b[i]:
+            return False
+    return True
 
 
 # =============================================================================
@@ -227,7 +333,7 @@ def merge_patch(target: Value, patch: Value) raises -> Value:
 
         if value.is_null():
             # Remove the key
-            result = _remove_object_key(result, key)
+            result = _remove_object_key(result, key, required=False)
         else:
             # Recursively merge
             var target_value: Value
@@ -315,249 +421,129 @@ def create_merge_patch(source: Value, target: Value) raises -> Value:
 # =============================================================================
 
 
-def _get_parent_path(path: String) -> String:
-    """Get the parent path (everything before the last /)."""
-    var last_slash = -1
-    var path_bytes = path.as_bytes()
-    for i in range(len(path_bytes)):
-        if path_bytes[i] == UInt8(ord("/")):
-            last_slash = i
-
-    if last_slash <= 0:
-        return ""
-    return String(String(unsafe_from_utf8=path.as_bytes()[:last_slash]))
-
-
-def _get_last_token(path: String) -> String:
-    """Get the last token from a JSON Pointer path."""
-    var last_slash = -1
-    var path_bytes = path.as_bytes()
-    for i in range(len(path_bytes)):
-        if path_bytes[i] == UInt8(ord("/")):
-            last_slash = i
-
-    if last_slash < 0:
-        return path
-
-    var token = String(
-        String(unsafe_from_utf8=path.as_bytes()[last_slash + 1 :])
-    )
-    # Unescape ~1 and ~0
-    token = _unescape_pointer_token(token)
-    return token^
-
-
-def _unescape_pointer_token(token: String) -> String:
-    """Unescape JSON Pointer token (~1 -> /, ~0 -> ~)."""
-    var result = String()
-    var token_bytes = token.as_bytes()
-    var i = 0
-    while i < len(token_bytes):
-        if token_bytes[i] == UInt8(ord("~")) and i + 1 < len(token_bytes):
-            if token_bytes[i + 1] == UInt8(ord("1")):
-                result += "/"
-                i += 2
-                continue
-            elif token_bytes[i + 1] == UInt8(ord("0")):
-                result += "~"
-                i += 2
-                continue
-        result += chr(Int(token_bytes[i]))
-        i += 1
-    return result^
-
-
-def _parse_array_index(token: String, max_index: Int) raises -> Int:
-    """Parse an array index from a JSON Pointer token."""
-    if token == "-":
-        return max_index
-
-    var idx: Int
-    try:
-        idx = atol(token)
-    except:
-        raise Error("Invalid array index: " + token)
-
-    if idx < 0 or idx > max_index:
-        raise Error("Array index out of bounds: " + token)
-
-    return idx
-
-
-def _set_at_path(document: Value, path: String, value: Value) raises -> Value:
-    """Set a value at the given JSON Pointer path."""
-    if path == "":
-        return value.copy()
-
-    var result = document.copy()
-    var tokens = _parse_path_tokens(path)
-
-    # Navigate to parent and set
-    if len(tokens) == 1:
-        # Direct child of root
-        var token = tokens[0]
-        if result.is_object():
-            result.set(token, value)
-        elif result.is_array():
-            var idx = _parse_array_index(token, result.array_count())
-            result.set(idx, value)
-    else:
-        # Need to rebuild the path
-        result = _set_nested(result, tokens, 0, value)
-
-    return result^
-
-
-def _set_nested(
-    document: Value, tokens: List[String], idx: Int, value: Value
+def _remove_object_key(
+    obj: Value, key: String, *, required: Bool
 ) raises -> Value:
-    """Recursively set a nested value."""
-    if idx >= len(tokens):
-        return value.copy()
+    """An object without `key`.
 
-    var token = tokens[idx]
-    var result = document.copy()
+    Built member by member rather than by splicing JSON text back
+    together, which is how an earlier version corrupted any document
+    holding a key that needs escaping: the key went back into the text
+    raw, and the re-parse either failed or read a different key.
 
-    if idx == len(tokens) - 1:
-        # Last token - set the value
-        if result.is_object():
-            result.set(token, value)
-        elif result.is_array():
-            var arr_idx = _parse_array_index(token, result.array_count())
-            result.set(arr_idx, value)
-        return result^
-
-    # Not last token - recurse
-    if result.is_object():
-        var child = result[token].copy()
-        var new_child = _set_nested(child, tokens, idx + 1, value)
-        result.set(token, new_child)
-    elif result.is_array():
-        var arr_idx = _parse_array_index(token, result.array_count())
-        var child = result[arr_idx].copy()
-        var new_child = _set_nested(child, tokens, idx + 1, value)
-        result.set(arr_idx, new_child)
-
-    return result^
-
-
-def _parse_path_tokens(path: String) -> List[String]:
-    """Parse a JSON Pointer path into tokens."""
-    var tokens = List[String]()
-    if path == "":
-        return tokens^
-
-    var path_bytes = path.as_bytes()
-    var start = 1  # Skip leading /
-
-    for i in range(1, len(path_bytes) + 1):
-        if i == len(path_bytes) or path_bytes[i] == UInt8(ord("/")):
-            var token = String(
-                String(unsafe_from_utf8=path.as_bytes()[start:i])
-            )
-            tokens.append(_unescape_pointer_token(token))
-            start = i + 1
-
-    return tokens^
-
-
-def _remove_object_key(obj: Value, key: String) raises -> Value:
-    """Remove a key from an object."""
-    if not obj.is_object():
-        raise Error("Cannot remove key from non-object")
-
+    Args:
+        obj: The object to copy.
+        key: The member to leave out.
+        required: Whether a missing member is an error. RFC 6902's
+            `remove` says it is; RFC 7396's `null` says it is not.
+    """
+    var out = Value.object()
+    var found = False
     var items = obj.object_items()
-    var json = "{"
-    var first = True
-
     for i in range(len(items)):
-        if items[i][0] != key:
-            if not first:
-                json += ","
-            json += '"' + items[i][0] + '":'
-            json += dumps(items[i][1])
-            first = False
-
-    json += "}"
-    return loads(json)
+        if items[i][0] == key:
+            found = True
+            continue
+        out.set(items[i][0], items[i][1])
+    if required and not found:
+        raise Error("cannot remove member '" + key + "', which is not present")
+    return out^
 
 
-def _array_insert(arr: Value, idx: Int, value: Value) raises -> Value:
-    """Insert a value into an array at the given index."""
-    if not arr.is_array():
-        raise Error("Cannot insert into non-array")
-
+def _array_insert(arr: Value, index: Int, value: Value) raises -> Value:
+    """An array with `value` inserted before position `index`."""
+    var out = Value.array()
     var items = arr.array_items()
-    var json = "["
-
-    for i in range(len(items) + 1):
-        if i > 0:
-            json += ","
-        if i == idx:
-            json += dumps(value)
-            if i < len(items):
-                json += ","
-                json += dumps(items[i])
-        elif i < len(items):
-            var actual_idx = i
-            if i > idx:
-                actual_idx = i
-            if actual_idx < len(items):
-                json += dumps(items[actual_idx])
-
-    # Fix: simpler implementation
-    json = "["
-    for i in range(len(items) + 1):
-        if i > 0:
-            json += ","
-        if i == idx:
-            json += dumps(value)
-        elif i < idx:
-            json += dumps(items[i])
-        else:  # i > idx
-            json += dumps(items[i - 1])
-
-    json += "]"
-    return loads(json)
-
-
-def _array_remove(arr: Value, idx: Int) raises -> Value:
-    """Remove an element from an array at the given index."""
-    if not arr.is_array():
-        raise Error("Cannot remove from non-array")
-
-    var items = arr.array_items()
-    if idx >= len(items):
-        raise Error("Array index out of bounds")
-
-    var json = "["
-    var first = True
-
     for i in range(len(items)):
-        if i != idx:
-            if not first:
-                json += ","
-            json += dumps(items[i])
-            first = False
-
-    json += "]"
-    return loads(json)
+        if i == index:
+            out.append(value)
+        out.append(items[i])
+    if index >= len(items):
+        out.append(value)
+    return out^
 
 
-def _values_equal(a: Value, b: Value) -> Bool:
-    """Check if two values are equal."""
-    if a.is_null() and b.is_null():
-        return True
-    if a.is_bool() and b.is_bool():
-        return a.bool_value() == b.bool_value()
-    if a.is_int() and b.is_int():
+def _array_remove(arr: Value, index: Int) raises -> Value:
+    """An array without the element at `index`."""
+    var out = Value.array()
+    var items = arr.array_items()
+    for i in range(len(items)):
+        if i != index:
+            out.append(items[i])
+    return out^
+
+
+def _numbers_equal(a: Value, b: Value) -> Bool:
+    """Numeric equality as RFC 6902 section 4.6 defines it.
+
+    "Numerically equal" is about the value, not the spelling, so `1`
+    and `1.0` are the same number. Two integers are compared as
+    integers so that magnitudes above the range a `Float64` can name
+    exactly do not collapse into each other.
+    """
+    var a_integral = a.is_int() or a.is_uint()
+    var b_integral = b.is_int() or b.is_uint()
+    if a_integral and b_integral:
+        if a.is_uint() or b.is_uint():
+            # A negative value is never equal to one that needed the
+            # unsigned range to be represented at all.
+            if a.is_int() and a.int_value() < 0:
+                return False
+            if b.is_int() and b.int_value() < 0:
+                return False
+            var a_bits = a.uint_value() if a.is_uint() else UInt64(
+                a.int_value()
+            )
+            var b_bits = b.uint_value() if b.is_uint() else UInt64(
+                b.int_value()
+            )
+            return a_bits == b_bits
         return a.int_value() == b.int_value()
-    if a.is_float() and b.is_float():
-        return a.float_value() == b.float_value()
-    if a.is_string() and b.is_string():
-        return a.string_value() == b.string_value()
-    if a.is_array() and b.is_array():
-        return dumps(a) == dumps(b)
-    if a.is_object() and b.is_object():
-        return dumps(a) == dumps(b)
+
+    var a_number = a.float_value() if a.is_float() else Float64(a.int_value())
+    var b_number = b.float_value() if b.is_float() else Float64(b.int_value())
+    return a_number == b_number
+
+
+def _values_equal(a: Value, b: Value) raises -> Bool:
+    """Deep equality, with member order ignored.
+
+    RFC 6902 section 4.6 says two objects are equal when they have the
+    same members regardless of order, so this compares member by
+    member instead of comparing the serialized text, which made
+    `{"a":1,"b":2}` and `{"b":2,"a":1}` fail a `test` that should pass.
+    """
+    if a.is_null():
+        return b.is_null()
+    if a.is_bool():
+        return b.is_bool() and a.bool_value() == b.bool_value()
+    if a.is_number():
+        return b.is_number() and _numbers_equal(a, b)
+    if a.is_string():
+        return b.is_string() and a.string_value() == b.string_value()
+
+    if a.is_array():
+        if not b.is_array() or a.array_count() != b.array_count():
+            return False
+        var left = a.array_items()
+        var right = b.array_items()
+        for i in range(len(left)):
+            if not _values_equal(left[i], right[i]):
+                return False
+        return True
+
+    if a.is_object():
+        if not b.is_object() or a.object_count() != b.object_count():
+            return False
+        var members = a.object_items()
+        for i in range(len(members)):
+            var other: Value
+            try:
+                other = b[members[i][0]]
+            except:
+                return False
+            if not _values_equal(members[i][1], other):
+                return False
+        return True
+
     return False

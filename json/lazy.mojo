@@ -4,6 +4,7 @@
 # This is efficient when you only need a few fields from a large document.
 
 from .value import Value, Null
+from .pointer import index_value, parse_pointer
 from .value.raw_ops import _extract_field_value, _extract_array_element
 from .cpu import parse_cpu_native_tape
 
@@ -247,28 +248,14 @@ def loads_lazy(s: String) -> LazyValue:
 def _lazy_navigate(raw: String, pointer: String) raises -> Value:
     """Navigate to a value using JSON Pointer without full parsing."""
     var current_raw = raw
-    var pointer_bytes = pointer.as_bytes()
-    var n = len(pointer_bytes)
-    var i = 1  # Skip leading /
+    # Tokens come from the shared RFC 6901 parser rather than a local
+    # copy of it, which is what used to make `lazy.get("/")` return the
+    # whole document while `Value.at("/")` looked for the member whose
+    # key is the empty string.
+    var tokens = parse_pointer(pointer)
 
-    while i < n:
-        # Extract next token
-        var token = String()
-        while i < n and pointer_bytes[i] != UInt8(ord("/")):
-            if pointer_bytes[i] == UInt8(ord("~")):
-                if i + 1 < n:
-                    if pointer_bytes[i + 1] == UInt8(ord("0")):
-                        token += "~"
-                        i += 2
-                        continue
-                    elif pointer_bytes[i + 1] == UInt8(ord("1")):
-                        token += "/"
-                        i += 2
-                        continue
-                raise Error("Invalid escape in JSON Pointer")
-            token += chr(Int(pointer_bytes[i]))
-            i += 1
-        i += 1  # Skip /
+    for token_index in range(len(tokens)):
+        var token = tokens[token_index]
 
         # Determine if current is array or object
         var current_bytes = current_raw.as_bytes()
@@ -290,12 +277,9 @@ def _lazy_navigate(raw: String, pointer: String) raises -> Value:
             current_raw = _extract_field_value(current_raw, token)
         elif first == UInt8(ord("[")):
             # Array - extract element by index
-            var idx: Int
-            try:
-                idx = atol(token)
-            except:
-                raise Error("Invalid array index: " + token)
-            current_raw = _extract_array_element(current_raw, idx)
+            current_raw = _extract_array_element(
+                current_raw, index_value(token)
+            )
         else:
             raise Error("Cannot navigate into primitive with pointer")
 

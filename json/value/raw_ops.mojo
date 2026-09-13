@@ -12,6 +12,9 @@
 
 from std.collections import List
 
+from ..pointer import parse_pointer
+from ..unicode import unescape_json_string_span
+
 
 # ---------------------------------------------------------------------------
 # JSON string escaping -- the single canonical implementation
@@ -138,13 +141,32 @@ def _extract_field_value(raw: String, key: String) raises -> String:
             i += 1
             var key_start = i
 
+            var has_escape = False
             while i < n and raw_bytes[i] != UInt8(ord('"')):
                 if raw_bytes[i] == UInt8(ord("\\")):
+                    has_escape = True
                     i += 2
                 else:
                     i += 1
 
-            var found_key = String(unsafe_from_utf8=raw.as_bytes()[key_start:i])
+            # The key is compared against a token that has already
+            # been unescaped, so a key carrying escapes has to be
+            # unescaped too. Without this, `\u0041` in the document
+            # never matches the `A` the caller asked for.
+            var key_end = i
+            var found_key: String
+            if has_escape:
+                found_key = String(
+                    unsafe_from_utf8=Span(
+                        unescape_json_string_span(
+                            raw.as_bytes(), key_start, key_end
+                        )
+                    )
+                )
+            else:
+                found_key = String(
+                    unsafe_from_utf8=raw.as_bytes()[key_start:key_end]
+                )
             i += 1
 
             while i < n and (
@@ -447,35 +469,8 @@ def _extract_object_keys(raw: String) -> List[String]:
 def _parse_json_pointer(pointer: String) raises -> List[String]:
     """Parse a JSON Pointer string into tokens.
 
-    Handles RFC 6901 escape sequences:
-        ~0 -> ~.
-        ~1 -> /.
-
-    Lives in `raw_ops.mojo` because it has no dependency on `Value` (it
-    only inspects the pointer string and returns tokens).
+    Kept as a name here because `Value` and the package re-export it.
+    The implementation lives in `json/pointer.mojo`, which is the one
+    RFC 6901 parser the whole library shares.
     """
-    var tokens = List[String]()
-    var pointer_bytes = pointer.as_bytes()
-    var n = len(pointer_bytes)
-    var i = 1  # Skip leading /
-
-    while i < n:
-        var token = String()
-        while i < n and pointer_bytes[i] != UInt8(ord("/")):
-            if pointer_bytes[i] == UInt8(ord("~")):
-                if i + 1 < n:
-                    if pointer_bytes[i + 1] == UInt8(ord("0")):
-                        token += "~"
-                        i += 2
-                        continue
-                    elif pointer_bytes[i + 1] == UInt8(ord("1")):
-                        token += "/"
-                        i += 2
-                        continue
-                raise Error("Invalid escape sequence in JSON Pointer")
-            token += chr(Int(pointer_bytes[i]))
-            i += 1
-        tokens.append(token^)
-        i += 1  # Skip /
-
-    return tokens^
+    return parse_pointer(pointer)

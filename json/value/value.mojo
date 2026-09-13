@@ -29,6 +29,7 @@
 from std.collections import List
 from std.memory import ArcPointer, bitcast
 
+from ..pointer import array_index
 from .raw_ops import _parse_json_pointer, escape_json_string
 from .node import (
     OwnedValue,
@@ -733,14 +734,11 @@ struct Value(Copyable, Movable, Writable):
             if current.is_object():
                 current = current[token]
             elif current.is_array():
-                var index: Int
-                try:
-                    index = atol(token)
-                except:
-                    raise Error("Array index must be a number: " + token)
-                if index < 0:
-                    raise Error("Array index cannot be negative: " + token)
-                current = current[index]
+                # RFC 6901 spells an index as `0` or a leading non-zero
+                # digit, so `01` and `+1` are malformed rather than out
+                # of range, and `-` names a position that no existing
+                # element occupies.
+                current = current[array_index(token, current.array_count())]
             else:
                 raise Error(
                     "Cannot navigate into primitive value with pointer: /"
