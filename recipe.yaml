@@ -61,7 +61,10 @@ requirements:
 
 about:
   homepage: https://github.com/ehsanmok/json
-  license: Apache-2.0
+  license: MIT
+  license_file:
+    - LICENSE
+    - NOTICE
   summary: High-performance JSON library for Mojo with CPU and GPU support
   description: |
     json is a high-performance JSON parsing library for Mojo.

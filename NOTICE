@@ -1,0 +1,43 @@
+json
+Copyright (c) 2025 Ehsan M. Kermani
+
+This product is licensed under the MIT License. See LICENSE.
+
+--------------------------------------------------------------------
+Third-party components
+--------------------------------------------------------------------
+
+simdjson
+--------
+
+The `cpu-simdjson` backend is a thin C wrapper, built from
+`json/cpu/simdjson_ffi/simdjson_wrapper.cpp` and distributed as
+`lib/libsimdjson_wrapper.so`. The wrapper itself is part of this
+project and carries the licence above. It links against simdjson:
+
+    simdjson <https://github.com/simdjson/simdjson>
+    Copyright 2018-2025 The simdjson authors
+    Licensed under the Apache License, Version 2.0
+
+The Apache-2.0 text ships inside the simdjson package itself, at
+`info/licenses/LICENSE`, and is available at
+<https://www.apache.org/licenses/LICENSE-2.0>.
+
+Mojo toolchain
+--------------
+
+Building or running this library requires the Mojo toolchain, which
+the consumer installs and which this project does not redistribute.
+The Mojo compiler and standard library sources are published under the
+Apache License 2.0 with LLVM Exceptions, but the `mojo` and
+`mojo-compiler` conda packages as distributed today declare
+`LicenseRef-Modular-Proprietary` and ship the Modular Community
+License Terms in `info/licenses/LICENSE`. The file inside the package
+you installed is the one that governs your copy.
+
+MAX
+---
+
+The GPU path additionally requires `max-core`, which is governed by the
+Modular Community License. That path is opt-in and is not needed to use
+this library. See `json/gpu/LICENSE-GPU.md`.
