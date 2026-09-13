@@ -141,24 +141,6 @@ def test_load_ndjson() raises:
     assert_equal(data.array_count(), 2)
 
 
-def test_load_ndjson_gpu() raises:
-    """Test load with GPU + .ndjson auto-detection."""
-    var f_out = open("test_api_gpu.ndjson", "w")
-    f_out.write('{"x":1}\n{"x":2}\n{"x":3}\n')
-    f_out.close()
-
-    var data = load[target="gpu"]("test_api_gpu.ndjson")
-    assert_true(data.is_array())
-    assert_equal(data.array_count(), 3)
-
-
-def test_loads_ndjson_gpu() raises:
-    """Test loads[format='ndjson'] with GPU."""
-    var ndjson = '{"id":1}\n{"id":2}'
-    var values = loads[target="gpu", format="ndjson"](ndjson)
-    assert_equal(len(values), 2)
-
-
 def test_load_streaming() raises:
     """Test load with streaming=True."""
     var f_out = open("test_api_stream.ndjson", "w")
@@ -354,7 +336,6 @@ def main() raises:
     try:
         remove("test_api.json")
         remove("test_api.ndjson")
-        remove("test_api_gpu.ndjson")
         remove("test_api_stream.ndjson")
     except:
         pass

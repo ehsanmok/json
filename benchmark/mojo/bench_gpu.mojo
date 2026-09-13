@@ -18,8 +18,7 @@ from std.sys import argv
 from std.memory import unsafe_memcpy
 from std.collections import List
 
-from json import loads
-from json.gpu import parse_json_gpu_from_pinned
+from json.gpu import loads_gpu, parse_json_gpu_from_pinned
 from max.gpu.host import DeviceContext
 from max.benchmark import bencher_iter_custom
 
@@ -59,7 +58,7 @@ def main() raises:
     # Warmup GPU
     print("Warming up GPU...")
     for _ in range(2):
-        var result = loads[target="gpu"](content)
+        var result = loads_gpu(content)
         _ = result.is_object()
     print()
 
@@ -164,7 +163,7 @@ def main() raises:
     )
 
     # -----------------------------------------------------------------
-    # 4. Full public loads[target="gpu"] path (includes Value tree build).
+    # 4. Full public loads_gpu path (includes Value tree build).
     # -----------------------------------------------------------------
     @parameter
     @always_inline
@@ -172,13 +171,13 @@ def main() raises:
         @parameter
         @always_inline
         def call_fn() raises:
-            var v = loads[target="gpu"](content)
+            var v = loads_gpu(content)
             _ = v.is_object()
 
         b.iter[call_fn]()
 
     bench.bench_function[bench_gpu_loads](
-        BenchId("json_gpu", "loads[target='gpu']"), measures
+        BenchId("json_gpu", "loads_gpu"), measures
     )
 
     print(bench)

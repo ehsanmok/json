@@ -1,6 +1,6 @@
 # Apple Metal GPU sweep benchmark.
 #
-# Runs `loads[target='gpu']` against a sweep of file sizes so we can
+# Runs `loads_gpu` against a sweep of file sizes so we can
 # (a) confirm chunked correctness across the 32 MB boundary and
 # (b) populate the README's Apple M3 Pro row with measured numbers.
 #
@@ -21,8 +21,7 @@ from std.memory import unsafe_memcpy
 from std.sys import argv
 from std.time import perf_counter_ns
 
-from json import loads
-from json.gpu import parse_json_gpu
+from json.gpu import loads_gpu, parse_json_gpu
 from json.types import JSONInput
 from std.pathlib import Path
 

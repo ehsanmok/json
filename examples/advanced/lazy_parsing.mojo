@@ -108,7 +108,7 @@ def main() raises:
     print("   - Configuration files with many unused sections")
     print()
     print("   Note: Lazy parsing is CPU-only.")
-    print("   For GPU speed, use loads[target='gpu'] instead.")
+    print("   For GPU speed, use json.gpu.loads_gpu instead.")
     print()
 
     print("Done!")

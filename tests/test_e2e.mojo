@@ -9,20 +9,21 @@
 #   pixi run bench-cpu       # Uses benchmark.run() with warmup/batching
 #   pixi run bench-gpu
 
-from std.os import getenv
 from std.testing import assert_equal, assert_true, assert_raises, TestSuite
 
 from json import loads, dumps, Value
 
 
-def _is_gpu_mode() -> Bool:
-    var val = getenv("MOJSON_TEST_GPU")
-    return val.byte_length() > 0 and val != "0" and val != "false"
-
-
 def _test_loads(json: String) raises -> Value:
-    if _is_gpu_mode():
-        return loads[target="gpu"](json)
+    """The loader under test.
+
+    This used to switch to the GPU backend when `MOJSON_TEST_GPU` was
+    set. The GPU entry point now lives in `json.gpu`, which this file
+    deliberately does not import: keeping the CPU suite free of that
+    import is what keeps `max-core` out of the default environment.
+    `packages`-free equivalent coverage for the GPU path is in
+    `tests/test_gpu.mojo`.
+    """
     return loads[target="cpu"](json)
 
 
@@ -100,14 +101,6 @@ def test_roundtrip_array_empty() raises:
     """Test empty array roundtrip."""
     # Note: GPU parser currently has issues with top-level arrays
     # This test uses CPU to verify roundtrip behavior
-    if _is_gpu_mode():
-        # GPU has issues with standalone arrays, test with wrapped object
-        var original = '{"arr":[]}'
-        var v1 = _test_loads(original)
-        var serialized = dumps(v1)
-        var v2 = _test_loads(serialized)
-        assert_true(v1.is_object() and v2.is_object(), "Should be objects")
-        return
     var original = "[]"
     var v1 = _test_loads(original)
     var serialized = dumps(v1)
@@ -118,15 +111,6 @@ def test_roundtrip_array_empty() raises:
 
 def test_roundtrip_array_simple() raises:
     """Test simple array roundtrip."""
-    # Note: GPU parser currently has issues with top-level arrays
-    if _is_gpu_mode():
-        # GPU has issues with standalone arrays, test with wrapped object
-        var original = '{"arr":[1,2,3]}'
-        var v1 = _test_loads(original)
-        var serialized = dumps(v1)
-        var v2 = _test_loads(serialized)
-        assert_true(v1.is_object() and v2.is_object(), "Should be objects")
-        return
     var original = "[1,2,3]"
     var v1 = _test_loads(original)
     var serialized = dumps(v1)
@@ -183,15 +167,6 @@ def test_roundtrip_complex() raises:
 
 def test_roundtrip_array_mixed() raises:
     """Test mixed-type array roundtrip."""
-    # Note: GPU parser currently has issues with top-level arrays
-    if _is_gpu_mode():
-        # GPU has issues with standalone arrays, test with wrapped object
-        var original = '{"arr":[1,"two",true,null,3.14]}'
-        var v1 = _test_loads(original)
-        var serialized = dumps(v1)
-        var v2 = _test_loads(serialized)
-        assert_true(v1.is_object() and v2.is_object(), "Should be objects")
-        return
     var original = '[1,"two",true,null,3.14]'
     var v1 = _test_loads(original)
     var serialized = dumps(v1)
@@ -203,128 +178,96 @@ def test_roundtrip_array_mixed() raises:
 
 def test_error_empty_input() raises:
     """Test that empty input raises error (CPU only)."""
-    if _is_gpu_mode():
-        return  # GPU parser doesn't validate empty input
     with assert_raises():
         _ = _test_loads("")
 
 
 def test_error_whitespace_only() raises:
     """Test that whitespace-only input raises error (CPU only)."""
-    if _is_gpu_mode():
-        return  # GPU parser doesn't validate whitespace-only
     with assert_raises():
         _ = _test_loads("   ")
 
 
 def test_error_invalid_token() raises:
     """Test that invalid token raises error (CPU only)."""
-    if _is_gpu_mode():
-        return  # GPU parser doesn't validate tokens
     with assert_raises():
         _ = _test_loads("invalid")
 
 
 def test_error_unclosed_string() raises:
     """Test that unclosed string raises error (CPU only)."""
-    if _is_gpu_mode():
-        return  # GPU parser doesn't validate unclosed strings
     with assert_raises():
         _ = _test_loads('"hello')
 
 
 def test_error_unclosed_array() raises:
     """Test that unclosed array raises error (CPU only)."""
-    if _is_gpu_mode():
-        return  # GPU parser doesn't validate brackets
     with assert_raises():
         _ = _test_loads("[1, 2, 3")
 
 
 def test_error_unclosed_object() raises:
     """Test that unclosed object raises error (CPU only)."""
-    if _is_gpu_mode():
-        return  # GPU parser doesn't validate brackets
     with assert_raises():
         _ = _test_loads('{"key": "value"')
 
 
 def test_error_trailing_comma_array() raises:
     """Test that trailing comma in array raises error (CPU only)."""
-    if _is_gpu_mode():
-        return  # GPU parser doesn't validate trailing commas
     with assert_raises():
         _ = _test_loads("[1, 2, 3,]")
 
 
 def test_error_trailing_comma_object() raises:
     """Test that trailing comma in object raises error (CPU only)."""
-    if _is_gpu_mode():
-        return  # GPU parser doesn't validate trailing commas
     with assert_raises():
         _ = _test_loads('{"a": 1,}')
 
 
 def test_error_missing_value() raises:
     """Test that missing value raises error (CPU only)."""
-    if _is_gpu_mode():
-        return  # GPU parser doesn't validate missing values
     with assert_raises():
         _ = _test_loads('{"key":}')
 
 
 def test_error_missing_colon() raises:
     """Test that missing colon in object raises error (CPU only)."""
-    if _is_gpu_mode():
-        return  # GPU parser doesn't validate missing colons
     with assert_raises():
         _ = _test_loads('{"key" "value"}')
 
 
 def test_error_double_comma() raises:
     """Test that double comma raises error (CPU only)."""
-    if _is_gpu_mode():
-        return  # GPU parser doesn't validate double commas
     with assert_raises():
         _ = _test_loads("[1,, 2]")
 
 
 def test_error_leading_zeros() raises:
     """Test that leading zeros raise error (per JSON spec, CPU only)."""
-    if _is_gpu_mode():
-        return  # GPU parser doesn't validate number format
     with assert_raises():
         _ = _test_loads("007")
 
 
 def test_error_single_quotes() raises:
     """Test that single quotes raise error (CPU only)."""
-    if _is_gpu_mode():
-        return  # GPU parser doesn't validate quote style
     with assert_raises():
         _ = _test_loads("'hello'")
 
 
 def test_error_unquoted_key() raises:
     """Test that unquoted object key raises error (CPU only)."""
-    if _is_gpu_mode():
-        return  # GPU parser doesn't validate key quoting
     with assert_raises():
         _ = _test_loads("{key: 1}")
 
 
 def test_error_extra_content() raises:
     """Test that extra content after valid JSON raises error (CPU only)."""
-    if _is_gpu_mode():
-        return  # GPU parser doesn't validate trailing content
     with assert_raises():
         _ = _test_loads("true false")
 
 
 def test_error_invalid_escape() raises:
     """Test that invalid escape sequence raises error (CPU only)."""
-    if _is_gpu_mode():
-        return  # GPU parser doesn't validate escape sequences
     with assert_raises():
         _ = _test_loads('"hello\\x"')
 
@@ -399,9 +342,8 @@ def test_edge_very_small_float() raises:
 
 
 def main() raises:
-    var backend = "GPU" if _is_gpu_mode() else "CPU"
     print("=" * 60)
-    print("test_e2e.mojo - End-to-End Tests (" + backend + ")")
+    print("test_e2e.mojo - End-to-End Tests (CPU)")
     print("=" * 60)
     print()
     TestSuite.discover_tests[__functions_in_module()]().run()

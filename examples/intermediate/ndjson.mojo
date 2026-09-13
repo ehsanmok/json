@@ -49,20 +49,6 @@ def main() raises:
     print()
 
     # ==========================================================
-    # 3. GPU-accelerated NDJSON parsing
-    # ==========================================================
-    print("3. GPU-accelerated NDJSON:")
-
-    # For strings
-    var gpu_values = loads[target="gpu", format="ndjson"](ndjson_str)
-    print("   GPU parsed", len(gpu_values), "records from string")
-
-    # For files
-    var gpu_events = load[target="gpu"]("example_data.ndjson")
-    print("   GPU parsed", gpu_events.array_count(), "records from file")
-    print()
-
-    # ==========================================================
     # 4. Serialize to NDJSON
     # ==========================================================
     print("4. Serialize to NDJSON:")
