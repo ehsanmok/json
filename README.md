@@ -3,6 +3,7 @@
 [![CI](https://github.com/ehsanmok/json/actions/workflows/ci.yml/badge.svg)](https://github.com/ehsanmok/json/actions/workflows/ci.yml)
 [![Docs](https://github.com/ehsanmok/json/actions/workflows/docs.yaml/badge.svg)](https://ehsanmok.github.io/json/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![GPU: MAX Community License](https://img.shields.io/badge/GPU-MAX%20Community%20License-orange.svg)](json/gpu/LICENSE-GPU.md)
 
 **High-performance JSON for Mojo** 🔥 Pure-Mojo two-pass CPU parser, GPU-accelerated parsing on NVIDIA, AMD, and Apple Metal, tape-backed `Document` shared by every backend, reflection serde with zero boilerplate, and JSONPath, JSON Pointer, JSON Patch and JSON Schema implemented against their specifications rather than approximated. The simdjson FFI shim is opt-in for the cases where you need it.
 
@@ -22,20 +23,27 @@ print(dumps(data, indent="  "))        # pretty print
 - **GPU that wins on big files.** [Numbers below](#performance); details in [`docs/performance.md`](./docs/performance.md).
 - **Reflection serde with no boilerplate.** `serialize_json(struct)` and `deserialize_json[T](json)` walk struct fields at compile time, no hand-written `to_json` / `from_json` needed. Custom traits (`JsonSerializable`, `JsonDeserializable`) override the default for one type without abandoning reflection for the rest.
 - **Strict where it matters, lenient where it asks for it.** RFC 8259 by default; opt into comments, trailing commas, and a custom max-depth via `ParserConfig`, or tighten to I-JSON (RFC 7493) with `ParserConfig.interoperable()`.
-- **Conformance is a build gate, not a claim.** Catalogs for RFC 8259, RFC 7493, RFC 6901, RFC 6902, RFC 7396 and JSON Schema draft 2020-12 run in `pixi run tests-cpu`. Each runner asserts the set of failing cases equals a declared list of known gaps, so a regression fails the build and so does fixing a gap without deleting its entry. Those lists are empty.
+- **Conformance is a build gate, not a claim.** [Every standard below](#standards-conformance) is checked by a catalog or a suite that runs in `pixi run tests-cpu`, which is what CI runs on Linux and macOS.
 - **Fuzzed.** Five mozz harnesses (parser, simdjson FFI, Value access, JSONPath, NDJSON) with a differential property that simdjson and the native parser must agree on canonical `dumps` output, plus an ASan harness over the FFI and tape boundaries.
 
-## What's new in 0.4.0
+## Standards conformance
 
-- **The CPU path no longer depends on MAX.** Installing `json` brings in `mojo` and `simdjson` and nothing else. GPU parsing is opt-in: import `loads` from `json.gpu` and add `max-core`, which is under the Modular Community License. [Details below](#gpu-parsing-is-opt-in).
-- **JSONPath is RFC 9535**, not an approximation of it. Filters gained logical operators, parentheses, existence tests and root references; unions, function extensions (`length`, `count`, `match`, `search`, `value`) and Normalized Paths are implemented. Two queries that used to hang or silently drop an element now behave: `$[::-1]` and every open-ended slice.
-- **JSON Schema is draft 2020-12.** `$ref` resolves instead of being ignored, `pattern` is a real I-Regexp engine instead of a literal comparison, and `unevaluatedProperties` / `unevaluatedItems` work.
-- **One JSON Pointer implementation** replaces three that disagreed, and JSON Patch now holds: atomicity, `test` by numeric value and member-order-insensitive equality, and errors where the RFC requires them.
-- **I-JSON mode** via `ParserConfig.interoperable()` (RFC 7493).
-- **`Value` behaves like a JSON value**: `len`, `in`, iteration, `items()` / `keys()` / `values()`, `__hash__`, structural `==`, `__setitem__`, `remove`, negative indices, and raising `as_int()`-style accessors next to the non-raising ones.
-- **Faster.** Typed deserialization is roughly twice as quick across every shape, and telemetry serialization is down by 30%.
+Every row runs in `pixi run tests-cpu`, which is the CI test job on both Linux and macOS. A catalog runner asserts that the set of failing cases equals a declared list of known gaps, so a regression fails the build and so does fixing a gap without deleting its entry. **Those lists are empty.**
 
-**Breaking:** `get(key)` returns `Optional[Value]` instead of the member's raw JSON text (the old behaviour is `raw_member`); `==` on containers is structural rather than textual; `loads[target="gpu"]` moves from `json` to `json.gpu` with the same signature.
+| Standard | Checks | Result | Where |
+|---|---:|---|---|
+| [RFC 8259](https://datatracker.ietf.org/doc/html/rfc8259) JSON | 312 asserted, 35 informational | 0 unexpected failures | `tests/conformance/rfc8259.json` |
+| [RFC 7493](https://datatracker.ietf.org/doc/html/rfc7493) I-JSON | 6 asserted | 0 unexpected failures | `tests/conformance/rfc7493-ijson.json` |
+| [RFC 6901](https://datatracker.ietf.org/doc/html/rfc6901) JSON Pointer | 18 asserted | 0 unexpected failures | `tests/conformance/rfc6901-pointer.json` |
+| [RFC 6902](https://datatracker.ietf.org/doc/html/rfc6902) JSON Patch | 27 asserted | 0 unexpected failures | `tests/conformance/rfc6902-patch.json` |
+| [RFC 7396](https://datatracker.ietf.org/doc/html/rfc7396) Merge Patch | 21 asserted, 3 informational | 0 unexpected failures | `tests/conformance/rfc7396-merge-patch.json` |
+| [JSON Schema 2020-12](https://json-schema.org/draft/2020-12) | 197 asserted | 0 unexpected failures, 44 of 44 keywords covered | `tests/conformance/jsonschema-2020-12.json` |
+| [RFC 9535](https://datatracker.ietf.org/doc/html/rfc9535) JSONPath | 80 tests | all pass | `tests/test_jsonpath.mojo` |
+| [RFC 9485](https://datatracker.ietf.org/doc/html/rfc9485) I-Regexp | 32 tests | all pass | `tests/test_regex.mojo` |
+
+The six catalogs are transcribed from the specification texts, each case carrying the section it came from. RFC 8259's corpus also merges [JSONTestSuite](https://github.com/nst/JSONTestSuite); see [`tests/conformance/README.md`](./tests/conformance/README.md) for provenance. The two RFCs checked by unit tests rather than a catalog use the specifications' own worked examples: the JSONPath tests are organised by section, including the section 1.5 bookstore queries and about seventy queries that must be rejected.
+
+Deviations are recorded rather than hidden. The informational rows are cases the RFC states at SHOULD level and this library decides differently; each carries its reason in the catalog.
 
 ## Install
 
@@ -78,8 +86,6 @@ Same `loads`, same `target` parameter as `json.loads`, and every non-GPU target 
 Read the [Modular Community License](https://www.modular.com/legal/community) before you add that dependency: it places conditions on commercial and production use that MIT does not, and those are between you and Modular. See [`json/gpu/LICENSE-GPU.md`](./json/gpu/LICENSE-GPU.md).
 
 Hardware: NVIDIA CUDA 7.0+, AMD ROCm 6+, or Apple Silicon. See [GPU compatibility](https://docs.modular.com/max/packages#gpu-compatibility).
-
-Pixi's `extras = ["gpu"]` would be the natural spelling and is declared in this package, but pixi reads a source dependency's extra groups from the build backend and no released backend reports them yet, so the explicit line above is what works today.
 
 ## Quick start
 
@@ -148,29 +154,6 @@ shortest round-trip float formatting is the most expensive thing this
 library does. It went from 166 to 117 us in 0.4.0 by dividing by
 constants in the Grisu2 digit loop; see
 [`docs/performance.md`](./docs/performance.md).
-
-#### Against the other Mojo JSON libraries
-
-On one machine, under one timing protocol, against the other two
-pure-Mojo JSON libraries that build on Mojo 1.0.0:
-
-- **Deserializing ordinary JSON -- any whitespace, any member order --
-  this is the fastest of the three, on every shape, by 31% to 84%.**
-  Its timings barely move when a document is reformatted (document:
-  60.0 us canonical, 64.0 us with spaces and reversed members); the
-  other two slow by 34% and 147%, and one of them cannot parse two of
-  the shapes at all, because its list readers do not skip whitespace.
-- Deserializing a compact document with members in a fixed order, the
-  wire-format library is 20-126% faster. Its decoders match whole keys
-  as machine words at known offsets, which is a good trade when you
-  control both ends and own the byte layout.
-- Serializing, this library leads on one shape of five.
-
-Numbers are reproducible but not shipped: `benchmark/compare/` builds
-its own environment and fetches the other libraries at pinned
-versions. See [`benchmark/README.md`](./benchmark/README.md) for why it
-is not in the tree, and that directory's own README for the version
-pins and the ways in which the three are not doing identical work.
 
 #### Building a `Value` tree
 
