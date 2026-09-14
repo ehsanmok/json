@@ -176,10 +176,13 @@ jobs:
           cache: false
           post-cleanup: false
 
-      # The GPU sources need `max-core`, which lives in the `gpu`
-      # feature; `dev` includes it. Compiling them needs no device.
-      - name: Build the GPU sources
-        run: pixi run -e dev check-gpu-build
+      # `check-gpu-build` is deliberately absent. Compiling the GPU
+      # sources needs a real accelerator, not just `max-core`: the
+      # kernels are instantiated for a concrete architecture and the
+      # compiler stops with "Unknown GPU architecture detected" on a
+      # machine without one. `warnings-check` skips those targets for
+      # the same reason. Run `pixi run -e gpu check-gpu-build` on a
+      # machine with a device.
 
       - name: Build the benchmark binaries
         run: |

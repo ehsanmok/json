@@ -224,10 +224,11 @@ tests-all = { depends-on = ["tests", "tests-gpu"] }
 # importing the GPU entry point there would put max-core back into the
 # default environment. The GPU equivalents live in test_gpu.mojo.
 example-gpu        = "mojo -I . examples/advanced/gpu_parsing.mojo"
-# check-gpu-build: compile every GPU source. Running them needs a
-# device; compiling them does not, and a type error in a kernel
-# signature is exactly the kind of break that otherwise sits unnoticed
-# until someone with a GPU tries it.
+# check-gpu-build: compile every GPU source. This needs a real
+# accelerator, not merely `max-core`: the kernels are instantiated for
+# a concrete architecture, and without a device the compiler stops with
+# "Unknown GPU architecture detected". CI therefore cannot run it, and
+# `warnings-check` skips the same files when no accelerator is present.
 check-gpu-build = "bash -c 'mkdir -p target/gpu-check && for f in tests/test_gpu.mojo tests/test_gpu_kernels.mojo tests/test_bracket_match.mojo tests/bench_bracket_match.mojo examples/advanced/gpu_parsing.mojo benchmark/mojo/bench_gpu.mojo benchmark/mojo/bench_gpu_apple.mojo; do echo \"  $f\"; mojo build -I . -o target/gpu-check/$(basename $f .mojo) $f || exit 1; done && echo \"All GPU sources compile.\"'"
 # cuJSON (optional) - NVIDIA benchmarks only
 build-cujson = "bash -c 'cd benchmark && if [ ! -d cuJSON ]; then echo \"Error: cuJSON not found. Download it first:\\n  cd benchmark && git clone https://github.com/AutomataLab/cuJSON.git\" && exit 1; fi && mkdir -p cuJSON/build && nvcc -O3 -w -std=c++17 -arch=sm_100 -o cuJSON/build/cujson_benchmark cuJSON/paper_reproduced/src/cuJSON-standardjson.cu'"

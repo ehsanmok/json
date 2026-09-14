@@ -39,14 +39,58 @@ for pkg in json; do
   report "mojo doc $pkg" "$OUT/doc-$pkg.log"
 done
 
+# Sources that import `json.gpu`. Compiling these needs a real
+# accelerator, not just `max-core`: the kernels are instantiated for a
+# concrete architecture, and on a machine without one the compiler
+# stops with "Unknown GPU architecture detected." A GPU-less CI runner
+# therefore has to skip them rather than fail.
+gpu_targets=(
+  tests/test_gpu.mojo
+  tests/test_gpu_kernels.mojo
+  tests/test_bracket_match.mojo
+  tests/bench_bracket_match.mojo
+  examples/advanced/gpu_parsing.mojo
+  benchmark/mojo/bench_gpu.mojo
+  benchmark/mojo/bench_gpu_apple.mojo
+)
+
+probe="$OUT/accel_probe.mojo"
+cat > "$probe" <<'PROBE'
+from std.sys import has_accelerator
+
+
+def main() raises:
+    print(has_accelerator())
+PROBE
+have_gpu=$(mojo run "$probe" 2>/dev/null | tail -1)
+
+is_gpu_target() {
+  local candidate="$1"
+  for g in "${gpu_targets[@]}"; do
+    [[ "$candidate" == "$g" ]] && return 0
+  done
+  return 1
+}
+
 targets=(tests/*.mojo benchmark/mojo/*.mojo examples/*/*.mojo)
+built=0
+skipped=0
 for f in "${targets[@]}"; do
+  if [[ "$have_gpu" != "True" ]] && is_gpu_target "$f"; then
+    skipped=$((skipped + 1))
+    continue
+  fi
   name=$(basename "$f" .mojo)
   mojo build -I . -o "$OUT/$name" "$f" > "$OUT/$name.log" 2>&1
   report "$f" "$OUT/$name.log"
+  built=$((built + 1))
 done
 
 if [[ "$status" == "0" ]]; then
-  echo "No warnings in $((${#targets[@]} + 1)) targets."
+  if [[ "$skipped" -gt 0 ]]; then
+    echo "No warnings in $((built + 1)) targets ($skipped GPU targets skipped: no accelerator)."
+  else
+    echo "No warnings in $((built + 1)) targets."
+  fi
 fi
 exit "$status"

@@ -11,6 +11,7 @@ from .cpu import SIMDJSON_TYPE_INT64, SIMDJSON_TYPE_UINT64
 from .cpu import SIMDJSON_TYPE_DOUBLE, SIMDJSON_TYPE_STRING
 from .cpu import SIMDJSON_TYPE_ARRAY, SIMDJSON_TYPE_OBJECT
 from .cpu import parse_cpu_native_tape
+from .cpu.validate import is_valid_utf8
 from .document import (
     Document,
     pack_tape_entry,
@@ -305,9 +306,12 @@ def loads[target: StaticString = "cpu"](bytes: Span[UInt8, _]) raises -> Value:
     the returned `Value`, instead of being turned into a `String` by
     the caller and copied again on the way in.
 
-    The bytes are not required to be valid UTF-8 on entry. The parser
-    rejects invalid sequences exactly as it does for a string, so an
-    ill-formed input raises rather than producing a broken document.
+    The bytes are checked for well-formed UTF-8 before anything else.
+    They have to be: `String` carries that as an invariant, so handing
+    it ill-formed bytes is undefined behaviour and trips an assertion
+    under `-D ASSERT=all`. An ill-formed input raises here instead,
+    which is the same outcome the parser would have reached for a
+    string, reported earlier and by position.
 
     Parameters:
         target: Parsing target/backend. Options: "cpu" (default, pure Mojo),
@@ -322,6 +326,8 @@ def loads[target: StaticString = "cpu"](bytes: Span[UInt8, _]) raises -> Value:
     Example:
         var data = loads(buffer.as_bytes()).
     """
+    if not is_valid_utf8(bytes):
+        raise Error("invalid UTF-8 in input")
     return _loads_value[target](String(unsafe_from_utf8=bytes))
 
 
