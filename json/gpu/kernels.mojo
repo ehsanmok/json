@@ -20,7 +20,7 @@
 #
 # Licensing: MIT like the rest of this project, but building this file
 # requires `max-core`, which is governed by the Modular Community
-# License. See `json_gpu/LICENSE-GPU.md`.
+# License. See `json/gpu/LICENSE-GPU.md`.
 
 from max.gpu import barrier
 from max.gpu.host import DeviceContext
@@ -29,7 +29,7 @@ from std.gpu import thread_idx, block_idx, block_dim
 from std.gpu.globals import MAX_THREADS_PER_BLOCK_METADATA
 from std.memory import Pointer
 from std.utils.static_tuple import StaticTuple
-from json.types import (
+from ..types import (
     CHAR_OPEN_BRACE,
     CHAR_CLOSE_BRACE,
     CHAR_OPEN_BRACKET,

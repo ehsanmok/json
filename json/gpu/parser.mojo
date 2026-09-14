@@ -35,7 +35,7 @@
 #
 # Licensing: MIT like the rest of this project, but building this file
 # requires `max-core`, which is governed by the Modular Community
-# License. See `json_gpu/LICENSE-GPU.md`.
+# License. See `json/gpu/LICENSE-GPU.md`.
 
 from max.gpu.host import DeviceContext, DeviceBuffer, HostBuffer
 from max.gpu import barrier
@@ -48,7 +48,7 @@ from std.sys import has_accelerator
 from std.time import perf_counter_ns
 from std.utils.static_tuple import StaticTuple
 
-from json.types import JSONInput, JSONResult
+from ..types import JSONInput, JSONResult
 from .kernels import BLOCK_SIZE_OPT, fused_json_kernel
 from .stream_compact import extract_positions_gpu_lean
 

@@ -81,7 +81,7 @@ have a real workload to optimise.
 | File | What it covers |
 |------|---|
 | `advanced/lazy_parsing.mojo` | `loads[lazy=True]` + `LazyValue`: type-specific getters, path-based access, when lazy beats full parse |
-| `advanced/gpu_parsing.mojo`  | `loads[target="gpu"]` / `load[target="gpu"]`: GPU pipeline on NVIDIA, AMD, and Apple Metal |
+| `advanced/gpu_parsing.mojo`  | `loads[target="gpu"]` / `load[target="gpu"]` imported from `json.gpu`: GPU pipeline on NVIDIA, AMD, and Apple Metal. Needs `max-core`; see [`json/gpu/LICENSE-GPU.md`](../json/gpu/LICENSE-GPU.md) |
 
 `advanced/gpu_parsing.mojo` runs the real GPU pipeline on NVIDIA,
 AMD, and Apple Metal hosts. On hosts without any accelerator it

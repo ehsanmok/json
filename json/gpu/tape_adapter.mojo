@@ -33,17 +33,17 @@
 #
 # Licensing: MIT like the rest of this project, but building this file
 # requires `max-core`, which is governed by the Modular Community
-# License. See `json_gpu/LICENSE-GPU.md`.
+# License. See `json/gpu/LICENSE-GPU.md`.
 
 from std.collections import List
 from std.memory import ArcPointer
 
-from json.value import Value
-from json.value.value import make_view_value
-from json.document import Document
-from json.types import JSONResult
-from json.cpu.stage1_scalar import StructuralIndex, parse_structural_scalar
-from json.cpu.stage2 import parse_into_document
+from ..value import Value
+from ..value.value import make_view_value
+from ..document import Document
+from ..types import JSONResult
+from ..cpu.stage1_scalar import StructuralIndex, parse_structural_scalar
+from ..cpu.stage2 import parse_into_document
 
 
 # ---------------------------------------------------------------------------

@@ -14,22 +14,24 @@ in `max-core`.
 
 That is why the GPU path is opt-in. Depending on `json` installs no MAX
 component and compiles no file in this directory. Reaching it takes an
-explicit import:
+import from this module and a dependency you add yourself:
 
 ```mojo
-from json import loads
-from json_gpu import Gpu
+from json.gpu import loads, load
 
-var data = loads[Gpu](huge_json)
+var data = loads[target="gpu"](huge_json)
+var file = load[target="gpu"]("huge.json")
 ```
-
-and a dependency you add yourself:
 
 ```toml
 [dependencies]
 json     = { git = "https://github.com/ehsanmok/json.git", tag = "v0.4.0" }
 max-core = ">=26.5.0"   # GPU only, Modular Community License
 ```
+
+`json.gpu.loads` takes the same `target` parameter as `json.loads` and
+forwards every non-GPU target to it, so switching backends is a change
+of import rather than a change of call.
 
 Read the Modular Community License before you add that line. It places
 conditions on commercial and production use that the MIT licence on

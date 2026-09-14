@@ -44,7 +44,7 @@ jobs:
         run: pixi run tests-cpu
 
       # The default environment is meant to be exactly what a consumer
-      # of the published package gets. One new import of `json_gpu` from
+      # of the published package gets. One new import of `json.gpu` from
       # the CPU path would put a proprietary-licensed dependency back
       # into every downstream lock file with nothing else failing, so
       # the property is asserted rather than assumed.

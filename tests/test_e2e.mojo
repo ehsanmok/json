@@ -18,7 +18,7 @@ def _test_loads(json: String) raises -> Value:
     """The loader under test.
 
     This used to switch to the GPU backend when `MOJSON_TEST_GPU` was
-    set. The GPU entry point now lives in `json_gpu`, which this file
+    set. The GPU entry point now lives in `json.gpu`, which this file
     deliberately does not import: keeping the CPU suite free of that
     import is what keeps `max-core` out of the default environment.
     `packages`-free equivalent coverage for the GPU path is in

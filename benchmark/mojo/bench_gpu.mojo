@@ -18,8 +18,7 @@ from std.sys import argv
 from std.memory import unsafe_memcpy
 from std.collections import List
 
-from json import loads
-from json_gpu import Gpu, parse_json_gpu_from_pinned
+from json.gpu import loads, parse_json_gpu_from_pinned
 from max.gpu.host import DeviceContext
 from max.benchmark import bencher_iter_custom
 
@@ -59,7 +58,7 @@ def main() raises:
     # Warmup GPU
     print("Warming up GPU...")
     for _ in range(2):
-        var result = loads[Gpu](content)
+        var result = loads[target="gpu"](content)
         _ = result.is_object()
     print()
 
@@ -113,7 +112,7 @@ def main() raises:
         b.iter[call_fn]()
 
     bench.bench_function[bench_from_host](
-        BenchId("json_gpu", "from host bytes: memcpy + parse (wall-clock)"),
+        BenchId("json.gpu", "from host bytes: memcpy + parse (wall-clock)"),
         measures,
     )
 
@@ -135,7 +134,7 @@ def main() raises:
         b.iter[call_fn]()
 
     bench.bench_function[bench_pinned](
-        BenchId("json_gpu", "parse_json_gpu_from_pinned (pinned, wall-clock)"),
+        BenchId("json.gpu", "parse_json_gpu_from_pinned (pinned, wall-clock)"),
         measures,
     )
 
@@ -159,7 +158,7 @@ def main() raises:
         bencher_iter_custom[launch](b, ctx)
 
     bench.bench_function[bench_pinned_device](
-        BenchId("json_gpu", "parse_json_gpu_from_pinned (device-only)"),
+        BenchId("json.gpu", "parse_json_gpu_from_pinned (device-only)"),
         measures,
     )
 
@@ -172,13 +171,13 @@ def main() raises:
         @parameter
         @always_inline
         def call_fn() raises:
-            var v = loads[Gpu](content)
+            var v = loads[target="gpu"](content)
             _ = v.is_object()
 
         b.iter[call_fn]()
 
     bench.bench_function[bench_gpu_loads](
-        BenchId("json_gpu", "loads_gpu"), measures
+        BenchId("json.gpu", "loads_gpu"), measures
     )
 
     print(bench)

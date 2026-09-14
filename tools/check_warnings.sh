@@ -32,9 +32,9 @@ report() {
 }
 
 # Each import root on its own, which is what a consumer compiles
-# against. `json_gpu` is the opt-in GPU backend; it needs max-core, so
+# against. `json.gpu` is the opt-in GPU backend; it needs max-core, so
 # this script only runs in an environment that has the gpu feature.
-for pkg in json json_gpu; do
+for pkg in json; do
   mojo doc "$pkg" -o "$OUT/doc-$pkg.json" > "$OUT/doc-$pkg.log" 2>&1
   report "mojo doc $pkg" "$OUT/doc-$pkg.log"
 done

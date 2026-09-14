@@ -25,6 +25,18 @@ print(dumps(data, indent="  "))        # pretty print
 - **Conformance is a build gate, not a claim.** Catalogs for RFC 8259, RFC 7493, RFC 6901, RFC 6902, RFC 7396 and JSON Schema draft 2020-12 run in `pixi run tests-cpu`. Each runner asserts the set of failing cases equals a declared list of known gaps, so a regression fails the build and so does fixing a gap without deleting its entry. Those lists are empty.
 - **Fuzzed.** Five mozz harnesses (parser, simdjson FFI, Value access, JSONPath, NDJSON) with a differential property that simdjson and the native parser must agree on canonical `dumps` output, plus an ASan harness over the FFI and tape boundaries.
 
+## What's new in 0.4.0
+
+- **The CPU path no longer depends on MAX.** Installing `json` brings in `mojo` and `simdjson` and nothing else. GPU parsing is opt-in: import `loads` from `json.gpu` and add `max-core`, which is under the Modular Community License. [Details below](#gpu-parsing-is-opt-in).
+- **JSONPath is RFC 9535**, not an approximation of it. Filters gained logical operators, parentheses, existence tests and root references; unions, function extensions (`length`, `count`, `match`, `search`, `value`) and Normalized Paths are implemented. Two queries that used to hang or silently drop an element now behave: `$[::-1]` and every open-ended slice.
+- **JSON Schema is draft 2020-12.** `$ref` resolves instead of being ignored, `pattern` is a real I-Regexp engine instead of a literal comparison, and `unevaluatedProperties` / `unevaluatedItems` work.
+- **One JSON Pointer implementation** replaces three that disagreed, and JSON Patch now holds: atomicity, `test` by numeric value and member-order-insensitive equality, and errors where the RFC requires them.
+- **I-JSON mode** via `ParserConfig.interoperable()` (RFC 7493).
+- **`Value` behaves like a JSON value**: `len`, `in`, iteration, `items()` / `keys()` / `values()`, `__hash__`, structural `==`, `__setitem__`, `remove`, negative indices, and raising `as_int()`-style accessors next to the non-raising ones.
+- **Faster.** Typed deserialization is roughly twice as quick across every shape, and telemetry serialization is down by 30%.
+
+**Breaking:** `get(key)` returns `Optional[Value]` instead of the member's raw JSON text (the old behaviour is `raw_member`); `==` on containers is structural rather than textual; `loads[target="gpu"]` moves from `json` to `json.gpu` with the same signature.
+
 ## Install
 
 ```toml
@@ -55,16 +67,15 @@ max-core = ">=26.5.0"   # GPU only, Modular Community License
 ```
 
 ```mojo
-from json import loads, load
-from json_gpu import Gpu
+from json.gpu import loads, load
 
-var data = loads[Gpu](huge_json)
-var file = load[Gpu]("huge.json")
+var data = loads[target="gpu"](huge_json)
+var file = load[target="gpu"]("huge.json")
 ```
 
-One `loads`, selected by backend type. The type has to come from `json_gpu` rather than a `target="gpu"` name because the name would have to be resolved inside `json/parser.mojo`, and that module is precisely the one that must never reference the GPU code.
+Same `loads`, same `target` parameter as `json.loads`, and every non-GPU target is forwarded to the CPU parser, so switching backends is a change of import rather than a change of call. The import has to move because `json/parser.mojo` is the one module that must never reference the GPU code: Mojo resolves an import statement wherever it appears, even inside a `comptime if` branch that is false, so a single mention there would make `max-core` a requirement of `import json` for everyone.
 
-Read the [Modular Community License](https://www.modular.com/legal/community) before you add that dependency: it places conditions on commercial and production use that MIT does not, and those are between you and Modular. See [`json_gpu/LICENSE-GPU.md`](./json_gpu/LICENSE-GPU.md).
+Read the [Modular Community License](https://www.modular.com/legal/community) before you add that dependency: it places conditions on commercial and production use that MIT does not, and those are between you and Modular. See [`json/gpu/LICENSE-GPU.md`](./json/gpu/LICENSE-GPU.md).
 
 Hardware: NVIDIA CUDA 7.0+, AMD ROCm 6+, or Apple Silicon. See [GPU compatibility](https://docs.modular.com/max/packages#gpu-compatibility).
 
@@ -121,21 +132,22 @@ M-series host (`pixi run -e dev bench-serde`):
 
 | Shape | Bytes | `deserialize_json` | `loads` + `Value` walk | `serialize_json` |
 |---|---:|---:|---:|---:|
-| message | 16 KB | 15.5 us | 53.5 us | 13.3 us |
-| document | 47 KB | 60.0 us | 192.9 us | 37.6 us |
-| telemetry | 43 KB | 81.3 us | 148.9 us | 166.3 us |
-| strings | 43 KB | 61.1 us | 114.2 us | 34.3 us |
-| event | 27 KB | 39.1 us | 89.4 us | 15.4 us |
+| message | 16 KB | 15.6 us | 53.2 us | 12.4 us |
+| document | 47 KB | 60.8 us | 186.0 us | 31.5 us |
+| telemetry | 43 KB | 82.0 us | 141.6 us | 117.4 us |
+| strings | 43 KB | 61.2 us | 109.6 us | 33.7 us |
+| event | 27 KB | 38.8 us | 93.5 us | 14.7 us |
 
 The middle column is what reading the same document costs if you route
 it through `loads` and pick fields off `Value` by hand -- which is the
 right tool when you are exploring a document, and the wrong one when
 you already know its shape.
 
-Telemetry serializes slowly: it is 32 floats per record, and shortest
-round-trip float formatting is currently the most expensive thing this
-library writes. That is a known gap rather than a property of the
-design.
+Telemetry is the slowest shape to write: 32 floats per record, and
+shortest round-trip float formatting is the most expensive thing this
+library does. It went from 166 to 117 us in 0.4.0 by dividing by
+constants in the Grisu2 digit loop; see
+[`docs/performance.md`](./docs/performance.md).
 
 #### Against the other Mojo JSON libraries
 
@@ -242,6 +254,6 @@ The full task list, including every per-example and per-fuzz target, is in [`pix
 | `json` | MIT | [`LICENSE`](./LICENSE) |
 | Mojo toolchain | The compiler and standard library sources are Apache-2.0 with LLVM Exceptions. The `mojo` and `mojo-compiler` conda packages you actually install still declare `LicenseRef-Modular-Proprietary` and ship the Modular Community License Terms. | `info/licenses/LICENSE` inside the installed package |
 | simdjson | Apache-2.0. `libsimdjson_wrapper.so`, which this package builds and ships, links it. | [`NOTICE`](./NOTICE) |
-| MAX (`max-core`) | **Modular Community License**, not an open-source licence. Needed only for the GPU path, never installed by depending on `json`. | [`json_gpu/LICENSE-GPU.md`](./json_gpu/LICENSE-GPU.md) |
+| MAX (`max-core`) | **Modular Community License**, not an open-source licence. Needed only for the GPU path, never installed by depending on `json`. | [`json/gpu/LICENSE-GPU.md`](./json/gpu/LICENSE-GPU.md) |
 
 The published package declares `mojo` and `simdjson` as dependencies and `max-core` only as a constraint, so installing `json` brings in nothing under the Modular Community License.

@@ -39,7 +39,7 @@ build:
     # ── Source tree (consumed via Mojo's import path) ────────────────────
     # Mojo discovers this the same way it discovers .mojopkg files in
     # that directory; no ``mojo package`` step required.
-    - cp -r json json_gpu $PREFIX/lib/mojo/
+    - cp -r json $PREFIX/lib/mojo/
     # ── simdjson FFI wrapper (loaded at runtime by json) ─────────────────
     - mkdir -p $PREFIX/lib
     - $CXX -O3 -std=c++17 -fPIC -DNDEBUG -shared
@@ -57,12 +57,12 @@ requirements:
   run:
     - mojo >=1.0.0,<1.1.0
     - simdjson >=4.2.4,<5
-  # Not a dependency. `json_gpu/` imports `max.gpu`, which ships in
-  # `max-core`, but nothing on the CPU import graph names `json_gpu`,
+  # Not a dependency. `json/gpu/` imports `max.gpu`, which ships in
+  # `max-core`, but nothing on the CPU import graph names `json.gpu`,
   # so a consumer who never uses the GPU path never needs the package.
   # Listing it under `run` would install it for everyone, and it is
   # governed by the Modular Community License rather than by this
-  # project's MIT licence (see json_gpu/LICENSE-GPU.md). A constraint
+  # project's MIT licence (see json/gpu/LICENSE-GPU.md). A constraint
   # installs nothing while still pinning the version a consumer gets if
   # they add it themselves.
   run_constraints:
@@ -74,14 +74,14 @@ about:
   license_file:
     - LICENSE
     - NOTICE
-    - json_gpu/LICENSE-GPU.md
+    - json/gpu/LICENSE-GPU.md
   summary: High-performance JSON library for Mojo; GPU parsing is opt-in
   description: |
     json is a high-performance JSON parsing library for Mojo.
     Features include:
     - Fast CPU parsing via simdjson FFI
     - Optional GPU-accelerated parsing for large files: import
-      json_gpu and add max-core to your own dependencies. That package
+      json.gpu and add max-core to your own dependencies. That package
       is governed by the Modular Community License, so it is opt-in and
       is not a dependency of this one.
     - Full JSON compliance (RFC 8259)

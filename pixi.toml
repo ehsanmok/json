@@ -86,9 +86,9 @@ gdown = ">=5.0"           # Google Drive CLI for downloading benchmark datasets
 # ------------------------------------------------------------------
 # ------------------------------------------------------------------
 # The GPU path. `max-core` ships `lib/mojo/max.mojoc`, which is what
-# `json_gpu/` imports, and it is governed by the Modular Community
+# `json/gpu/` imports, and it is governed by the Modular Community
 # License rather than by this project's MIT licence -- see
-# `json_gpu/LICENSE-GPU.md`. Keeping it in a feature rather than in
+# `json/gpu/LICENSE-GPU.md`. Keeping it in a feature rather than in
 # `[dependencies]` is what makes the default environment the same shape
 # a consumer of the published package gets.
 # ------------------------------------------------------------------

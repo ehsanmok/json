@@ -33,24 +33,23 @@ currently empty.
 | `json` | MIT | `LICENSE` |
 | Mojo toolchain | Source is Apache-2.0 with LLVM Exceptions; the conda packages still declare `LicenseRef-Modular-Proprietary` and ship the Modular Community License Terms | `info/licenses/LICENSE` in the installed package |
 | simdjson | Apache-2.0, linked into `libsimdjson_wrapper.so` | `NOTICE` |
-| MAX (`max-core`) | Modular Community License; GPU path only | `json_gpu/LICENSE-GPU.md` |
+| MAX (`max-core`) | Modular Community License; GPU path only | `json/gpu/LICENSE-GPU.md` |
 
-`json_gpu/` is the only part that needs `max-core`, and nothing on the
+`json/gpu/` is the only part that needs `max-core`, and nothing on the
 CPU import graph names it. That is load-bearing rather than tidy: Mojo
 resolves every import statement it can see, whether or not the branch
 holding it survives `comptime if`, and a module-scope `comptime if` is
 rejected outright, so there is no way to write a conditional import. An
 unimported submodule, by contrast, is never compiled. Keeping the GPU
-backend in `json_gpu`, a separate import root that `json/parser.mojo`
-does not name, is therefore the only construction that keeps a default
+entry point in `json/gpu/backend.mojo`, which `json/parser.mojo` does
+not name, is therefore the only construction that keeps a default
 install free of MAX. `pixi run verify-cpu-only` asserts it.
 
-The backend is selected by type rather than by a target name:
-`loads[Gpu](...)` where `Gpu` comes from `json_gpu`. A name such as
-`target="gpu"` would have to be resolved inside `json/parser.mojo`, and
-that is the one module that must never mention the GPU code. The
-`ParseBackend` trait it dispatches on lives on the CPU side, so the
-import stays in the caller's hands.
+`json.gpu` therefore provides its own `loads` and `load`, with the same
+`target` parameter as the ones in `json` and forwarding every non-GPU
+target to them. The call site is unchanged, `loads[target="gpu"](...)`;
+what changes is which module the name comes from, and that is what
+keeps the import in the caller's hands.
 
 ## System Overview
 
@@ -185,10 +184,11 @@ var data = loads[target="cpu-simdjson"]('{"key": "value"}')
 **Implementation:** Native Mojo GPU kernels inspired by [cuJSON](https://github.com/AutomataLab/cuJSON)
 
 **Location:**
-- `json_gpu/parser.mojo` - Main GPU parser (`parse_json_gpu`, `parse_json_gpu_from_pinned`)
-- `json_gpu/kernels.mojo` - CUDA-style GPU kernels (fused bitmap + structural extraction)
-- `json_gpu/stream_compact.mojo` - GPU stream compaction for position extraction
-- `json_gpu/bracket_match.mojo` - GPU parallel bracket matching (experimental; the main parse path uses a CPU stack matcher after stream compaction)
+- `json/gpu/backend.mojo` - `loads` / `load` with the `target` parameter (opt-in; needs `max-core`)
+- `json/gpu/parser.mojo` - Main GPU parser (`parse_json_gpu`, `parse_json_gpu_from_pinned`)
+- `json/gpu/kernels.mojo` - CUDA-style GPU kernels (fused bitmap + structural extraction)
+- `json/gpu/stream_compact.mojo` - GPU stream compaction for position extraction
+- `json/gpu/bracket_match.mojo` - GPU parallel bracket matching (experimental; the main parse path uses a CPU stack matcher after stream compaction)
 
 **Performance (804 MB `twitter_large_record.json`):**
 

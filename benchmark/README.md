@@ -199,7 +199,7 @@ rows so you can see where time goes across the GPU pipeline:
 | **from host bytes: memcpy + parse (wall-clock)** | host→pinned memcpy + `parse_json_gpu_from_pinned` | Realistic steady-state "I have N bytes in memory, parse them via GPU" |
 | **parse_json_gpu_from_pinned (pinned, wall-clock)** | H2D + GPU kernels + stream compaction + D2H + CPU bracket matching | Apples-to-apples comparison with cuJSON (both assume pinned input) |
 | **parse_json_gpu_from_pinned (device-only)** | Same call, timed via `DeviceContext.execution_time` (CUDA events) | Pure device-queue time, excludes host-side CPU post-processing |
-| **loads[target='gpu']** | Everything + `Value` tree construction on CPU | Real-world application performance |
+| **loads[target='gpu'] (from json.gpu)** | Everything + `Value` tree construction on CPU | Real-world application performance |
 
 Pass `--debug-timing` to get a per-phase breakdown inside each
 `parse_json_gpu*` call (H2D, GPU kernels, position extraction, bracket
@@ -277,7 +277,7 @@ on DDR5). In practice you can avoid it by:
 
 ### End-to-End Performance
 
-For real applications using the full `loads[target='gpu']()` API:
+For real applications using the full `loads[target='gpu'] (from json.gpu)()` API:
 
 | Pipeline Stage | Time (804 MB) |
 |----------------|---------------|
