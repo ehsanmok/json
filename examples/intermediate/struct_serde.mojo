@@ -10,7 +10,7 @@ from json.deserialize import Deserializable, deserialize, get_string, get_int, g
 
 
 @fieldwise_init
-struct Person(Serializable, Deserializable, Copyable, Movable):
+struct Person(Serializable, Deserializable, Copyable):
     """A person with name, age, and active status.
 
     Implements both Serializable and Deserializable for full round-trip support.

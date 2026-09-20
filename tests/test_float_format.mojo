@@ -34,8 +34,8 @@ def _render_f32(v: Float32) raises -> String:
 
 def _reference(var text: String) -> Float64:
     """A correctly rounded reading of `text`."""
-    var c_str = text.as_c_string_slice()
-    return external_call["strtod", Float64](c_str.unsafe_ptr(), Int(0))
+    var c_str = text.as_c_string_span()
+    return external_call["strtod", Float64](c_str.ptr(), Int(0))
 
 
 # ===================================================================

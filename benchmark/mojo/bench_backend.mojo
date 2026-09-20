@@ -65,36 +65,32 @@ def main() raises:
     var bench = Bench(BenchConfig(max_iters=100))
 
     # Benchmark simdjson FFI backend
-    @parameter
     @always_inline
-    def bench_simdjson(mut b: Bencher) raises capturing:
-        @parameter
+    def bench_simdjson(mut b: Bencher) raises {imm json_str}:
         @always_inline
-        def call_fn() raises:
+        def call_fn() raises {imm json_str}:
             var v = loads[target="cpu-simdjson"](json_str)
             _ = v.is_object()
 
-        b.iter[call_fn]()
+        b.iter(call_fn)
 
     # Benchmark Mojo native backend (default)
-    @parameter
     @always_inline
-    def bench_mojo(mut b: Bencher) raises capturing:
-        @parameter
+    def bench_mojo(mut b: Bencher) raises {imm json_str}:
         @always_inline
-        def call_fn() raises:
+        def call_fn() raises {imm json_str}:
             var v = loads(json_str)  # Default is Mojo backend
             _ = v.is_object()
 
-        b.iter[call_fn]()
+        b.iter(call_fn)
 
     var measures = List[ThroughputMeasure]()
     measures.append(ThroughputMeasure(BenchMetric.bytes, file_size))
 
-    bench.bench_function[bench_simdjson](
-        BenchId("cpu-simdjson", "loads"), measures
+    bench.bench_function(
+        bench_simdjson, BenchId("cpu-simdjson", "loads"), measures
     )
-    bench.bench_function[bench_mojo](BenchId("cpu (mojo)", "loads"), measures)
+    bench.bench_function(bench_mojo, BenchId("cpu (mojo)", "loads"), measures)
 
     print(bench)
 

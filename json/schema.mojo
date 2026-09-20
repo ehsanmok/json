@@ -76,7 +76,7 @@ comptime _T_INTEGER = 6
 # ---------------------------------------------------------------------------
 
 
-struct ValidationError(Copyable, Movable, Writable):
+struct ValidationError(Copyable, Writable):
     """One reason an instance failed, and where both ends of it are.
 
     `path` is a JSON Pointer into the instance and `keyword_location`
@@ -114,7 +114,7 @@ struct ValidationError(Copyable, Movable, Writable):
 
 
 @fieldwise_init
-struct FormatAnnotation(Copyable, Movable):
+struct FormatAnnotation(Copyable):
     """One `format` keyword that was reached, and what it observed.
 
     Draft 2020-12 section 7.2.1 makes `format` an annotation by
@@ -160,7 +160,7 @@ struct ValidationResult(Boolable, Movable):
 # ---------------------------------------------------------------------------
 
 
-struct _Node(Copyable, Movable):
+struct _Node(Copyable):
     """One subschema, with every child reduced to an index.
 
     Mojo has no recursive structs, and a schema is a tree, so the tree
@@ -296,7 +296,7 @@ struct _Node(Copyable, Movable):
         self.else_node = -1
 
 
-struct _Annot(Copyable, Movable):
+struct _Annot(Copyable):
     """What an applicator evaluated at one instance location.
 
     `unevaluatedProperties` and `unevaluatedItems` are defined against

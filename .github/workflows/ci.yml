@@ -27,7 +27,7 @@ jobs:
         os: [ubuntu-22.04, macos-14]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Pixi
         uses: prefix-dev/setup-pixi@v0.9.4
@@ -68,7 +68,7 @@ jobs:
         os: [ubuntu-22.04, macos-14]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Pixi
         uses: prefix-dev/setup-pixi@v0.9.4
@@ -127,7 +127,7 @@ jobs:
     name: Compiler warnings
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Pixi
         uses: prefix-dev/setup-pixi@v0.9.4
@@ -147,7 +147,7 @@ jobs:
     name: Formatting
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Pixi
         uses: prefix-dev/setup-pixi@v0.9.4
@@ -167,7 +167,7 @@ jobs:
     name: Compile-only targets
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Pixi
         uses: prefix-dev/setup-pixi@v0.9.4
@@ -196,7 +196,7 @@ jobs:
     name: AddressSanitizer
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Pixi
         uses: prefix-dev/setup-pixi@v0.9.4

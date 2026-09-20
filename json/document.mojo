@@ -125,7 +125,7 @@ def payload_lo30(payload: UInt64) -> Int:
 # ---------------------------------------------------------------------------
 
 
-struct Document(Copyable, Movable):
+struct Document(Copyable):
     """Owns the JSON input bytes and a packed tape of entries.
 
     A `Document` is the storage unit produced by parsers. A `Value` view

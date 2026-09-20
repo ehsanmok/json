@@ -19,8 +19,8 @@
 from max.gpu.host import DeviceContext, DeviceBuffer
 from max.gpu import barrier
 from max.gpu.primitives import block
-from std.gpu import block_dim, block_idx, thread_idx
-from std.gpu.globals import MAX_THREADS_PER_BLOCK_METADATA
+from max.gpu import block_dim, block_idx, thread_idx
+from max.gpu.globals import MAX_THREADS_PER_BLOCK_METADATA
 from std.collections import List
 from std.memory import Pointer, unsafe_memcpy
 from std.math import ceildiv

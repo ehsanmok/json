@@ -23,7 +23,7 @@ from std.collections import List
 # ---------------------------------------------------------------------------
 
 
-struct StructuralIndex(Copyable, Movable):
+struct StructuralIndex(Copyable):
     """Sorted list of structural-character offsets in the input.
 
     `positions[i]` is the byte offset of the i-th structural character.

@@ -70,7 +70,7 @@ comptime _CATEGORY_BLURBS = [
 
 
 @fieldwise_init
-struct _Failure(Copyable, Movable):
+struct _Failure(Copyable):
     """One case the library gets wrong, with what it did instead."""
 
     var id: String

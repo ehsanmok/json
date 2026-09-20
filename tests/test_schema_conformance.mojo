@@ -49,7 +49,7 @@ comptime _KNOWN_GAPS = List[String]()
 
 
 @fieldwise_init
-struct _Failure(Copyable, Movable):
+struct _Failure(Copyable):
     var id: String
     var expect: String
     var got: String

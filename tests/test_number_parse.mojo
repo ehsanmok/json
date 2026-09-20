@@ -37,8 +37,8 @@ def _reference(var text: String) -> Float64:
     `String(Float64)` does not always produce a representation that
     reads back as itself.
     """
-    var c_str = text.as_c_string_slice()
-    return external_call["strtod", Float64](c_str.unsafe_ptr(), Int(0))
+    var c_str = text.as_c_string_span()
+    return external_call["strtod", Float64](c_str.ptr(), Int(0))
 
 
 def _scan(text: String) raises -> Tuple[UInt8, Int, Int64, UInt64, Float64]:

@@ -36,7 +36,7 @@ comptime OWNED_OBJECT = 6
 comptime OWNED_UINT = 7
 
 
-struct OwnedValue(Copyable, Deinitable, Movable):
+struct OwnedValue(Copyable, Deinitable):
     """Structured tree representation of a JSON value.
 
     Unlike `Value`, an `OwnedValue` for an array stores its children in

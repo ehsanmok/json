@@ -55,7 +55,7 @@ requirements:
   host:
     - simdjson >=4.2.4,<5
   run:
-    - mojo >=1.0.0,<1.1.0
+    - mojo >=1.1.0,<2.0.0
     - simdjson >=4.2.4,<5
   # Not a dependency. `json/gpu/` imports `max.gpu`, which ships in
   # `max-core`, but nothing on the CPU import graph names `json.gpu`,

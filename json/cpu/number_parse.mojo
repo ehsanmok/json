@@ -88,7 +88,7 @@ comptime _MAX_EXP = 1000000
 
 
 @fieldwise_init
-struct NumberToken(Copyable, Movable):
+struct NumberToken(Copyable):
     """One scanned number: its kind, its value, and where it ended."""
 
     var kind: UInt8
@@ -123,7 +123,7 @@ def _strtod(bytes: Span[UInt8, _], start: Int, end: Int) -> Float64:
     """
     var n = end - start
     if n < _STRTOD_BUFFER:
-        var buffer = InlineArray[UInt8, _STRTOD_BUFFER](uninitialized=True)
+        var buffer = Array[UInt8, _STRTOD_BUFFER](uninitialized=True)
         unsafe_memcpy(
             dest=buffer.unsafe_ptr(),
             src=bytes.unsafe_ptr().unsafe_offset(start),
@@ -132,8 +132,8 @@ def _strtod(bytes: Span[UInt8, _], start: Int, end: Int) -> Float64:
         buffer[n] = 0
         return external_call["strtod", Float64](buffer.unsafe_ptr(), Int(0))
     var text = String(unsafe_from_utf8=bytes[start:end])
-    var c_str = text.as_c_string_slice()
-    return external_call["strtod", Float64](c_str.unsafe_ptr(), Int(0))
+    var c_str = text.as_c_string_span()
+    return external_call["strtod", Float64](c_str.ptr(), Int(0))
 
 
 def _to_float(

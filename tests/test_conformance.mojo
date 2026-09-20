@@ -48,7 +48,7 @@ comptime _DELIBERATE = [
 
 
 @fieldwise_init
-struct _Failure(Copyable, Movable):
+struct _Failure(Copyable):
     var id: String
     var expect: String
     var got: String

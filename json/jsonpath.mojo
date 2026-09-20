@@ -173,7 +173,7 @@ comptime _MAX_DESCENT_DEPTH = 10000
 comptime _MAX_EQUAL_DEPTH = 256
 
 
-struct _Selector(Copyable, Movable):
+struct _Selector(Copyable):
     """One selector from RFC 9535 section 2.3.
 
     The fields are shared across the five kinds rather than split into
@@ -215,7 +215,7 @@ struct _Selector(Copyable, Movable):
 
 
 @fieldwise_init
-struct _Segment(Copyable, Movable):
+struct _Segment(Copyable):
     """A child or descendant segment, naming a run of selectors."""
 
     var descendant: Bool
@@ -224,7 +224,7 @@ struct _Segment(Copyable, Movable):
 
 
 @fieldwise_init
-struct _QueryRef(Copyable, Movable):
+struct _QueryRef(Copyable):
     """A query: a run of segments applied from `$` or from `@`.
 
     `singular` records the section 2.3.5.1 property, decided when the
@@ -239,7 +239,7 @@ struct _QueryRef(Copyable, Movable):
 
 
 @fieldwise_init
-struct _Expr(Copyable, Movable):
+struct _Expr(Copyable):
     """A node of a filter's logical expression tree."""
 
     var kind: Int
@@ -249,7 +249,7 @@ struct _Expr(Copyable, Movable):
 
 
 @fieldwise_init
-struct _Operand(Copyable, Movable):
+struct _Operand(Copyable):
     """A parsed comparable or function argument, before it is stored.
 
     `singular` and `result` carry what the well-typedness checks need:
@@ -264,7 +264,7 @@ struct _Operand(Copyable, Movable):
 
 
 @fieldwise_init
-struct _Slot(Copyable, Movable):
+struct _Slot(Copyable):
     """An operand as stored in a pool: a kind and an index into it."""
 
     var kind: Int
@@ -272,7 +272,7 @@ struct _Slot(Copyable, Movable):
 
 
 @fieldwise_init
-struct _Func(Copyable, Movable):
+struct _Func(Copyable):
     """A call to one of the function extensions.
 
     `regex` caches the compiled pattern of `match` and `search` when
@@ -289,7 +289,7 @@ struct _Func(Copyable, Movable):
 
 
 @fieldwise_init
-struct _Node(Copyable, Movable):
+struct _Node(Copyable):
     """A node of a nodelist: a value and its normalized path."""
 
     var path: String
@@ -297,7 +297,7 @@ struct _Node(Copyable, Movable):
 
 
 @fieldwise_init
-struct _Maybe(Copyable, Movable):
+struct _Maybe(Copyable):
     """A value or the "Nothing" of RFC 9535 section 2.4.1.
 
     Nothing is what a singular query yields when the member or element

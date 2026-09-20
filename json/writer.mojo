@@ -82,8 +82,8 @@ def _digit_pair(value: Int) -> SIMD[DType.uint8, 2]:
     )
 
 
-def _make_digit_pairs(out s: InlineArray[SIMD[DType.uint8, 2], 100]):
-    s = InlineArray[SIMD[DType.uint8, 2], 100](uninitialized=True)
+def _make_digit_pairs(out s: Array[SIMD[DType.uint8, 2], 100]):
+    s = Array[SIMD[DType.uint8, 2], 100](uninitialized=True)
     for i in range(100):
         s[i] = SIMD[DType.uint8, 2](
             UInt8(0x30 + (i // 10)), UInt8(0x30 + (i % 10))
@@ -356,7 +356,7 @@ struct JsonWriter(Movable):
             self._put(UInt8(0x30))
             return
 
-        var digits = InlineArray[UInt8, 24](uninitialized=True)
+        var digits = Array[UInt8, 24](uninitialized=True)
         var generated = shortest_digits(magnitude, digits)
         var count = generated[0]
         var exponent = generated[1]
@@ -390,7 +390,7 @@ struct JsonWriter(Movable):
                     self._put(digits[i])
 
     def _write_scientific(
-        mut self, digits: InlineArray[UInt8, 24], count: Int, leading: Int
+        mut self, digits: Array[UInt8, 24], count: Int, leading: Int
     ):
         """`d.ddde±NN`, with at least two exponent digits."""
         self._put(digits[0])

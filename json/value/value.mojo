@@ -80,9 +80,7 @@ struct Null(Writable):
         writer.write("null")
 
 
-struct Value(
-    Boolable, Copyable, Equatable, Hashable, Movable, SizedRaising, Writable
-):
+struct Value(Boolable, Copyable, Equatable, Hashable, SizedRaising, Writable):
     """A JSON value.
 
     Holds either a tape-backed view over a shared `Document` (what the
@@ -763,7 +761,7 @@ struct Value(
         Args:
             hasher: The hasher to update.
         """
-        hasher.update(self.hash_u64())
+        self.hash_u64().__hash__(hasher)
 
     def hash_u64(self) -> UInt64:
         """A hash that agrees with `__eq__`, so a `Value` can key a `Dict`.
@@ -1928,7 +1926,7 @@ def _normalize_index(index: Int, count: Int) raises -> Int:
 # ---------------------------------------------------------------------------
 
 
-struct _Num(Copyable, Movable):
+struct _Num(Copyable):
     """A JSON number lifted out of whichever representation held it.
 
     Equality and hashing both have to treat a number as a number
@@ -2301,7 +2299,7 @@ def _hash_view(doc: ArcPointer[Document], tape_idx: Int) -> UInt64:
 
 
 struct ValueArrayIter[mut: Bool, //, origin: Origin[mut=mut]](
-    Copyable, Iterator, Movable
+    Copyable, Iterator
 ):
     """Yields the elements of a JSON array, one at a time.
 
@@ -2341,7 +2339,7 @@ struct ValueArrayIter[mut: Bool, //, origin: Origin[mut=mut]](
 
 
 struct ValueItemsIter[mut: Bool, //, origin: Origin[mut=mut]](
-    Copyable, Iterator, Movable
+    Copyable, Iterator
 ):
     """Yields an object's members as `(key, value)` pairs.
 
@@ -2382,7 +2380,7 @@ struct ValueItemsIter[mut: Bool, //, origin: Origin[mut=mut]](
 
 
 struct ValueKeysIter[mut: Bool, //, origin: Origin[mut=mut]](
-    Copyable, Iterator, Movable
+    Copyable, Iterator
 ):
     """Yields an object's member names. Built by `Value.keys()`."""
 
@@ -2419,7 +2417,7 @@ struct ValueKeysIter[mut: Bool, //, origin: Origin[mut=mut]](
 
 
 struct ValueValuesIter[mut: Bool, //, origin: Origin[mut=mut]](
-    Copyable, Iterator, Movable
+    Copyable, Iterator
 ):
     """Yields an object's member values. Built by `Value.values()`."""
 

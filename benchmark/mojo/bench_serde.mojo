@@ -66,7 +66,7 @@ comptime SEED: UInt64 = 0x5DEECE66D
 comptime ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789-_"
 
 
-struct Rng(Copyable, Movable):
+struct Rng(Copyable):
     """A xorshift64* stream -- same sequence on every host and every run."""
 
     var state: UInt64
@@ -103,7 +103,7 @@ struct Rng(Copyable, Movable):
 # ---------------------------------------------------------------------------
 
 
-trait Fixture(Copyable, Defaultable, Deinitable, Movable):
+trait Fixture(Copyable, Defaultable, Deinitable):
     @staticmethod
     def label() -> String:
         ...
@@ -141,7 +141,7 @@ def _float_eq(a: Float64, b: Float64) -> Bool:
 
 
 @fieldwise_init
-struct Message(Copyable, Defaultable, Movable):
+struct Message(Copyable, Defaultable):
     var f_bool: Bool
     var f_int32: Int32
     var f_int64: Int64
@@ -213,7 +213,7 @@ struct Message(Copyable, Defaultable, Movable):
 
 
 @fieldwise_init
-struct BatchMessage(Copyable, Defaultable, Deinitable, Fixture, Movable):
+struct BatchMessage(Copyable, Defaultable, Deinitable, Fixture):
     var items: List[Message]
 
     def __init__(out self):
@@ -264,7 +264,7 @@ struct BatchMessage(Copyable, Defaultable, Deinitable, Fixture, Movable):
 
 
 @fieldwise_init
-struct DocumentMeta(Copyable, Defaultable, Movable):
+struct DocumentMeta(Copyable, Defaultable):
     var region: String
     var version: Int32
 
@@ -274,7 +274,7 @@ struct DocumentMeta(Copyable, Defaultable, Movable):
 
 
 @fieldwise_init
-struct DocumentItem(Copyable, Defaultable, Movable):
+struct DocumentItem(Copyable, Defaultable):
     var sku: String
     var qty: Int32
     var price_minor: Int64
@@ -286,7 +286,7 @@ struct DocumentItem(Copyable, Defaultable, Movable):
 
 
 @fieldwise_init
-struct Document(Copyable, Defaultable, Movable):
+struct Document(Copyable, Defaultable):
     var id: String
     var status: Int32
     var meta: DocumentMeta
@@ -379,7 +379,7 @@ struct Document(Copyable, Defaultable, Movable):
 
 
 @fieldwise_init
-struct BatchDocument(Copyable, Defaultable, Deinitable, Fixture, Movable):
+struct BatchDocument(Copyable, Defaultable, Deinitable, Fixture):
     var items: List[Document]
 
     def __init__(out self):
@@ -430,7 +430,7 @@ struct BatchDocument(Copyable, Defaultable, Deinitable, Fixture, Movable):
 
 
 @fieldwise_init
-struct Telemetry(Copyable, Defaultable, Movable):
+struct Telemetry(Copyable, Defaultable):
     var source: String
     var ts: Int64
     var tags: List[String]
@@ -503,7 +503,7 @@ struct Telemetry(Copyable, Defaultable, Movable):
 
 
 @fieldwise_init
-struct BatchTelemetry(Copyable, Defaultable, Deinitable, Fixture, Movable):
+struct BatchTelemetry(Copyable, Defaultable, Deinitable, Fixture):
     var items: List[Telemetry]
 
     def __init__(out self):
@@ -554,7 +554,7 @@ struct BatchTelemetry(Copyable, Defaultable, Deinitable, Fixture, Movable):
 
 
 @fieldwise_init
-struct Strings(Copyable, Defaultable, Movable):
+struct Strings(Copyable, Defaultable):
     var items: List[String]
 
     def __init__(out self):
@@ -593,7 +593,7 @@ struct Strings(Copyable, Defaultable, Movable):
 
 
 @fieldwise_init
-struct BatchStrings(Copyable, Defaultable, Deinitable, Fixture, Movable):
+struct BatchStrings(Copyable, Defaultable, Deinitable, Fixture):
     var items: List[Strings]
 
     def __init__(out self):
@@ -644,7 +644,7 @@ struct BatchStrings(Copyable, Defaultable, Deinitable, Fixture, Movable):
 
 
 @fieldwise_init
-struct EventAttr(Copyable, Defaultable, Movable):
+struct EventAttr(Copyable, Defaultable):
     var key: String
     var value: String
 
@@ -654,7 +654,7 @@ struct EventAttr(Copyable, Defaultable, Movable):
 
 
 @fieldwise_init
-struct Event(Copyable, Defaultable, Movable):
+struct Event(Copyable, Defaultable):
     var event_id: String
     var event_type: String
     var occurred_at: Int64
@@ -733,7 +733,7 @@ struct Event(Copyable, Defaultable, Movable):
 
 
 @fieldwise_init
-struct BatchEvent(Copyable, Defaultable, Deinitable, Fixture, Movable):
+struct BatchEvent(Copyable, Defaultable, Deinitable, Fixture):
     var items: List[Event]
 
     def __init__(out self):
@@ -785,7 +785,7 @@ struct BatchEvent(Copyable, Defaultable, Deinitable, Fixture, Movable):
 # ---------------------------------------------------------------------------
 
 
-struct Stat(Copyable, Movable):
+struct Stat(Copyable):
     """One lane's result: per-call nanoseconds, or `supported=False`."""
 
     var median_ns: Float64

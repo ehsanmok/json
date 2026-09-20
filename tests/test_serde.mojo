@@ -15,7 +15,7 @@ from json.deserialize import Deserializable, deserialize
 
 
 @fieldwise_init
-struct Person(Copyable, Deserializable, Movable, Serializable):
+struct Person(Copyable, Deserializable, Serializable):
     """Test struct with both serialization and deserialization."""
 
     var name: String
@@ -43,7 +43,7 @@ struct Person(Copyable, Deserializable, Movable, Serializable):
 
 
 @fieldwise_init
-struct Product(Copyable, Deserializable, Movable, Serializable):
+struct Product(Copyable, Deserializable, Serializable):
     """Test struct with mixed types."""
 
     var name: String

@@ -344,7 +344,7 @@ def parse_two_pass_tape[
 # ---------------------------------------------------------------------------
 
 
-struct _Frame(Copyable, Movable):
+struct _Frame(Copyable):
     """One open container on the work stack."""
 
     var kind: UInt8  # _FRAME_ARRAY or _FRAME_OBJECT

@@ -25,8 +25,8 @@
 from max.gpu import barrier
 from max.gpu.host import DeviceContext
 from max.gpu.memory import AddressSpace
-from std.gpu import thread_idx, block_idx, block_dim
-from std.gpu.globals import MAX_THREADS_PER_BLOCK_METADATA
+from max.gpu import thread_idx, block_idx, block_dim
+from max.gpu.globals import MAX_THREADS_PER_BLOCK_METADATA
 from std.memory import Pointer
 from std.utils.static_tuple import StaticTuple
 from ..types import (

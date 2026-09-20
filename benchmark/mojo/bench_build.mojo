@@ -39,7 +39,7 @@ comptime ITERS = 20
 # ---------------------------------------------------------------------------
 
 
-struct DocItem(Copyable, Movable):
+struct DocItem(Copyable):
     var sku: String
     var qty: Int32
     var price_minor: Int64
@@ -50,7 +50,7 @@ struct DocItem(Copyable, Movable):
         self.price_minor = Int64(idx * 251 % 100000)
 
 
-struct Doc(Copyable, Movable):
+struct Doc(Copyable):
     var id: String
     var status: Int32
     var region: String

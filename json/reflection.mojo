@@ -36,7 +36,7 @@ Deserialization requires Defaultable and Movable:
 
 from std.builtin.rebind import downcast
 from std.collections import Optional, List, Dict
-from std.memory import UnsafeMaybeUninit
+from std.memory import MaybeUninit
 
 from .reader import JsonReader
 from .value import Value, Null
@@ -263,12 +263,13 @@ __extension List(_JsonParse):
                 # `append` doubles as before.
                 out.reserve(8)
                 first = False
-            var slot = UnsafeMaybeUninit[E]()
+            var slot = MaybeUninit[E]()
             try:
-                _parse_into[E](r, Pointer(to=slot.unsafe_assume_init_ref()))
+                _parse_into[E](r, Pointer(to=slot.unsafe_assume_init()))
             except e:
+                slot^.unsafe_forget()
                 raise Error("element " + String(index) + ": " + String(e))
-            out.append(slot.unsafe_assume_init_take())
+            out.append(slot^.unsafe_assume_init())
             index += 1
         ptr.unsafe_bitcast[List[E]]().unsafe_write(out^)
 
@@ -282,9 +283,13 @@ __extension Optional(_JsonParse):
         if r.try_null():
             ptr.unsafe_bitcast[Optional[E]]().unsafe_write(Optional[E](None))
             return
-        var slot = UnsafeMaybeUninit[E]()
-        _parse_into[E](r, Pointer(to=slot.unsafe_assume_init_ref()))
-        var element = slot.unsafe_assume_init_take()
+        var slot = MaybeUninit[E]()
+        try:
+            _parse_into[E](r, Pointer(to=slot.unsafe_assume_init()))
+        except e:
+            slot^.unsafe_forget()
+            raise e
+        var element = slot^.unsafe_assume_init()
         ptr.unsafe_bitcast[Optional[E]]().unsafe_write(Optional[E](element^))
 
 
@@ -322,12 +327,13 @@ __extension Dict(_JsonParse):
                 first = False
                 var key = r.read_key()
                 var name = r.key_text(key)
-                var slot = UnsafeMaybeUninit[V]()
+                var slot = MaybeUninit[V]()
                 try:
-                    _parse_into[V](r, Pointer(to=slot.unsafe_assume_init_ref()))
+                    _parse_into[V](r, Pointer(to=slot.unsafe_assume_init()))
                 except e:
+                    slot^.unsafe_forget()
                     raise Error("key '" + name + "': " + String(e))
-                out[name] = slot.unsafe_assume_init_take()
+                out[name] = slot^.unsafe_assume_init()
             ptr.unsafe_bitcast[Dict[String, V]]().unsafe_write(out^)
         else:
             comptime assert (
@@ -527,10 +533,21 @@ def deserialize_json[T: _Base](json_bytes: Span[UInt8, _]) raises -> T:
         If the text is not valid JSON or does not match `T`.
     """
     var reader = JsonReader(json_bytes)
-    var slot = UnsafeMaybeUninit[T]()
-    _parse_into[T](reader, Pointer(to=slot.unsafe_assume_init_ref()))
-    reader.expect_end()
-    return slot.unsafe_assume_init_take()
+    var slot = MaybeUninit[T]()
+    try:
+        _parse_into[T](reader, Pointer(to=slot.unsafe_assume_init()))
+    except e:
+        slot^.unsafe_forget()
+        raise e
+    try:
+        reader.expect_end()
+    except e:
+        # `_parse_into` above succeeded, so `slot` now holds a live `T`
+        # (unlike the `except` above, where nothing was ever written) --
+        # run its destructor rather than leaking it.
+        slot^.unsafe_deinit()
+        raise e
+    return slot^.unsafe_assume_init()
 
 
 def deserialize_value[T: _Base](json: Value) raises -> T:

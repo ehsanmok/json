@@ -104,7 +104,7 @@ def _narrow[
 
 
 @fieldwise_init
-struct KeySpan(Copyable, ImplicitlyCopyable, Movable):
+struct KeySpan(ImplicitlyCopyable):
     """Where an object key's bytes are, and whether they need expanding."""
 
     var start: Int

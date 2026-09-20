@@ -82,7 +82,7 @@ comptime _CH_RBRACE = 0x7D
 
 
 @fieldwise_init
-struct _Inst(Copyable, ImplicitlyCopyable, Movable):
+struct _Inst(ImplicitlyCopyable):
     """One NFA instruction.
 
     `a` and `b` carry the operand of a consuming instruction: a code

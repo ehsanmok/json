@@ -36,9 +36,9 @@ comptime _POW10_SIGNIFICAND = _make_pow10_significand()
 comptime _POW10_EXPONENT = _make_pow10_exponent()
 
 
-def _make_pow10_significand(out table: InlineArray[UInt64, _POW10_COUNT]):
+def _make_pow10_significand(out table: Array[UInt64, _POW10_COUNT]):
     """Cached powers of ten as normalized 64-bit significands."""
-    table = InlineArray[UInt64, _POW10_COUNT](uninitialized=True)
+    table = Array[UInt64, _POW10_COUNT](uninitialized=True)
     table[0] = 0xFA8FD5A0081C0288
     table[1] = 0xBAAEE17FA23EBF76
     table[2] = 0x8B16FB203055AC76
@@ -128,9 +128,9 @@ def _make_pow10_significand(out table: InlineArray[UInt64, _POW10_COUNT]):
     table[86] = 0xAF87023B9BF0EE6B
 
 
-def _make_pow10_exponent(out table: InlineArray[Int32, _POW10_COUNT]):
+def _make_pow10_exponent(out table: Array[Int32, _POW10_COUNT]):
     """Binary exponents matching `_POW10_SIGNIFICAND`."""
-    table = InlineArray[Int32, _POW10_COUNT](uninitialized=True)
+    table = Array[Int32, _POW10_COUNT](uninitialized=True)
     table[0] = -1220
     table[1] = -1193
     table[2] = -1166
@@ -226,7 +226,7 @@ def _make_pow10_exponent(out table: InlineArray[Int32, _POW10_COUNT]):
 
 
 @fieldwise_init
-struct _DiyFp(Copyable, ImplicitlyCopyable, Movable):
+struct _DiyFp(ImplicitlyCopyable):
     """A significand and a binary exponent: `f * 2**e`.
 
     Deliberately not a `Float64`: the whole point is to do the digit
@@ -356,7 +356,7 @@ def _decimal_length(value: UInt32) -> Int:
 
 @always_inline
 def _round_weed(
-    mut digits: InlineArray[UInt8, 24],
+    mut digits: Array[UInt8, 24],
     length: Int,
     delta: UInt64,
     var rest: UInt64,
@@ -387,7 +387,7 @@ def _generate_digits(
     w: _DiyFp,
     minus: _DiyFp,
     plus: _DiyFp,
-    mut digits: InlineArray[UInt8, 24],
+    mut digits: Array[UInt8, 24],
 ) -> Tuple[Int, Int]:
     """Emit digits of a value in (`minus`, `plus`). Returns (count, K).
 
@@ -462,7 +462,7 @@ def _generate_digits(
 
 
 def shortest_digits(
-    value: Float64, mut digits: InlineArray[UInt8, 24]
+    value: Float64, mut digits: Array[UInt8, 24]
 ) -> Tuple[Int, Int]:
     """Decimal digits of a finite non-zero `value`, and its exponent.
 

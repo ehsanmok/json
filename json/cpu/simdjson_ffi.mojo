@@ -204,8 +204,8 @@ struct SimdjsonFFI:
     def parse(mut self, json: String) raises -> Int:
         """Parse JSON and return root value handle."""
         var json_copy = json
-        var c_str = json_copy.as_c_string_slice()
-        var ptr = Int(c_str.unsafe_ptr())
+        var c_str = json_copy.as_c_string_span()
+        var ptr = Int(c_str.ptr())
         var length = json_copy.byte_length()
 
         var err = self._parse(self._parser, ptr, length)
