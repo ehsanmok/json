@@ -24,7 +24,7 @@
 
 context:
   name: json
-  version: "0.4.0"
+  version: "0.4.1"
 
 package:
   name: ${{ name }}
@@ -66,7 +66,7 @@ requirements:
   # installs nothing while still pinning the version a consumer gets if
   # they add it themselves.
   run_constraints:
-    - max-core >=26.5.0
+    - max-core >=26.6.0
 
 about:
   homepage: https://github.com/ehsanmok/json

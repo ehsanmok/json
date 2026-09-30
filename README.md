@@ -71,7 +71,7 @@ The GPU pipeline needs `max-core`, which is governed by the [Modular Community L
 ```toml
 [dependencies]
 json     = { git = "https://github.com/ehsanmok/json.git", tag = "<latest-release>" }
-max-core = ">=26.5.0"   # GPU only, Modular Community License
+max-core = ">=26.6.0"   # GPU only, Modular Community License
 ```
 
 ```mojo
