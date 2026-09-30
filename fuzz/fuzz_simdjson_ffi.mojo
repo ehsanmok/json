@@ -32,7 +32,7 @@ def target(data: List[UInt8]) raises:
               ``SIMDJSON_ERROR_UTF8``; our default backend tolerates
               replacement characters.
     """
-    var s = String(capacity=len(data) + 1)
+    var s = String()
     for i in range(len(data)):
         s += chr(Int(data[i]))
 

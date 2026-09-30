@@ -52,7 +52,7 @@ def _exercise(value: Value, depth: Int) raises:
 
 
 def target(data: List[UInt8]) raises:
-    var s = String(capacity=len(data) + 1)
+    var s = String()
     for i in range(len(data)):
         s += chr(Int(data[i]))
 

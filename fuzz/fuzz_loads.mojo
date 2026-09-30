@@ -24,7 +24,7 @@ def target(data: List[UInt8]) raises:
               which is fine -- we want to see how the parser handles
               them.
     """
-    var s = String(capacity=len(data) + 1)
+    var s = String()
     for i in range(len(data)):
         s += chr(Int(data[i]))
 
