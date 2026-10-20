@@ -374,6 +374,21 @@ struct Document(Copyable):
             unsafe_from_utf8=self.input.as_bytes()[offset : offset + length]
         )
 
+    def key_equals(self, tape_idx: Int, key: String) -> Bool:
+        """Whether a KEY entry spells `key`, without materializing it."""
+        if self.get_tag(tape_idx) != TAPE_TAG_KEY_INLINE:
+            return self.key_pool[Int(self.get_payload(tape_idx))] == key
+        var n = self.get_string_length(tape_idx)
+        if n != key.byte_length():
+            return False
+        var off = self.get_string_offset(tape_idx)
+        var a = self.input.as_bytes()[off : off + n]
+        var b = key.as_bytes()
+        for i in range(n):
+            if a[i] != b[i]:
+                return False
+        return True
+
     def get_key(self, tape_idx: Int) -> String:
         """Return the unescaped key for a KEY / KEY_INLINE entry.
 

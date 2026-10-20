@@ -61,6 +61,7 @@ from ..document import (
     TAPE_TAG_FLOAT,
     TAPE_TAG_STRING,
     TAPE_TAG_STRING_OWNED,
+    TAPE_TAG_KEY_INLINE,
     TAPE_TAG_ARRAY,
     TAPE_TAG_OBJECT,
     TAPE_TAG_KEY,
@@ -946,7 +947,7 @@ struct Value(Boolable, Copyable, Equatable, Hashable, SizedRaising, Writable):
         var pair_count = doc.get_count(self._tape_idx)
         var child_start = doc.get_child_start(self._tape_idx)
         for i in range(pair_count):
-            if doc.get_key(child_start + 2 * i) == key:
+            if doc.key_equals(child_start + 2 * i, key):
                 return i
         return -1
 
@@ -1180,7 +1181,7 @@ struct Value(Boolable, Copyable, Equatable, Hashable, SizedRaising, Writable):
         var pair_count = doc.get_count(self._tape_idx)
         var child_start = doc.get_child_start(self._tape_idx)
         for i in range(pair_count):
-            if doc.get_key(child_start + 2 * i) == key:
+            if doc.key_equals(child_start + 2 * i, key):
                 return _make_view_child(
                     self._doc.value(), child_start + 2 * i + 1
                 )
@@ -1791,6 +1792,20 @@ def _member_order(d: Document, child_start: Int, pair_count: Int) -> List[Int]:
     return order^
 
 
+def _write_tape_key[
+    ascii_only: Bool, solidus: Bool
+](mut w: JsonWriter, d: Document, tape_idx: Int):
+    if d.get_tag(tape_idx) == TAPE_TAG_KEY_INLINE:
+        var off = d.get_string_offset(tape_idx)
+        w.write_string_span[ascii_only, solidus](
+            d.input.as_bytes()[off : off + d.get_string_length(tape_idx)]
+        )
+    else:
+        w.write_string[ascii_only, solidus](
+            d.key_pool[Int(d.get_payload(tape_idx))]
+        )
+
+
 def _write_view[
     ascii_only: Bool = False, solidus: Bool = False
 ](
@@ -1827,7 +1842,15 @@ def _write_view[
         w.write_float(d.get_float(tape_idx))
         return
     if tag == TAPE_TAG_STRING or tag == TAPE_TAG_STRING_OWNED:
-        w.write_string[ascii_only, solidus](d.get_string(tape_idx))
+        if tag == TAPE_TAG_STRING_OWNED:
+            w.write_string[ascii_only, solidus](
+                d.string_pool[Int(d.get_payload(tape_idx))]
+            )
+        else:
+            var off = d.get_string_offset(tape_idx)
+            w.write_string_span[ascii_only, solidus](
+                d.input.as_bytes()[off : off + d.get_string_length(tape_idx)]
+            )
         return
     if tag == TAPE_TAG_ARRAY:
         var count = d.get_count(tape_idx)
@@ -1847,8 +1870,8 @@ def _write_view[
             for i in range(pair_count):
                 var slot = order[i]
                 w.next_child(i == 0)
-                w.write_string[ascii_only, solidus](
-                    d.get_key(child_start + 2 * slot)
+                _write_tape_key[ascii_only, solidus](
+                    w, d, child_start + 2 * slot
                 )
                 w.colon()
                 _write_view[ascii_only, solidus](
@@ -1857,9 +1880,7 @@ def _write_view[
         else:
             for i in range(pair_count):
                 w.next_child(i == 0)
-                w.write_string[ascii_only, solidus](
-                    d.get_key(child_start + 2 * i)
-                )
+                _write_tape_key[ascii_only, solidus](w, d, child_start + 2 * i)
                 w.colon()
                 _write_view[ascii_only, solidus](
                     w, doc, child_start + 2 * i + 1, sort_keys
