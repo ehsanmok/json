@@ -2,9 +2,9 @@
 # Provides high-performance JSON parsing via simdjson C++ library
 # Uses OwnedDLHandle for runtime library loading
 
-from std.ffi import OwnedDLHandle, external_call
+from std.ffi import OwnedDLHandle, _get_global, external_call
 from std.os import getenv
-from std.memory import Pointer
+from std.memory import Layout, OptionalPointer, Pointer, alloc
 from std.collections.span import Span
 from std.collections import List
 from ..errors import json_parse_error, find_error_position
@@ -55,31 +55,86 @@ comptime SIMDJSON_TYPE_ARRAY: Int = 6
 comptime SIMDJSON_TYPE_OBJECT: Int = 7
 
 
-struct SimdjsonTape:
-    """The tape-building entry points only, over the calling thread's
-    parser: three symbols instead of the full handle API, and no parser
-    is created or destroyed per parse."""
+# Resolved once per process: [parse_to_tape, tape_buffers, memcpy,
+# thread_parser]. The handle is leaked so the library stays loaded and
+# the addresses stay valid. All zero means the
+# wrapper could not be loaded.
+comptime _TAPE_SYMBOLS = 4
 
-    var _lib: OwnedDLHandle
+
+def _tape_cell_init() -> OptionalPointer[NoneType, UntrackedOrigin[mut=True]]:
+    var raw = alloc(Layout[Int](count=_TAPE_SYMBOLS)).unsafe_leak()
+    for i in range(_TAPE_SYMBOLS):
+        raw.unsafe_offset(i).unsafe_write(0)
+    try:
+        var path = _find_simdjson_library()
+        var lib = OwnedDLHandle(path)
+        var names = [
+            "simdjson_parse_to_tape",
+            "simdjson_tape_buffers",
+            "simdjson_memcpy_from_addr",
+            "simdjson_thread_parser",
+        ]
+        var addrs = List[Int]()
+        for name in names:
+            var sym = lib.get_symbol[NoneType](name)
+            if not sym:
+                raise Error("missing " + name)
+            addrs.append(Int(sym.value()))
+        alloc(Layout[OwnedDLHandle](count=1)).unsafe_leak().unsafe_write(lib^)
+        for k in range(_TAPE_SYMBOLS):
+            raw.unsafe_offset(k).unsafe_write(addrs[k])
+    except:
+        pass
+    return Pointer[NoneType, UntrackedOrigin[mut=True]](
+        unsafe_from_address=Int(raw)
+    )
+
+
+def _tape_cell_destroy(p: OptionalPointer[NoneType, UntrackedOrigin[mut=True]]):
+    if p:
+        Pointer[Int, MutUntrackedOrigin](
+            unsafe_from_address=Int(p.value())
+        ).unsafe_free()
+
+
+def _tape_symbol[FT: TrivialRegisterPassable](k: Int) raises -> FT:
+    var cell = Int(
+        _get_global[
+            "json_simdjson_tape", _tape_cell_init, _tape_cell_destroy
+        ]().value()
+    )
+    var addr = Pointer[Int, MutUntrackedOrigin](
+        unsafe_from_address=cell + k * 8
+    )[]
+    if addr == 0:
+        raise Error("simdjson wrapper library not available")
+    return Pointer(to=addr).unsafe_bitcast[FT]()[]
+
+
+struct SimdjsonTape:
+    """The tape-building entry points over the calling thread's parser.
+
+    The symbols are resolved once per process and no parser is created
+    or destroyed per parse, so a small document pays almost nothing
+    beyond simdjson's own work."""
+
     var _parse_to_tape: def(Int, Int, Int) thin abi("C") -> Int
     var _tape_buffers: def(Int, Int) thin abi("C") -> None
     var _memcpy_from_addr: def(Int, Int, Int) thin abi("C") -> None
     var _parser: Int
 
     def __init__(out self) raises:
-        self._lib = OwnedDLHandle(_find_simdjson_library())
-        self._parse_to_tape = _dl_sym[def(Int, Int, Int) thin abi("C") -> Int](
-            self._lib, "simdjson_parse_to_tape"
+        self._parse_to_tape = _tape_symbol[
+            def(Int, Int, Int) thin abi("C") -> Int
+        ](0)
+        self._tape_buffers = _tape_symbol[def(Int, Int) thin abi("C") -> None](
+            1
         )
-        self._tape_buffers = _dl_sym[def(Int, Int) thin abi("C") -> None](
-            self._lib, "simdjson_tape_buffers"
-        )
-        self._memcpy_from_addr = _dl_sym[
+        self._memcpy_from_addr = _tape_symbol[
             def(Int, Int, Int) thin abi("C") -> None
-        ](self._lib, "simdjson_memcpy_from_addr")
-        self._parser = _dl_sym[def() thin abi("C") -> Int](
-            self._lib, "simdjson_thread_parser"
-        )()
+        ](2)
+        self._parser = _tape_symbol[def() thin abi("C") -> Int](3)()
 
     def parse_to_document(self, json: String) raises -> Document:
         """Parse `json` and lay it out as a tape in one FFI call.
