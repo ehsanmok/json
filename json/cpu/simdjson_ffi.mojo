@@ -8,6 +8,7 @@ from std.memory import Pointer
 from std.collections.span import Span
 from std.collections import List
 from ..errors import json_parse_error, find_error_position
+from ..document import Document
 
 
 def _dl_sym[
@@ -52,6 +53,69 @@ comptime SIMDJSON_TYPE_DOUBLE: Int = 4
 comptime SIMDJSON_TYPE_STRING: Int = 5
 comptime SIMDJSON_TYPE_ARRAY: Int = 6
 comptime SIMDJSON_TYPE_OBJECT: Int = 7
+
+
+struct SimdjsonTape:
+    """The tape-building entry points only, over the calling thread's
+    parser: three symbols instead of the full handle API, and no parser
+    is created or destroyed per parse."""
+
+    var _lib: OwnedDLHandle
+    var _parse_to_tape: def(Int, Int, Int) thin abi("C") -> Int
+    var _tape_buffers: def(Int, Int) thin abi("C") -> None
+    var _memcpy_from_addr: def(Int, Int, Int) thin abi("C") -> None
+    var _parser: Int
+
+    def __init__(out self) raises:
+        self._lib = OwnedDLHandle(_find_simdjson_library())
+        self._parse_to_tape = _dl_sym[def(Int, Int, Int) thin abi("C") -> Int](
+            self._lib, "simdjson_parse_to_tape"
+        )
+        self._tape_buffers = _dl_sym[def(Int, Int) thin abi("C") -> None](
+            self._lib, "simdjson_tape_buffers"
+        )
+        self._memcpy_from_addr = _dl_sym[
+            def(Int, Int, Int) thin abi("C") -> None
+        ](self._lib, "simdjson_memcpy_from_addr")
+        self._parser = _dl_sym[def() thin abi("C") -> Int](
+            self._lib, "simdjson_thread_parser"
+        )()
+
+    def parse_to_document(self, json: String) raises -> Document:
+        """Parse `json` and lay it out as a tape in one FFI call.
+
+        Strings and keys come back unescaped in one arena that becomes the
+        document's byte source, so no string is allocated on its own.
+        """
+        var err = self._parse_to_tape(
+            self._parser, Int(json.unsafe_ptr()), json.byte_length()
+        )
+        if err != SIMDJSON_OK:
+            var pos = find_error_position(json)
+            if err == SIMDJSON_ERROR_INVALID_JSON:
+                raise Error(json_parse_error("invalid JSON syntax", json, pos))
+            elif err == SIMDJSON_ERROR_UTF8:
+                raise Error(json_parse_error("invalid UTF-8", json, pos))
+            elif err == SIMDJSON_ERROR_CAPACITY:
+                raise Error("JSON document too large (exceeds parser capacity)")
+            raise Error(json_parse_error("parse failed", json, pos))
+        var bufs = List[Int64](length=8, fill=0)
+        self._tape_buffers(self._parser, Int(bufs.unsafe_ptr()))
+        var doc = Document()
+        doc.tape = List[UInt64](length=Int(bufs[1]), fill=0)
+        self._copy(Int(doc.tape.unsafe_ptr()), bufs[0], bufs[1] * 8)
+        var arena = List[UInt8](length=Int(bufs[3]), fill=0)
+        self._copy(Int(arena.unsafe_ptr()), bufs[2], bufs[3])
+        doc.input = String(unsafe_from_utf8=arena)
+        doc.float_pool = List[Float64](length=Int(bufs[5]), fill=0.0)
+        self._copy(Int(doc.float_pool.unsafe_ptr()), bufs[4], bufs[5] * 8)
+        doc.int_pool = List[Int64](length=Int(bufs[7]), fill=0)
+        self._copy(Int(doc.int_pool.unsafe_ptr()), bufs[6], bufs[7] * 8)
+        return doc^
+
+    def _copy(self, dst: Int, src: Int64, n: Int64):
+        if n > 0:
+            self._memcpy_from_addr(dst, Int(src), Int(n))
 
 
 struct SimdjsonFFI:

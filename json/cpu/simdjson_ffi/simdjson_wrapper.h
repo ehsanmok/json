@@ -81,6 +81,16 @@ size_t simdjson_required_padding(void);
 // to `dst`. Used by Mojo FFI to avoid int-to-pointer casts in Mojo code.
 void simdjson_memcpy_from_addr(void* dst, intptr_t src_addr, size_t n);
 
+// Parse and lay the document out as a json tape in one call. Strings and
+// keys are unescaped into one arena the tape slices by (offset, length).
+// The calling thread's own parser, created on first use and kept for the
+// thread's lifetime so its buffers are reused across parses.
+simdjson_parser_t simdjson_thread_parser(void);
+int simdjson_parse_to_tape(simdjson_parser_t parser, const char* json, size_t len);
+// out[0..8): tape ptr, tape len, arena ptr, arena len, floats ptr,
+// floats len, ints ptr, ints len. Valid until the next parse.
+void simdjson_tape_buffers(simdjson_parser_t parser, int64_t* out);
+
 #ifdef __cplusplus
 }
 #endif

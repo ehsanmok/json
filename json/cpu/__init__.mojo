@@ -32,6 +32,7 @@ from .types import (
 # simdjson FFI backend.
 from .simdjson_ffi import (
     SimdjsonFFI,
+    SimdjsonTape,
     SIMDJSON_OK,
     SIMDJSON_ERROR_INVALID_JSON,
     SIMDJSON_ERROR_CAPACITY,

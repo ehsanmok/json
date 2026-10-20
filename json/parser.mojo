@@ -6,123 +6,16 @@ from std.memory import unsafe_memcpy, ArcPointer
 
 from .value import Value, Null, make_view_value
 from .serialize import dumps
-from .cpu import SimdjsonFFI, SIMDJSON_TYPE_NULL, SIMDJSON_TYPE_BOOL
-from .cpu import SIMDJSON_TYPE_INT64, SIMDJSON_TYPE_UINT64
-from .cpu import SIMDJSON_TYPE_DOUBLE, SIMDJSON_TYPE_STRING
-from .cpu import SIMDJSON_TYPE_ARRAY, SIMDJSON_TYPE_OBJECT
+from .cpu import SimdjsonTape
 from .cpu import parse_cpu_native_tape
 from .cpu.validate import is_valid_utf8
-from .document import (
-    Document,
-    pack_tape_entry,
-    pack_pair,
-    TAPE_TAG_NULL,
-    TAPE_TAG_BOOL,
-    TAPE_TAG_INT,
-    TAPE_TAG_FLOAT,
-    TAPE_TAG_STRING_OWNED,
-    TAPE_TAG_KEY,
-    TAPE_TAG_ARRAY,
-    TAPE_TAG_OBJECT,
-)
+from .document import Document
 from .types import JSONInput, JSONResult
 
 
 # =============================================================================
 # CPU Parser (simdjson FFI)
 # =============================================================================
-
-
-def _emit_simdjson_value(
-    ffi: SimdjsonFFI, mut doc: Document, value_handle: Int
-) raises -> UInt64:
-    """Walk a simdjson value handle and translate it into tape entries
-    in `doc`, returning the packed header for THIS value. The header
-    is NOT appended to `doc.tape` -- the caller (a container above us
-    or `_parse_cpu_simdjson` for the root) is responsible for placing
-    it in the tape's parent header run.
-
-    For containers we recursively flush our descendants' headers in
-    one contiguous run before returning, matching the layout pinned in
-    `json/document.mojo` and produced by `_emit_value_to_doc` in
-    `json/cpu/stage2.mojo`:
-
-    * ARRAY children are a flat run of `count` value headers.
-    * OBJECT children alternate KEY / VALUE / KEY / VALUE ... so a
-      `pair_count` of N occupies `2 * N` slots.
-
-    All strings (scalar values and object keys) come back from the FFI
-    as fully decoded `String`s, so they're interned into
-    `string_pool` / `key_pool` and referenced with STRING_OWNED / KEY
-    tags rather than the zero-copy `(offset, length)` slice form.
-    """
-    var typ = ffi.get_type(value_handle)
-    var payload_mask = (UInt64(1) << 60) - 1
-
-    if typ == SIMDJSON_TYPE_NULL:
-        return pack_tape_entry(TAPE_TAG_NULL, 0)
-    elif typ == SIMDJSON_TYPE_BOOL:
-        var b: UInt64 = 1 if ffi.get_bool(value_handle) else 0
-        return pack_tape_entry(TAPE_TAG_BOOL, b)
-    elif typ == SIMDJSON_TYPE_INT64:
-        var v = ffi.get_int(value_handle)
-        return pack_tape_entry(TAPE_TAG_INT, UInt64(v) & payload_mask)
-    elif typ == SIMDJSON_TYPE_UINT64:
-        # Existing FFI API exposes uints as Int64 to callers; preserve
-        # that shape so backend equivalence holds.
-        var v = Int64(ffi.get_uint(value_handle))
-        return pack_tape_entry(TAPE_TAG_INT, UInt64(v) & payload_mask)
-    elif typ == SIMDJSON_TYPE_DOUBLE:
-        var pool_idx = len(doc.float_pool)
-        doc.float_pool.append(ffi.get_float(value_handle))
-        return pack_tape_entry(TAPE_TAG_FLOAT, UInt64(pool_idx))
-    elif typ == SIMDJSON_TYPE_STRING:
-        var s = ffi.get_string(value_handle)
-        var pool_idx = len(doc.string_pool)
-        doc.string_pool.append(s^)
-        return pack_tape_entry(TAPE_TAG_STRING_OWNED, UInt64(pool_idx))
-    elif typ == SIMDJSON_TYPE_ARRAY:
-        var count = ffi.array_count(value_handle)
-        var iter = ffi.array_begin(value_handle)
-        var headers = List[UInt64](capacity=count)
-        while not ffi.array_iter_done(iter):
-            var child_handle = ffi.array_iter_get(iter)
-            headers.append(_emit_simdjson_value(ffi, doc, child_handle))
-            ffi.array_iter_next(iter)
-        ffi.array_iter_free(iter)
-        var child_start = len(doc.tape)
-        for j in range(len(headers)):
-            doc.tape.append(headers[j])
-        return pack_tape_entry(
-            TAPE_TAG_ARRAY,
-            pack_pair(UInt64(count), UInt64(child_start)),
-        )
-    elif typ == SIMDJSON_TYPE_OBJECT:
-        var pair_count = ffi.object_count(value_handle)
-        var iter = ffi.object_begin(value_handle)
-        var headers = List[UInt64](capacity=2 * pair_count)
-        while not ffi.object_iter_done(iter):
-            var key = ffi.object_iter_get_key(iter)
-            var key_pool_idx = len(doc.key_pool)
-            doc.key_pool.append(key^)
-            var key_header = pack_tape_entry(TAPE_TAG_KEY, UInt64(key_pool_idx))
-            var value_handle_child = ffi.object_iter_get_value(iter)
-            var value_header = _emit_simdjson_value(
-                ffi, doc, value_handle_child
-            )
-            headers.append(key_header)
-            headers.append(value_header)
-            ffi.object_iter_next(iter)
-        ffi.object_iter_free(iter)
-        var child_start = len(doc.tape)
-        for j in range(len(headers)):
-            doc.tape.append(headers[j])
-        return pack_tape_entry(
-            TAPE_TAG_OBJECT,
-            pack_pair(UInt64(pair_count), UInt64(child_start)),
-        )
-    else:
-        raise Error("Unknown JSON value type")
 
 
 def _parse_cpu_simdjson(s: String) raises -> Value:
@@ -135,14 +28,8 @@ def _parse_cpu_simdjson(s: String) raises -> Value:
     accessor behaviour as the native Mojo tape parser
     (`parse_cpu_native_tape`).
     """
-    var ffi = SimdjsonFFI()
-    var root = ffi.parse(s)
-    var doc = Document()
-    var root_header = _emit_simdjson_value(ffi, doc, root)
-    doc.tape.append(root_header)
+    var doc = SimdjsonTape().parse_to_document(s)
     var root_idx = doc.root()
-    ffi.free_value(root)
-    ffi.destroy()
     var arc = ArcPointer[Document](doc^)
     return make_view_value(arc, root_idx)
 

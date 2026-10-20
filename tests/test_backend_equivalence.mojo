@@ -25,6 +25,8 @@ def _values_equal(a: Value, b: Value) raises -> Bool:
         return b.is_null()
     if a.is_bool():
         return b.is_bool() and a.bool_value() == b.bool_value()
+    if a.is_uint():
+        return b.is_uint() and a.uint_value() == b.uint_value()
     if a.is_int():
         return b.is_int() and a.int_value() == b.int_value()
     if a.is_float():
@@ -162,6 +164,29 @@ def test_unicode_string_basic() raises:
     backends is covered separately."""
     _check_equivalence('"hello world"')
     _check_equivalence('"with spaces and 123"')
+
+
+def test_escapes_numbers_and_empty_containers() raises:
+    _check_equivalence(
+        '{"k\\"q":"a\\nb\\u00e9","big":1152921504606846976,'
+        '"neg":-1152921504606846977,"u":18446744073709551615,'
+        '"f":-2.5e-3,"e":[],"o":{},"n":null,"t":[true,false]}'
+    )
+    var v = loads[target="cpu-simdjson"](
+        '{"k\\"q":"\\u00e9","x":[1,{"y":"z"}]}'
+    )
+    assert_true(v.get('k"q').value().string_value() == "\u00e9")
+    assert_true(v.get("x").value()[1].get("y").value().string_value() == "z")
+
+
+def test_invalid_input_raises() raises:
+    for bad in ['{"a":', "[1,]", '{"a" 1}', ""]:
+        var raised = False
+        try:
+            _ = loads[target="cpu-simdjson"](String(bad))
+        except:
+            raised = True
+        assert_true(raised)
 
 
 def main() raises:

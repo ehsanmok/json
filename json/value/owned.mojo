@@ -565,8 +565,8 @@ def _serialize_into_value(o: OwnedValue) -> Value:
 def _owned_to_tape(o: OwnedValue) -> Document:
     """Build a `Document` whose root entry represents `o`.
 
-    Mirror of the producer protocol used by `_emit_simdjson_value`
-    (parser.mojo) and `_emit_value_to_doc` (cpu/stage2.mojo): for
+    Mirror of the producer protocol used by `emit` (the simdjson
+    wrapper) and `_emit_value_to_doc` (cpu/stage2.mojo): for
     containers we emit children's headers into a contiguous run
     before writing the parent header, and the root header is
     appended last so `Document.root()` returns its index.
