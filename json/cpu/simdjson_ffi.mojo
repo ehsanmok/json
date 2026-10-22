@@ -323,8 +323,12 @@ struct SimdjsonFFI:
     def parse(mut self, json: String) raises -> Int:
         """Parse JSON and return root value handle."""
         var json_copy = json
-        var c_str = json_copy.as_c_string_span()
-        var ptr = Int(c_str.ptr())
+        # `as_c_string_span` appends the nul terminator simdjson's padded
+        # read relies on. Its `.ptr()` does not compile on Mojo 1.2
+        # ("recursive reference to declaration 'CStringSpan.ptr'"), so take
+        # the address from the string itself.
+        _ = json_copy.as_c_string_span()
+        var ptr = Int(json_copy.unsafe_ptr())
         var length = json_copy.byte_length()
 
         var err = self._parse(self._parser, ptr, length)
@@ -407,7 +411,7 @@ struct SimdjsonFFI:
         var bytes = List[UInt8](capacity=length)
         bytes.resize(length, 0)
         self._memcpy_from_addr(Int(bytes.unsafe_ptr()), addr, length)
-        return String(unsafe_from_utf8=bytes^)
+        return String(unsafe_from_utf8=bytes)
 
     def free_value(self, value: Int):
         """Free a value handle."""
@@ -474,7 +478,7 @@ struct SimdjsonFFI:
         var bytes = List[UInt8](capacity=length)
         bytes.resize(length, 0)
         self._memcpy_from_addr(Int(bytes.unsafe_ptr()), addr, length)
-        return String(unsafe_from_utf8=bytes^)
+        return String(unsafe_from_utf8=bytes)
 
     def object_iter_get_value(self, iter: Int) -> Int:
         """Get current object value."""

@@ -27,7 +27,7 @@
 # `ArcPointer` for every `Value(1)`.
 
 from std.collections import Dict, List
-from std.hashlib import Hasher
+from std.hash import Hasher
 from std.memory import ArcPointer, bitcast
 
 from ..pointer import array_index
@@ -1278,7 +1278,7 @@ struct Value(Boolable, Copyable, Equatable, Hashable, SizedRaising, Writable):
         Raises:
             Error: If this value is not a JSON object.
         """
-        self.set(key, value^)
+        self.set(key.copy(), value^)
 
     def __setitem__(mut self, index: Int, var value: Value) raises:
         """`arr[0] = v`, the subscript spelling of `set(index, value)`.

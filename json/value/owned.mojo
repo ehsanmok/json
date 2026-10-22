@@ -195,7 +195,7 @@ def _parse_owned_at(
                 String(unsafe_from_utf8=bytes[start_idx:end_idx])
             )
         var unescaped = unescape_json_string_span(bytes, start_idx, end_idx)
-        return OwnedValue.make_string(String(unsafe_from_utf8=unescaped^))
+        return OwnedValue.make_string(String(unsafe_from_utf8=unescaped))
 
     if c == UInt8(ord("-")) or (c >= UInt8(ord("0")) and c <= UInt8(ord("9"))):
         var num_start = i

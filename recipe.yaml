@@ -24,7 +24,7 @@
 
 context:
   name: json
-  version: "0.4.1"
+  version: "0.4.2"
 
 package:
   name: ${{ name }}
@@ -55,7 +55,7 @@ requirements:
   host:
     - simdjson >=4.2.4,<5
   run:
-    - mojo >=1.1.0,<2.0.0
+    - mojo >=1.2.0,<2.0.0
     - simdjson >=4.2.4,<5
   # Not a dependency. `json/gpu/` imports `max.gpu`, which ships in
   # `max-core`, but nothing on the CPU import graph names `json.gpu`,
@@ -66,7 +66,7 @@ requirements:
   # installs nothing while still pinning the version a consumer gets if
   # they add it themselves.
   run_constraints:
-    - max-core >=26.6.0
+    - max-core ==26.7
 
 about:
   homepage: https://github.com/ehsanmok/json

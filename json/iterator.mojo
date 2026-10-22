@@ -374,12 +374,12 @@ struct JSONIterator:
                 src=self.input_data.unsafe_ptr().unsafe_offset(i),
                 count=length,
             )
-            return String(unsafe_from_utf8=bytes^)
+            return String(unsafe_from_utf8=bytes)
 
         # Slow path: handle escapes (including \uXXXX unicode)
 
         var bytes = unescape_json_string(self.input_data, i, end_pos)
-        return String(unsafe_from_utf8=bytes^)
+        return String(unsafe_from_utf8=bytes)
 
     def _extract_range(self, start: Int, end: Int) raises -> String:
         """Extract a range of characters as a string."""
@@ -395,7 +395,7 @@ struct JSONIterator:
             src=self.input_data.unsafe_ptr().unsafe_offset(start),
             count=length,
         )
-        return String(unsafe_from_utf8=bytes^)
+        return String(unsafe_from_utf8=bytes)
 
     def get_current_char(self) -> UInt8:
         """Get the character at current structural position."""

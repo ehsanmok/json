@@ -26,7 +26,7 @@ var file = load[target="gpu"]("huge.json")
 ```toml
 [dependencies]
 json     = { git = "https://github.com/ehsanmok/json.git", tag = "v0.4.0" }
-max-core = ">=26.5.0"   # GPU only, Modular Community License
+max-core = "==26.7"   # GPU only, Modular Community License
 ```
 
 `json.gpu.loads` takes the same `target` parameter as `json.loads` and

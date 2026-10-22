@@ -380,7 +380,7 @@ struct JsonReader[origin: ImmOrigin](Movable):
         var expanded = unescape_json_string_span(
             self.data, bounds[0], bounds[1]
         )
-        return String(unsafe_from_utf8=expanded^)
+        return String(unsafe_from_utf8=expanded)
 
     @always_inline
     def read_key(mut self) raises -> KeySpan:
@@ -450,7 +450,7 @@ struct JsonReader[origin: ImmOrigin](Movable):
         if not key.escaped:
             return String(unsafe_from_utf8=self.data[key.start : key.end])
         var expanded = unescape_json_string_span(self.data, key.start, key.end)
-        return String(unsafe_from_utf8=expanded^)
+        return String(unsafe_from_utf8=expanded)
 
     # --- scalars -----------------------------------------------------
 

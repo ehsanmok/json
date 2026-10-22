@@ -27,7 +27,7 @@ def _raw(values: List[Int]) -> String:
     var out = List[UInt8](capacity=len(values))
     for i in range(len(values)):
         out.append(UInt8(values[i]))
-    return String(unsafe_from_utf8=out^)
+    return String(unsafe_from_utf8=out)
 
 
 # ===================================================================

@@ -178,7 +178,7 @@ def _parse_on_gpu(var s: String) raises -> Value:
     bytes.resize(n, 0)
     unsafe_memcpy(dest=bytes.unsafe_ptr(), src=data.unsafe_ptr(), count=n)
 
-    var input_obj = JSONInput(bytes^)
+    var input_obj = JSONInput(bytes)
     var result = parse_json_gpu(input_obj^)
 
-    return parse_gpu_to_value(s, result^)
+    return parse_gpu_to_value(s, result)

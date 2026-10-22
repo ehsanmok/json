@@ -89,7 +89,7 @@ def _case_bytes(item: Value) raises -> String:
     while i < len(src):
         out.append(UInt8(_hex_value(src[i]) * 16 + _hex_value(src[i + 1])))
         i += 2
-    return String(unsafe_from_utf8=out^)
+    return String(unsafe_from_utf8=out)
 
 
 def _has_key(v: Value, key: String) -> Bool:

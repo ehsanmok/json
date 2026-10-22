@@ -114,7 +114,7 @@ def format_error_context(
         out.append(UInt8(ord(".")))
         out.append(UInt8(ord(".")))
 
-    return String(unsafe_from_utf8=out^)
+    return String(unsafe_from_utf8=out)
 
 
 def format_error_context(

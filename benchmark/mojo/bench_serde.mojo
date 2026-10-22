@@ -91,7 +91,7 @@ struct Rng(Copyable):
         var out = List[UInt8](capacity=n)
         for _ in range(n):
             out.append(alphabet[self.below(len(alphabet))])
-        return String(unsafe_from_utf8=out^)
+        return String(unsafe_from_utf8=out)
 
     def unit_float(mut self) -> Float64:
         """A float with a non-trivial decimal expansion."""

@@ -94,7 +94,7 @@ def parse_string_scalar(s: String, start: Int) raises -> Value:
     # Slow path: handle escapes including \uXXXX. Span-based so the
     # entire input doesn't get copied into a List[UInt8] per string.
     var unescaped = unescape_json_string_span(data, i, end_idx)
-    return Value(String(unsafe_from_utf8=unescaped^))
+    return Value(String(unsafe_from_utf8=unescaped))
 
 
 def parse_number_scalar(s: String, start: Int) raises -> Value:

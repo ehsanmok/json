@@ -805,7 +805,7 @@ def _parse_object_key(
         # Slow path: keys with escapes still need allocation +
         # interning. They are rare on real JSON corpora.
         var unesc = unescape_json_string_span(bytes, key_start, key_close)
-        var key = String(unsafe_from_utf8=unesc^)
+        var key = String(unsafe_from_utf8=unesc)
         var key_pool_idx = len(doc.key_pool)
         doc.key_pool.append(key^)
         key_header = pack_tape_entry(TAPE_TAG_KEY, UInt64(key_pool_idx))
@@ -933,7 +933,7 @@ def _emit_string(
         )
 
     var unescaped = unescape_json_string_span(bytes, start_idx, end_idx)
-    var s = String(unsafe_from_utf8=unescaped^)
+    var s = String(unsafe_from_utf8=unescaped)
     var pool_idx = len(doc.string_pool)
     doc.string_pool.append(s^)
     return pack_tape_entry(TAPE_TAG_STRING_OWNED, UInt64(pool_idx))
